@@ -263,9 +263,6 @@ namespace BitSharp.Blockchain
 
         private ImmutableHashSet<TxOutputKey> CalculateUtxo(long blockHeight, Block block, ImmutableHashSet<TxOutputKey> currentUtxo, out long txCount, out long inputCount)
         {
-            //var stopwatch = new Stopwatch();
-            //stopwatch.Start();
-
             txCount = 0;
             inputCount = 0;
 
@@ -472,29 +469,36 @@ namespace BitSharp.Blockchain
 
         public IEnumerable<Tuple<Block, BlockMetadata>> BlockAndMetadataLookAhead(IList<UInt256> blockHashes)
         {
-            var blockLookAhead = LookAhead<UInt256, Block>(blockHashes, blockHash => this.retriever.GetBlock(blockHash, saveInCache: false), Block.SizeEstimator, () => (long)(this.retriever.BlockCacheMemorySize * 0.75), this.shutdownToken);
-            var metadataLookAhead = LookAhead<UInt256, BlockMetadata>(blockHashes, blockHash => this.retriever.GetBlockMetadata(blockHash, saveInCache: false), BlockMetadata.SizeEstimator, () => (long)(this.retriever.MetadataCacheMemorySize * 0.75), this.shutdownToken);
+            var blockLookAhead = LookAhead<UInt256, Block>(blockHashes, blockHash => this.retriever.GetBlock(blockHash, saveInCache: false), this.shutdownToken);
+            var metadataLookAhead = LookAhead<UInt256, BlockMetadata>(blockHashes, blockHash => this.retriever.GetBlockMetadata(blockHash, saveInCache: false), this.shutdownToken);
 
             return blockLookAhead.Zip(metadataLookAhead, (block, blockMetadata) => Tuple.Create(block, blockMetadata));
         }
 
-        public IEnumerable<TValue> LookAhead<TKey, TValue>(IList<TKey> keys, Func<TKey, TValue> lookup, Func<TValue, long> sizeEstimator, Func<long> maxLookAheadSize, CancellationToken cancelToken)
+        public IEnumerable<TValue> LookAhead<TKey, TValue>(IList<TKey> keys, Func<TKey, TValue> lookup, CancellationToken cancelToken)
         {
             // setup task completion sources to read results of look ahead
-            var results = keys.Select(x => new TaskCompletionSource<TValue>()).ToList();
+            var results = keys.Select(x => default(TValue)).ToList();
+            var resultEvents = keys.Select(x => new ManualResetEvent(false)).ToList();
             var resultReadEvent = new AutoResetEvent(false);
             var resultReadIndex = new[] { -1 };
             var internalCancelToken = new CancellationTokenSource();
 
-            var lookAheadTask = Task.Run(() =>
-            {
-                // over estimate at first so look-ahead doesn't go too far ahead on startup
-                var averageSizeList = new[] { 1L.MILLION() }.ToList();
-                var averageSizeListLock = new ReaderWriterLock();
+            var readTimes = new List<DateTime>();
+            readTimes.Add(DateTime.UtcNow);
 
-                //var index = -1;
+            var lookAheadThread = new Thread(() =>
+            {
+                // calculate how far to look-ahead based on how quickly the results are being read
+                Func<long> targetIndex = () =>
+                {
+                    var firstReadTime = readTimes[0];
+                    var readPerMillisecond = (float)(readTimes.Count / (DateTime.UtcNow - firstReadTime).TotalMilliseconds);
+                    return resultReadIndex[0] + 1 + (int)(readPerMillisecond * 1000); // look ahead 1000 milliseconds
+                };
+
+                // look-ahead loop
                 Parallel.ForEach(keys, new ParallelOptions { MaxDegreeOfParallelism = 5 }, (key, loopState, indexLocal) =>
-                //foreach (var key in keys)
                 {
                     // cooperative loop
                     if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
@@ -503,87 +507,91 @@ namespace BitSharp.Blockchain
                         return;
                     }
 
-                    // get result index to work on
-                    //var indexLocal = Interlocked.Increment(ref index);
-
-                    // calculate average size
-                    var averageSize = averageSizeListLock.DoRead(() =>
-                        averageSizeList.Average());
-
-                    // calculate how many items can be looked ahead within the maximum look ahead size
-                    var maxLookAheadCount = (long)(maxLookAheadSize() / averageSize);
-
-                    // make sure look-ahead doesn't go too far ahead, based on calculated size above
-                    if (indexLocal - resultReadIndex[0] > maxLookAheadCount)
+                    // make sure look-ahead doesn't go too far ahead, based on calculated index above
+                    while (indexLocal > targetIndex())
                     {
-                        while (indexLocal - resultReadIndex[0] > maxLookAheadCount)
+                        // cooperative loop
+                        if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
                         {
-                            // cooperative loop
-                            if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
-                            {
-                                loopState.Break();
-                                return;
-                            }
-
-                            // wait for a result to be read
-                            resultReadEvent.WaitOne(TimeSpan.FromMilliseconds(50));
-
-                            // TODO don't repeat yourself
-                            // update running average while waiting
-                            averageSize = averageSizeListLock.DoRead(() =>
-                                averageSizeList.Average());
-                            maxLookAheadCount = (long)(maxLookAheadSize() / averageSize);
+                            loopState.Break();
+                            return;
                         }
+
+                        // wait for a result to be read
+                        resultReadEvent.WaitOne(TimeSpan.FromMilliseconds(1));
                     }
 
                     // execute the lookup
                     var result = lookup(key);
-                    var resultSize = sizeEstimator(result);
 
-                    //Debug.WriteLine("Look-ahead: {0:#,##0}, read: {1:#,##0}".Format2(indexLocal, resultReadIndex[0]));
-
-                    // store the result
-                    results[(int)indexLocal].SetResult(result);
-
-                    // update average size list
-                    averageSizeListLock.DoWrite(() =>
-                    {
-                        averageSizeList.Add(resultSize);
-                        while (averageSizeList.Count > 500)
-                        {
-                            averageSizeList.RemoveAt(0);
-                        }
-                    });
+                    // store the result and notify
+                    results[(int)indexLocal] = result;
+                    resultEvents[(int)indexLocal].Set();
                 });
             });
+            lookAheadThread.Start();
 
             // enumerate the results
             for (var i = 0; i < results.Count; i++)
             {
-                var resultTask = results[i];
                 TValue result;
                 try
                 {
-                    result = resultTask.Task.Result;
-                }
-                catch (AggregateException e)
-                {
-                    Debugger.Break();
-                    var missingDataException = e.InnerExceptions.FirstOrDefault(x => x is MissingDataException);
-                    if (missingDataException != null)
-                        throw missingDataException;
-                    else
-                        throw;
-                }
-                yield return result;
+                    try
+                    {
+                        resultReadEvent.Set();
 
-                results[i] = null;
+                        resultEvents[i].WaitOne();
+
+                        result = results[i];
+                        results[i] = default(TValue);
+                    }
+                    catch (AggregateException e)
+                    {
+                        var missingDataException = e.InnerExceptions.FirstOrDefault(x => x is MissingDataException);
+                        if (missingDataException != null)
+                            throw missingDataException;
+                        else
+                            throw;
+                    }
+                    finally
+                    {
+                        resultEvents[i].Dispose();
+                    }
+                }
+                catch (Exception)
+                {
+                    internalCancelToken.Cancel();
+                    lookAheadThread.Join();
+
+                    // clean-up disposables on exception
+                    for (var j = i; j < results.Count; j++)
+                    {
+                        try
+                        {
+                            resultEvents[j].Dispose();
+                        }
+                        catch (Exception) { }
+                    }
+
+                    // continue with exception
+                    throw;
+                }
+
                 resultReadIndex[0] = i;
                 resultReadEvent.Set();
+
+                // yield result
+                yield return result;
+
+                // store time the result was read
+                readTimes.Add(DateTime.UtcNow);
+                while (readTimes.Count > 500)
+                    readTimes.RemoveAt(0);
             }
 
             internalCancelToken.Cancel();
-            lookAheadTask.Wait();
+            lookAheadThread.Join();
         }
     }
 }
