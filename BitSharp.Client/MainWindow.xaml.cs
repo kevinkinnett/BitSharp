@@ -45,7 +45,7 @@ namespace BitSharp.Client
             try
             {
                 //TODO
-                MainnetRules.BypassValidation = false;
+                MainnetRules.BypassValidation = true;
                 MainnetRules.BypassExecuteScript = false;
                 ScriptEngine.BypassVerifySignature = true;
 
