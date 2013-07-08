@@ -17,9 +17,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Script", "BitSharp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Script.Test", "BitSharp.Script.Test\BitSharp.Script.Test.csproj", "{7DB637B4-6759-4848-BA0D-8A2FA5D2B72E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Network", "BItSharp.Network\BitSharp.Network.csproj", "{4D92A9B1-577F-4D24-9153-088CED047B68}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Network", "BitSharp.Network\BitSharp.Network.csproj", "{4D92A9B1-577F-4D24-9153-088CED047B68}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BItSharp.Network.Test", "BItSharp.Network.Test\BItSharp.Network.Test.csproj", "{50C16BEF-975B-48FD-8DBD-330A186091F2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Network.Test", "BitSharp.Network.Test\BitSharp.Network.Test.csproj", "{50C16BEF-975B-48FD-8DBD-330A186091F2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Storage", "BitSharp.Storage\BitSharp.Storage.csproj", "{1955DD75-AB8A-46DF-9060-5B0AF06338F2}"
 EndProject
