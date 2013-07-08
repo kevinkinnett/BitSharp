@@ -301,6 +301,11 @@ namespace BitSharp.Common.ExtensionMethods
             return value * 1000 * 1000;
         }
 
+        public static int BILLION(this int value)
+        {
+            return value * 1000 * 1000 * 1000;
+        }
+
         public static long THOUSAND(this long value)
         {
             return value * 1000;
@@ -309,6 +314,11 @@ namespace BitSharp.Common.ExtensionMethods
         public static long MILLION(this long value)
         {
             return value * 1000 * 1000;
+        }
+
+        public static long BILLION(this long value)
+        {
+            return value * 1000 * 1000 * 1000;
         }
 
         public static float EllapsedSecondsFloat(this Stopwatch stopwatch)
