@@ -450,6 +450,9 @@ namespace BitSharp.Storage
         // add a value to the memory cache
         private void CacheValue(TKey key, TValue value)
         {
+            if (MaxCacheMemorySize <= 0)
+                return;
+
             // force a cache flush if it is currently oversize
             if (this.IsCacheOversized)
             {
