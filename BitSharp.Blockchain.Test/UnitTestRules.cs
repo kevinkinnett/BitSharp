@@ -22,6 +22,9 @@ namespace BitSharp.Blockchain.Test
         {
             this._highestTarget = UInt256.Parse("00F0000000000000000000000000000000000000000000000000000000000000", NumberStyles.HexNumber);
             this._highestTargetBits = TargetToBits(this._highestTarget);
+
+            //TODO
+            MainnetRules.BypassValidation = true;
         }
 
         public void SetGenesisBlock(Block genesisBlock)
