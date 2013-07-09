@@ -60,6 +60,7 @@
     <Compile Include="ImmutableDictionaryCustom.cs" />
     <Compile Include="Crypto.cs" />
     <Compile Include="ExtensionMethods.cs" />
+    <Compile Include="LookAhead.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="MethodTimer.cs" />
     <Compile Include="ThrottledNotifyEvent.cs" />

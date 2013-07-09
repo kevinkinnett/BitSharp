@@ -13,6 +13,11 @@ namespace BitSharp.Blockchain.Test
 {
     public class MemoryTransactionStorage : MemoryStorage<UInt256, Transaction>, ITransactionStorage
     {
+        public IEnumerable<TxOutputKey> ReadUtxo(Guid guid, UInt256 rootBlockHash)
+        {
+            throw new NotImplementedException();
+        }
+
         public void WriteUtxo(Guid guid, UInt256 rootBlockHash, System.Collections.Immutable.IImmutableSet<TxOutputKey> utxo)
         {
             throw new NotImplementedException();

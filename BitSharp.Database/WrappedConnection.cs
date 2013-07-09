@@ -16,24 +16,18 @@ namespace BitSharp.Database
     {
 #if SQLITE
         private readonly SQLiteConnection connection;
+        private readonly bool dispose;
 
-        public WrappedConnection()
+        public WrappedConnection(SQLiteConnection connection, bool dispose)
         {
-            this.connection = OpenNewConnection();
-
-            var assembly = Assembly.GetExecutingAssembly();
-            using (var stream = assembly.GetManifestResourceStream("BitSharp.Database.Sql.CreateDatabase.sql"))
-            using (var reader = new StreamReader(stream))
-            using (var cmd = this.connection.CreateCommand())
-            {
-                cmd.CommandText = reader.ReadToEnd();
-
-                cmd.ExecuteNonQuery();
-            }
+            this.connection = connection;
+            this.dispose = dispose;
         }
 
         public void Dispose()
         {
+            if (this.dispose)
+                this.connection.Dispose();
         }
 
         public void CloseConnection()
@@ -48,7 +42,10 @@ namespace BitSharp.Database
 
         public WrappedTransaction BeginTransaction()
         {
-            return new WrappedTransaction();
+            if (dispose)
+                return new WrappedTransaction(this.connection, dispose: false);
+            else
+                return new WrappedTransaction(WrappedConnection.OpenNewConnection(), dispose: true);
         }
 
         internal static SQLiteConnection OpenNewConnection()

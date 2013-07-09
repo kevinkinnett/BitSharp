@@ -14,17 +14,20 @@ namespace BitSharp.Database
 #if SQLITE
         private readonly SQLiteConnection connection;
         private readonly SQLiteTransaction transaction;
+        private bool dispose;
 
-        public WrappedTransaction()
+        public WrappedTransaction(SQLiteConnection connection, bool dispose)
         {
-            this.connection = WrappedConnection.OpenNewConnection();
+            this.connection = connection;
+            this.dispose = dispose;
             try
             {
                 this.transaction = this.connection.BeginTransaction();
             }
             catch (Exception)
             {
-                this.connection.Dispose();
+                if (dispose)
+                    this.connection.Dispose();
                 throw;
             }
         }
@@ -52,7 +55,8 @@ namespace BitSharp.Database
             }
             finally
             {
-                this.connection.Dispose();
+                if (this.dispose)
+                    this.connection.Dispose();
             }
         }
 

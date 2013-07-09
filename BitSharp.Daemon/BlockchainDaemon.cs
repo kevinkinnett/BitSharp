@@ -16,6 +16,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Globalization;
 
 namespace BitSharp.Daemon
 {
@@ -821,17 +822,26 @@ namespace BitSharp.Daemon
                         try
                         {
                             // try to advance the blockchain with the new winning block
-                            var newBlockchain = this.calculator.CalculateBlockchainFromExisting(this.currentBlockchain, winningChainedBlock,
-                                progressBlockchain => UpdateCurrentBlockchain(progressBlockchain));
+                            var newBlockchain =
+                                this.calculator.CalculateBlockchainFromExisting(this.currentBlockchain, winningChainedBlock,
+                                    progressBlockchain => UpdateCurrentBlockchain(progressBlockchain));
 
                             UpdateCurrentBlockchain(newBlockchain);
 
+                            // write and verify the UTXO
                             var guid = Guid.NewGuid();
-                            Debug.WriteLine(guid);
-                            Debugger.Break();
                             new MethodTimer().Time("WriteUtxo", () =>
                                 this.StorageManager.TransactionStorage.WriteUtxo(guid, newBlockchain.RootBlockHash, newBlockchain.Utxo));
-                            Debugger.Break();
+
+                            var readUtxo = new MethodTimer().Time("ReadUtxo", () =>
+                                this.StorageManager.TransactionStorage.ReadUtxo(guid, newBlockchain.RootBlockHash).ToImmutableHashSet());
+
+                            var success = newBlockchain.Utxo.SequenceEqual(readUtxo);
+
+                            if (!success)
+                            {
+                                Debugger.Break();
+                            }
 
                             //TODO
                             // only partially constructed, try to grab the missing data

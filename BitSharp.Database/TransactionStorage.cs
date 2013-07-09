@@ -1,4 +1,5 @@
 ﻿using BitSharp.Common;
+using BitSharp.Common.ExtensionMethods;
 using BitSharp.Storage;
 using BitSharp.Database.ExtensionMethods;
 using System;
@@ -13,32 +14,147 @@ using System.Data.Common;
 using System.Data.SQLite;
 using System.Collections.Immutable;
 using BitSharp.Blockchain;
+using System.IO;
+using System.ServiceModel.Channels;
+using System.Threading;
 
 namespace BitSharp.Database
 {
     public class TransactionStorage : SqlDataStorage, ITransactionStorage
     {
+        //TODO BufferManager for UTXO
+
+        private static readonly BufferManager bufferManager = BufferManager.CreateBufferManager(10.MILLION(), 500.THOUSAND());
+
+        public IEnumerable<TxOutputKey> ReadUtxo(Guid guid, UInt256 rootBlockHash)
+        {
+            var cancelToken = new CancellationToken();
+            foreach (var chunkBytes in LookAheadMethods.LookAhead(ReadUtxoChunkBytes(guid, rootBlockHash), cancelToken))
+            {
+                var chunkStream = new MemoryStream(chunkBytes);
+                var chunkReader = new WireReader(chunkStream);
+
+                var chunkLength = chunkReader.ReadVarInt().ToIntChecked();
+
+                for (var i = 0; i < chunkLength; i++)
+                {
+                    var prevTxHash = chunkReader.Read32Bytes();
+                    var prevTxOutputIndex = chunkReader.Read4Bytes();
+
+                    yield return new TxOutputKey(prevTxHash, prevTxOutputIndex.ToIntChecked());
+                }
+            }
+        }
+
+        public IEnumerable<byte[]> ReadUtxoChunkBytes(Guid guid, UInt256 rootBlockHash)
+        {
+#if SQLITE
+            using (var conn = this.OpenUtxoConnection(guid))
+#elif SQL_SERVER
+            using (var conn = this.OpenConnection())
+#endif
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    SELECT UtxoChunkBytes
+                    FROM UtxoData
+                    WHERE Guid = @guid AND RootBlockHash = @rootBlockHash";
+
+                cmd.Parameters.SetValue("@guid", System.Data.DbType.Binary, 16).Value = guid.ToByteArray();
+                cmd.Parameters.SetValue("@rootBlockHash", System.Data.DbType.Binary, 32).Value = rootBlockHash.ToDbByteArray();
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        var chunkByteSize = (int)reader.GetBytes(0, 0, null, 0, 0);
+                        var chunkBytes = bufferManager.TakeBuffer(chunkByteSize);
+                        try
+                        {
+                            reader.GetBytes(0, 0, chunkBytes, 0, chunkByteSize);
+                            yield return chunkBytes;
+                        }
+                        finally
+                        {
+                            bufferManager.ReturnBuffer(chunkBytes);
+                        }
+                    }
+                }
+            }
+        }
+
         public void WriteUtxo(Guid guid, UInt256 rootBlockHash, IImmutableSet<TxOutputKey> utxo)
         {
+#if SQLITE
+            using (var conn = this.OpenUtxoConnection(guid))
+#elif SQL_SERVER
             using (var conn = this.OpenConnection())
+#endif
             using (var trans = conn.BeginTransaction())
             using (var cmd = trans.CreateCommand())
             {
                 cmd.CommandText = @"
                     INSERT
-                    INTO UtxoData (Guid, RootBlockhash, PreviousTransactionHash, PreviousTransactionOutputIndex)
-                    VALUES (@guid, @rootBlockHash, @previousTransactionHash, @previousTransactionOutputIndex)";
+                    INTO UtxoData (Guid, RootBlockhash, UtxoChunkBytes)
+                    VALUES (@guid, @rootBlockHash, @utxoChunkBytes)";
 
-                foreach (var output in utxo)
+                cmd.Parameters.SetValue("@guid", System.Data.DbType.Binary, 16).Value = guid.ToByteArray();
+                cmd.Parameters.SetValue("@rootBlockHash", System.Data.DbType.Binary, 32).Value = rootBlockHash.ToDbByteArray();
+
+                var chunkSize = 10.THOUSAND();
+                var currentOffset = 0;
+
+                // varint is up to 9 bytes and txoutputkey is 36 bytes
+                var chunk = new byte[9 + (36 * chunkSize)];
+
+                using (var utxoEnumerator = utxo.GetEnumerator())
                 {
-                    cmd.Parameters.SetValue("@guid", System.Data.DbType.Binary, 16).Value = guid.ToByteArray();
-                    cmd.Parameters.SetValue("@rootBlockHash", System.Data.DbType.Binary, 32).Value = rootBlockHash.ToDbByteArray();
-                    cmd.Parameters.SetValue("@previousTransactionHash", System.Data.DbType.Binary, 32).Value = output.previousTransactionHash.ToDbByteArray();
-                    cmd.Parameters.SetValue("@previousTransactionOutputIndex", System.Data.DbType.Binary, 4).Value = ((UInt32)output.previousOutputIndex).ToDbByteArray();
+                    // chunk outer loop
+                    while (currentOffset < utxo.Count)
+                    {
+                        var chunkLength = Math.Min(chunkSize, utxo.Count - currentOffset);
 
-                    cmd.ExecuteNonQuery();
+                        var chunkStream = new MemoryStream(chunk);
+                        var chunkWriter = new WireWriter(chunkStream);
+                        chunkWriter.WriteVarInt((UInt32)chunkLength);
+
+                        // chunk inner loop
+                        for (var i = 0; i < chunkLength; i++)
+                        {
+                            // get the next output from the utxo
+                            if (!utxoEnumerator.MoveNext())
+                                throw new Exception();
+
+                            var output = utxoEnumerator.Current;
+                            chunkWriter.Write32Bytes(output.previousTransactionHash);
+                            chunkWriter.Write4Bytes((UInt32)output.previousOutputIndex);
+                        }
+
+                        if (chunkWriter.Position == chunk.Length)
+                        {
+                            cmd.Parameters.SetValue("@utxoChunkBytes", System.Data.DbType.Binary, chunk.Length).Value = chunk;
+                        }
+                        else if (chunkWriter.Position < chunk.Length)
+                        {
+                            var chunkTruncated = new byte[chunkWriter.Position];
+                            Buffer.BlockCopy(chunk, 0, chunkTruncated, 0, (int)chunkWriter.Position);
+                            cmd.Parameters.SetValue("@utxoChunkBytes", System.Data.DbType.Binary, chunkTruncated.Length).Value = chunkTruncated;
+                        }
+                        else
+                            throw new Exception();
+
+                        // write the chunk
+                        cmd.ExecuteNonQuery();
+
+                        currentOffset += chunkSize;
+                    }
+
+                    // there should be no items left in utxo at this point
+                    if (utxoEnumerator.MoveNext())
+                        throw new Exception();
                 }
 
+                // commit the transaction
                 trans.Commit();
             }
         }
