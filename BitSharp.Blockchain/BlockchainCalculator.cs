@@ -489,16 +489,18 @@ namespace BitSharp.Blockchain
 
             var lookAheadThread = new Thread(() =>
             {
+                var maxThreads = 5;
+
                 // calculate how far to look-ahead based on how quickly the results are being read
                 Func<long> targetIndex = () =>
                 {
                     var firstReadTime = readTimes[0];
                     var readPerMillisecond = (float)(readTimes.Count / (DateTime.UtcNow - firstReadTime).TotalMilliseconds);
-                    return resultReadIndex[0] + 1 + (int)(readPerMillisecond * 1000); // look ahead 1000 milliseconds
+                    return resultReadIndex[0] + 1 + maxThreads + (int)(readPerMillisecond * 1000); // look ahead 1000 milliseconds
                 };
 
                 // look-ahead loop
-                Parallel.ForEach(keys, new ParallelOptions { MaxDegreeOfParallelism = 5 }, (key, loopState, indexLocal) =>
+                Parallel.ForEach(keys, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (key, loopState, indexLocal) =>
                 {
                     // cooperative loop
                     if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
