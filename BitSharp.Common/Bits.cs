@@ -10,6 +10,11 @@ namespace BitSharp.Common
     {
         private static readonly bool isLE = BitConverter.IsLittleEndian;
 
+        public static byte[] GetBytes(Int16 value)
+        {
+            return Order(BitConverter.GetBytes(value));
+        }
+
         public static byte[] GetBytes(UInt16 value)
         {
             return Order(BitConverter.GetBytes(value));
@@ -20,6 +25,11 @@ namespace BitSharp.Common
             return OrderBE(BitConverter.GetBytes(value));
         }
 
+        public static byte[] GetBytes(Int32 value)
+        {
+            return Order(BitConverter.GetBytes(value));
+        }
+
         public static byte[] GetBytes(UInt32 value)
         {
             return Order(BitConverter.GetBytes(value));
@@ -28,6 +38,11 @@ namespace BitSharp.Common
         public static byte[] GetBytesBE(UInt32 value)
         {
             return OrderBE(BitConverter.GetBytes(value));
+        }
+
+        public static byte[] GetBytes(Int64 value)
+        {
+            return Order(BitConverter.GetBytes(value));
         }
 
         public static byte[] GetBytes(UInt64 value)
