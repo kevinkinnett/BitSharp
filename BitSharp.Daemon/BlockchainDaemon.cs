@@ -195,7 +195,7 @@ namespace BitSharp.Daemon
                 try { this.missingMetadataWorkerThread.Abort(); }
                 catch (Exception) { }
             }
-            
+
             // cleanup metadata worker
             if (!this.metadataWorkerThread.Join(timeout))
             {
@@ -825,6 +825,13 @@ namespace BitSharp.Daemon
                                 progressBlockchain => UpdateCurrentBlockchain(progressBlockchain));
 
                             UpdateCurrentBlockchain(newBlockchain);
+
+                            var guid = Guid.NewGuid();
+                            Debug.WriteLine(guid);
+                            Debugger.Break();
+                            new MethodTimer().Time("WriteUtxo", () =>
+                                this.StorageManager.TransactionStorage.WriteUtxo(guid, newBlockchain.RootBlockHash, newBlockchain.Utxo));
+                            Debugger.Break();
 
                             //TODO
                             // only partially constructed, try to grab the missing data

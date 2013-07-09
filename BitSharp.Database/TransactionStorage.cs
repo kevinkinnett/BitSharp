@@ -11,11 +11,38 @@ using BitSharp.WireProtocol;
 using System.Data.SqlClient;
 using System.Data.Common;
 using System.Data.SQLite;
+using System.Collections.Immutable;
+using BitSharp.Blockchain;
 
 namespace BitSharp.Database
 {
     public class TransactionStorage : SqlDataStorage, ITransactionStorage
     {
+        public void WriteUtxo(Guid guid, UInt256 rootBlockHash, IImmutableSet<TxOutputKey> utxo)
+        {
+            using (var conn = this.OpenConnection())
+            using (var trans = conn.BeginTransaction())
+            using (var cmd = trans.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    INSERT
+                    INTO UtxoData (Guid, RootBlockhash, PreviousTransactionHash, PreviousTransactionOutputIndex)
+                    VALUES (@guid, @rootBlockHash, @previousTransactionHash, @previousTransactionOutputIndex)";
+
+                foreach (var output in utxo)
+                {
+                    cmd.Parameters.SetValue("@guid", System.Data.DbType.Binary, 16).Value = guid.ToByteArray();
+                    cmd.Parameters.SetValue("@rootBlockHash", System.Data.DbType.Binary, 32).Value = rootBlockHash.ToDbByteArray();
+                    cmd.Parameters.SetValue("@previousTransactionHash", System.Data.DbType.Binary, 32).Value = output.previousTransactionHash.ToDbByteArray();
+                    cmd.Parameters.SetValue("@previousTransactionOutputIndex", System.Data.DbType.Binary, 4).Value = ((UInt32)output.previousOutputIndex).ToDbByteArray();
+
+                    cmd.ExecuteNonQuery();
+                }
+
+                trans.Commit();
+            }
+        }
+
         public IEnumerable<UInt256> ReadAllKeys()
         {
             Debug.WriteLine(new string('*', 80));
