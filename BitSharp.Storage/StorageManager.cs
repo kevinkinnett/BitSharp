@@ -37,8 +37,8 @@ namespace BitSharp.Storage
             (
                 name: "BlockDataCache",
                 dataStorage: this.blockDataStorage,
-                maxCacheMemorySize: 10.MILLION(),
-                maxFlushMemorySize: 50.MILLION(),
+                maxCacheMemorySize: 5.MILLION(),
+                maxFlushMemorySize: 1.MILLION(),
                 sizeEstimator: Block.SizeEstimator
             );
 
