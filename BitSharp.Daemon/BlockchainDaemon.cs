@@ -131,20 +131,6 @@ namespace BitSharp.Daemon
             this.validationWorkerThread = new Thread(ValidationWorker);
             this.blockchainWorkerThread = new Thread(BlockchainWorker);
             this.validateCurrentChainWorkerThread = new Thread(ValidateCurrentChainWorker);
-
-            var guid = Guid.Parse("00000000-0000-0000-0000-000000000000");
-            var rootBlockHash = UInt256.Parse("00000000000000a54bd63aae689e2a8baf8691c945250b25b987a8ddf30bc892", NumberStyles.HexNumber);
-
-            for (var i = 0; i < 1.THOUSAND(); i++)
-            {
-                var readUtxo = new MethodTimer().Time("ReadUtxo #{0}".Format2(i + 1), () =>
-                    this.StorageManager.TransactionStorage.ReadUtxo(guid, rootBlockHash));
-
-                new MethodTimer().Time("WriteUtxo #{0}".Format2(i + 1), () =>
-                    this.StorageManager.TransactionStorage.WriteUtxo(Guid.NewGuid(), rootBlockHash, readUtxo));
-            }
-
-            Debugger.Break();
         }
 
         public IBlockchainRules Rules { get { return this._rules; } }
@@ -846,10 +832,6 @@ namespace BitSharp.Daemon
                             var guid = Guid.NewGuid();
                             new MethodTimer().Time("WriteUtxo", () =>
                                 this.StorageManager.TransactionStorage.WriteUtxo(guid, newBlockchain.RootBlockHash, newBlockchain.Utxo));
-
-                            // TODO trying clearing objects, see if GC can clear them....
-                            newBlockchain = default(Blockchain.Blockchain);
-                            UpdateCurrentBlockchain(this.Rules.GenesisBlockchain);
 
                             var readUtxo = new MethodTimer().Time("ReadUtxo", () =>
                                 this.StorageManager.TransactionStorage.ReadUtxo(guid, newBlockchain.RootBlockHash));

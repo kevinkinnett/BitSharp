@@ -17,7 +17,7 @@ namespace BitSharp.Blockchain
         {
             this.previousTransactionHash = previousTransactionHash;
             this.previousOutputIndex = previousOutputIndex;
-            _hashCode = this.previousTransactionHash.GetHashCode() ^ previousOutputIndex.GetHashCode();
+            this._hashCode = this.previousTransactionHash.GetHashCode() ^ this.previousOutputIndex.GetHashCode();
         }
 
         public override bool Equals(object obj)

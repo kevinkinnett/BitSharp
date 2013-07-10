@@ -14,12 +14,12 @@ namespace BitSharp.Blockchain
     {
         //TODO use block hash instead of block metadata
         public readonly ImmutableList<BlockMetadata> BlockList;
-        public readonly ImmutableHashSet<TxOutputKey> Utxo;
+        public readonly ImmutableDictionary<TxOutputKey, object> Utxo;
 
         private readonly bool notDefault;
         private readonly int _hashCode;
 
-        public Blockchain(ImmutableList<BlockMetadata> BlockList, ImmutableHashSet<TxOutputKey> Utxo)
+        public Blockchain(ImmutableList<BlockMetadata> BlockList, ImmutableDictionary<TxOutputKey, object> Utxo)
         {
             //if (BlockList.Count == 0)
             //    throw new ArgumentOutOfRangeException();

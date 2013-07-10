@@ -12,8 +12,8 @@ namespace BitSharp.Storage
 {
     public interface ITransactionStorage : IDataStorage<UInt256, Transaction>
     {
-        ImmutableHashSet<TxOutputKey> ReadUtxo(Guid guid, UInt256 rootBlockHash);
+        IImmutableDictionary<TxOutputKey, object> ReadUtxo(Guid guid, UInt256 rootBlockHash);
 
-        void WriteUtxo(Guid guid, UInt256 rootBlockHash, IImmutableSet<TxOutputKey> utxo);
+        void WriteUtxo(Guid guid, UInt256 rootBlockHash, IImmutableDictionary<TxOutputKey, object> utxo);
     }
 }

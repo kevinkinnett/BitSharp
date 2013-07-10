@@ -261,7 +261,7 @@ namespace BitSharp.Blockchain
                 ));
         }
 
-        private ImmutableHashSet<TxOutputKey> CalculateUtxo(long blockHeight, Block block, ImmutableHashSet<TxOutputKey> currentUtxo, out long txCount, out long inputCount)
+        private ImmutableDictionary<TxOutputKey, object> CalculateUtxo(long blockHeight, Block block, ImmutableDictionary<TxOutputKey, object> currentUtxo, out long txCount, out long inputCount)
         {
             txCount = 0;
             inputCount = 0;
@@ -270,8 +270,10 @@ namespace BitSharp.Blockchain
             // https://github.com/bitcoin/bitcoin/blob/481d89979457d69da07edd99fba451fd42a47f5c/src/core.h#L219
             var coinbaseTx = block.Transactions[0];
 
-            var removeTxOutputs = new Dictionary<TxOutputKey, object>();
-            var addTxOutputs = new Dictionary<TxOutputKey, object>();
+            var newUtxoBuilder = currentUtxo.ToBuilder();
+
+            //var removeTxOutputs = new Dictionary<TxOutputKey, object>();
+            //var addTxOutputs = new Dictionary<TxOutputKey, object>();
 
             // add the coinbase outputs to the list to be added to the utxo
             for (var outputIndex = 0; outputIndex < coinbaseTx.Outputs.Length; outputIndex++)
@@ -281,9 +283,10 @@ namespace BitSharp.Blockchain
                 // add transaction output to the list to be added to the utxo, if it isn't a duplicate
                 //TODO don't include genesis block coinbase in utxo as it's not spendable... but should it actually be excluded from UTXO?
                 //TODO should a duplicate transaction get ignored or overwrite the original?
-                if (blockHeight > 0 && !currentUtxo.Contains(txOutputKey))
+                if (blockHeight > 0 && !newUtxoBuilder.ContainsKey(txOutputKey))
                 {
-                    addTxOutputs.Add(txOutputKey, null);
+                    newUtxoBuilder.Add(txOutputKey, null);
+                    //addTxOutputs.Add(txOutputKey, null);
                 }
                 else
                 {
@@ -307,19 +310,21 @@ namespace BitSharp.Blockchain
                     var prevTxOutputKey = new TxOutputKey(input.PreviousTransactionHash, input.PreviousTransactionIndex.ToIntChecked());
 
                     // check for a double spend within the same block
-                    if (removeTxOutputs.ContainsKey(prevTxOutputKey))
-                    {
-                        throw new ValidationException();
-                    }
+                    //if (removeTxOutputs.ContainsKey(prevTxOutputKey))
+                    //{
+                    //    throw new ValidationException();
+                    //}
 
-                    // add the previous output to the list to be removed from the utxo
-                    removeTxOutputs.Add(prevTxOutputKey, null);
+                    //// add the previous output to the list to be removed from the utxo
+                    //removeTxOutputs.Add(prevTxOutputKey, null);
 
                     // check that previous transaction output is in the utxo or in the same block
-                    if (!currentUtxo.Contains(prevTxOutputKey) && !addTxOutputs.ContainsKey(prevTxOutputKey))
+                    if (!newUtxoBuilder.ContainsKey(prevTxOutputKey))// && !addTxOutputs.ContainsKey(prevTxOutputKey))
                     {
                         throw new ValidationException();
                     }
+
+                    newUtxoBuilder.Remove(prevTxOutputKey);
                 }
 
                 for (var outputIndex = 0; outputIndex < tx.Outputs.Length; outputIndex++)
@@ -330,18 +335,20 @@ namespace BitSharp.Blockchain
                     var txOutputKey = new TxOutputKey(tx.Hash, outputIndex);
 
                     // add transaction output to the list to be added to the utxo, if it isn't a duplicate
-                    if (!currentUtxo.Contains(txOutputKey)) //TODO should a duplicate transaction get ignored or overwrite the original?
+                    if (!newUtxoBuilder.ContainsKey(txOutputKey)) //TODO should a duplicate transaction get ignored or overwrite the original?
                     {
-                        addTxOutputs.Add(txOutputKey, null);
+                        //addTxOutputs.Add(txOutputKey, null);
+                        newUtxoBuilder.Add(txOutputKey, null);
                     }
                 }
             }
 
             // validation successful, calculate the new utxo
-            return currentUtxo.Union(addTxOutputs.Keys).Except(removeTxOutputs.Keys);
+            //return currentUtxo.AddRange(addTxOutputs).RemoveRange(removeTxOutputs.Keys);
+            return newUtxoBuilder.ToImmutable();
         }
 
-        private ImmutableHashSet<TxOutputKey> RollbackUtxo(long blockHeight, Block block, ImmutableHashSet<TxOutputKey> currentUtxo)
+        private ImmutableDictionary<TxOutputKey, object> RollbackUtxo(long blockHeight, Block block, ImmutableDictionary<TxOutputKey, object> currentUtxo)
         {
             //TODO apply real coinbase rule
             // https://github.com/bitcoin/bitcoin/blob/481d89979457d69da07edd99fba451fd42a47f5c/src/core.h#L219
@@ -381,15 +388,16 @@ namespace BitSharp.Blockchain
                 }
             }
 
-            // check that all added outputs that will be rolled back are actually present in the utxo
-            if (currentUtxo.Intersect(addTxOutputs.Keys).Count != addTxOutputs.Count)
-                throw new ValidationException();
+            //TODO
+            //// check that all added outputs that will be rolled back are actually present in the utxo
+            //if (currentUtxo.Intersect(addTxOutputs.Keys).Count != addTxOutputs.Count)
+            //    throw new ValidationException();
 
-            // check that all spent outputs that will be added back are not present in the utxo
-            if (currentUtxo.Intersect(removeTxOutputs.Keys).Count != 0)
-                throw new ValidationException();
+            //// check that all spent outputs that will be added back are not present in the utxo
+            //if (currentUtxo.Intersect(removeTxOutputs.Keys).Count != 0)
+            //    throw new ValidationException();
 
-            return currentUtxo.Except(addTxOutputs.Keys).Union(removeTxOutputs.Keys);
+            return currentUtxo.RemoveRange(addTxOutputs.Keys).AddRange(removeTxOutputs);
         }
 
         public void RevalidateBlockchain(Blockchain blockchain, Block genesisBlock)
