@@ -4,6 +4,7 @@ using BitSharp.WireProtocol;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Data.SQLite;
 using System.Linq;
 using System.Text;
@@ -13,7 +14,7 @@ namespace BitSharp.Blockchain.Test
 {
     public class MemoryTransactionStorage : MemoryStorage<UInt256, Transaction>, ITransactionStorage
     {
-        public IEnumerable<TxOutputKey> ReadUtxo(Guid guid, UInt256 rootBlockHash)
+        public ImmutableHashSet<TxOutputKey> ReadUtxo(Guid guid, UInt256 rootBlockHash)
         {
             throw new NotImplementedException();
         }
