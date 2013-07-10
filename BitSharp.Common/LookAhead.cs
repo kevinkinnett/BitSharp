@@ -127,27 +127,26 @@ namespace BitSharp.Common
             var internalCancelToken = new CancellationTokenSource();
 
             var results = new List<T>();
+            var resultsCount = 0;
             var resultReadIndex = new[] { -1 };
 
-            var finished = false;
+            var finalCount = -1;
 
             var readTimes = new List<DateTime>();
             readTimes.Add(DateTime.UtcNow);
 
             var lookAheadThread = new Thread(() =>
             {
-                var maxThreads = 5;
-
                 // calculate how far to look-ahead based on how quickly the results are being read
                 Func<long> targetIndex = () =>
                 {
                     var firstReadTime = readTimes[0];
                     var readPerMillisecond = (float)(readTimes.Count / (DateTime.UtcNow - firstReadTime).TotalMilliseconds);
-                    return resultReadIndex[0] + 1 + maxThreads + (int)(readPerMillisecond * 1000); // look ahead 1000 milliseconds
+                    return resultReadIndex[0] + 1 + (int)(readPerMillisecond * 1000); // look ahead 1000 milliseconds
                 };
 
                 // look-ahead loop
-                var indexLocal = 0;
+                var indexLocal = -1;
                 foreach (var value in values)
                 {
                     // cooperative loop
@@ -157,16 +156,12 @@ namespace BitSharp.Common
                     }
 
                     // store the result and notify
-                    if (value == null)
-                    {
-                        Debugger.Break();
-                    }
                     results.Add(value);
+                    resultsCount++;
                     resultWriteEvent.Set();
 
-                    indexLocal++;
-
                     // make sure look-ahead doesn't go too far ahead, based on calculated index above
+                    indexLocal++;
                     while (indexLocal > targetIndex())
                     {
                         // cooperative loop
@@ -181,28 +176,29 @@ namespace BitSharp.Common
                 }
 
                 // notify done
-                finished = true;
+                finalCount = resultsCount;
                 resultWriteEvent.Set();
             });
             lookAheadThread.Start();
 
             // enumerate the results
             var i = 0;
-            while (!finished)
+            while (finalCount == -1 || i < finalCount)
             {
                 T result;
                 try
                 {
                     resultReadEvent.Set();
 
-                    while (i >= results.Count)
+                    while (i >= resultsCount && (finalCount == -1 || i < finalCount))
                     {
                         resultWriteEvent.WaitOne(TimeSpan.FromMilliseconds(10));
                     }
+                    if (finalCount != -1 && i >= finalCount)
+                        break;
 
                     result = results[i];
                     results[i] = default(T);
-                    i++;
                 }
                 catch (Exception)
                 {
@@ -215,6 +211,7 @@ namespace BitSharp.Common
 
                 resultReadIndex[0] = i;
                 resultReadEvent.Set();
+                i++;
 
                 // yield result
                 yield return result;
