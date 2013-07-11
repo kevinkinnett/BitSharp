@@ -148,6 +148,8 @@ namespace BitSharp.Blockchain.Test
         [TestMethod]
         public void TestSimpleBlockchainSplit()
         {
+            //TODO MemoryBlockchain.ChooseNewWinner non-determinism is causing this to fail
+
             // create the first blockchain
             var blockchain1 = new MemoryBlockchain();
 

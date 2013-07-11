@@ -224,6 +224,8 @@ namespace BitSharp.Blockchain.Test
         {
             //TODO if there is a valid blockchain with less work than invalid blockchains, it won't get picked up as this is currently implemented
 
+            //TODO when there is a tie this method is not deterministic, causing TestSimpleBlockchainSplit to fail
+
             var candidates =
                 this.memoryBlockMetadataStorage.FindWinningChainedBlocks(new Dictionary<UInt256, BlockMetadata>())
                 .ToDictionary(x => x.BlockHash, x => x);
