@@ -405,6 +405,9 @@ namespace BitSharp.Daemon
 
         private void LoadExistingState()
         {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
             //TODO
             using (var blockchainStorage = new BlockchainStorage())
             {
@@ -421,11 +424,37 @@ namespace BitSharp.Daemon
                     }
                 }
 
+                // check if an existing blockchain has been found
                 if (winner != null)
                 {
-                    UpdateCurrentBlockchain(blockchainStorage.ReadBlockchain(winner.Item1));
-                    
+                    // read the winning blockchain
+                    var blockchain = blockchainStorage.ReadBlockchain(winner.Item1);
+                    UpdateCurrentBlockchain(blockchain);
+
+                    // collect after loading
+                    GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true);
+
+                    // clean up any old blockchains
                     blockchainStorage.RemoveBlockchains(winner.Item2.TotalWork);
+
+                    // log statistics
+                    stopwatch.Stop();
+                    Debug.WriteLine(
+                        string.Join("\n",
+                            new string('-', 80),
+                            "Loaded blockchain on startup in {0:#,##0.000} seconds, height: {1:#,##0}, utxo size: {2:#,##0}",
+                            "GC Memory:      {3,10:#,##0.00} MB",
+                            "Process Memory: {4,10:#,##0.00} MB",
+                            new string('-', 80)
+                        )
+                        .Format2
+                        (
+                            stopwatch.EllapsedSecondsFloat(),
+                            blockchain.Height,
+                            blockchain.Utxo.Count,
+                            (float)GC.GetTotalMemory(false) / 1.MILLION(),
+                            (float)Process.GetCurrentProcess().PrivateMemorySize64 / 1.MILLION()
+                        ));
                 }
             }
         }
@@ -894,6 +923,9 @@ namespace BitSharp.Daemon
                                     // let the blockchain writer know there is new work
                                     this.writeBlockchainWorkerNotifyEvent.Set();
                                 });
+
+                            // collect after processing
+                            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true);
 
                             //TODO
                             // only partially constructed, try to grab the missing data
