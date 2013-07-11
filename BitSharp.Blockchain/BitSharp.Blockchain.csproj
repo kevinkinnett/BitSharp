@@ -94,6 +94,7 @@
   <ItemGroup>
     <Compile Include="Blockchain.cs" />
     <Compile Include="BlockchainCalculator.cs" />
+    <Compile Include="BlockchainStorage.cs" />
     <Compile Include="BlockMetadata.cs" />
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="IBlockchainRetriever.cs" />
