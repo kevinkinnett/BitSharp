@@ -325,5 +325,28 @@ namespace BitSharp.Common.ExtensionMethods
         {
             return (float)stopwatch.ElapsedTicks / Stopwatch.Frequency;
         }
+
+        public static void DisposeList(this IEnumerable<IDisposable> disposables)
+        {
+            var exceptions = new List<Exception>();
+
+            foreach (var item in disposables)
+            {
+                if (item != null)
+                {
+                    try
+                    {
+                        item.Dispose();
+                    }
+                    catch (Exception e)
+                    {
+                        exceptions.Add(e);
+                    }
+                }
+            }
+
+            if (exceptions.Count > 0)
+                throw new AggregateException(exceptions);
+        }
     }
 }
