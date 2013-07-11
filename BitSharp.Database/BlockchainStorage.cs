@@ -341,6 +341,16 @@ namespace BitSharp.Database
                     File.Delete(tuple.Item1.FilePath);
                 }
             }
+
+            // find any files that are named like a blockchain but not included in the list above, these are invalid and can be cleaned up
+            var validFiles = new HashSet<string>(blockchains.Select(x => x.Item1.FilePath));
+            foreach (var file in Directory.EnumerateFiles(this.dbFolderPath, "Blockchain_*.sqlite"))
+            {
+                if (!validFiles.Contains(file))
+                {
+                    File.Delete(file);
+                }
+            }
         }
 
         private void CheckDatabaseFolder()
