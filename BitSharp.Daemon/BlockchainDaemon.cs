@@ -204,7 +204,7 @@ namespace BitSharp.Daemon
 
             //TODO Join() all threads simultaneously so that overall timeout isn't 240 seconds
             // grace period for threads to cleanly shut down
-            var timeout = TimeSpan.FromSeconds(60);
+            var timeout = TimeSpan.FromSeconds(3);
 
             // cleanup missing metadata worker
             if (!this.missingMetadataWorkerThread.Join(timeout))
