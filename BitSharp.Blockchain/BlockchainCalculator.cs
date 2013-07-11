@@ -244,6 +244,8 @@ namespace BitSharp.Blockchain
                 string.Join("\n",
                     new string('-', 80),
                     "Height: {0,10} | Date: {1} | Duration: {7} hh:mm:ss | Validation: {8} hh:mm:ss | Blocks/s: {2,7} | Tx/s: {3,7} | Inputs/s: {4,7} | Total Tx: {5,7} | Total Inputs: {6,7} | Utxo Size: {9,7}",
+                    "GC Memory:      {10,10:#,##0.00} MB",
+                    "Process Memory: {11,10:#,##0.00} MB",
                     new string('-', 80)
                 )
                 .Format2
@@ -257,7 +259,9 @@ namespace BitSharp.Blockchain
                     totalInputCount.ToString("#,##0"),
                     totalStopwatch.Elapsed.ToString(@"hh\:mm\:ss"),
                     validateStopwatch.Elapsed.ToString(@"hh\:mm\:ss"),
-                    blockchain.Utxo.Count.ToString("#,##0")
+                    blockchain.Utxo.Count.ToString("#,##0"),
+                    (float)GC.GetTotalMemory(false) / 1.MILLION(),
+                    (float)Process.GetCurrentProcess().PrivateMemorySize64 / 1.MILLION()
                 ));
         }
 
