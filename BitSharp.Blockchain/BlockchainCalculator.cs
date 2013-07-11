@@ -266,29 +266,32 @@ namespace BitSharp.Blockchain
             txCount = 0;
             inputCount = 0;
 
-            //TODO apply real coinbase rule
-            // https://github.com/bitcoin/bitcoin/blob/481d89979457d69da07edd99fba451fd42a47f5c/src/core.h#L219
-            var coinbaseTx = block.Transactions[0];
+            // create builder for new utxo
+            var newUtxoBuilder = currentUtxo.ToBuilder();
 
-            var removeTxOutputs = new Dictionary<TxOutputKey, object>();
-            var addTxOutputs = new Dictionary<TxOutputKey, object>();
-
-            // add the coinbase outputs to the list to be added to the utxo
-            for (var outputIndex = 0; outputIndex < coinbaseTx.Outputs.Length; outputIndex++)
+            // don't include genesis block coinbase in utxo
+            if (blockHeight > 0)
             {
-                var txOutputKey = new TxOutputKey(coinbaseTx.Hash, outputIndex);
+                //TODO apply real coinbase rule
+                // https://github.com/bitcoin/bitcoin/blob/481d89979457d69da07edd99fba451fd42a47f5c/src/core.h#L219
+                var coinbaseTx = block.Transactions[0];
+            
+                // add the coinbase outputs to the utxo
+                for (var outputIndex = 0; outputIndex < coinbaseTx.Outputs.Length; outputIndex++)
+                {
+                    var txOutputKey = new TxOutputKey(coinbaseTx.Hash, outputIndex);
 
-                // add transaction output to the list to be added to the utxo, if it isn't a duplicate
-                //TODO don't include genesis block coinbase in utxo as it's not spendable... but should it actually be excluded from UTXO?
-                //TODO should a duplicate transaction get ignored or overwrite the original?
-                if (blockHeight > 0 && !currentUtxo.Contains(txOutputKey))
-                {
-                    addTxOutputs.Add(txOutputKey, null);
-                }
-                else
-                {
-                    //TODO this needs to be tracked so that blocks can be rolled back accurately
-                    //TODO track these separately on the blockchain info? gonna be costly to track on every transaction
+                    // add transaction output to to the utxo
+                    if (!newUtxoBuilder.Add(txOutputKey))
+                    {
+                        // duplicate transaction output
+                        Debug.WriteLine("Duplicate transaction at block {0:#,##0}, {1}, coinbase".Format2(blockHeight, block.Hash.ToHexNumberString()));
+                        //Debugger.Break();
+                        //TODO throw new Validation();
+                        
+                        //TODO this needs to be tracked so that blocks can be rolled back accurately
+                        //TODO track these separately on the blockchain info? gonna be costly to track on every transaction
+                    }
                 }
             }
 
@@ -306,18 +309,10 @@ namespace BitSharp.Blockchain
                     // get the previous transaction output key
                     var prevTxOutputKey = new TxOutputKey(input.PreviousTransactionHash, input.PreviousTransactionIndex.ToIntChecked());
 
-                    // check for a double spend within the same block
-                    if (removeTxOutputs.ContainsKey(prevTxOutputKey))
+                    // remove the output from the utxo
+                    if (!newUtxoBuilder.Remove(prevTxOutputKey))
                     {
-                        throw new ValidationException();
-                    }
-
-                    // add the previous output to the list to be removed from the utxo
-                    removeTxOutputs.Add(prevTxOutputKey, null);
-
-                    // check that previous transaction output is in the utxo or in the same block
-                    if (!currentUtxo.Contains(prevTxOutputKey) && !addTxOutputs.ContainsKey(prevTxOutputKey))
-                    {
+                        // output wasn't present in utxo, invalid block
                         throw new ValidationException();
                     }
                 }
@@ -329,16 +324,22 @@ namespace BitSharp.Blockchain
                     // add the output to the list to be added to the utxo
                     var txOutputKey = new TxOutputKey(tx.Hash, outputIndex);
 
-                    // add transaction output to the list to be added to the utxo, if it isn't a duplicate
-                    if (!currentUtxo.Contains(txOutputKey)) //TODO should a duplicate transaction get ignored or overwrite the original?
+                    // add transaction output to to the utxo
+                    if (!newUtxoBuilder.Add(txOutputKey))
                     {
-                        addTxOutputs.Add(txOutputKey, null);
+                        // duplicate transaction output
+                        Debug.WriteLine("Duplicate transaction at block {0:#,##0}, {1}, tx {2}, output {3}".Format2(blockHeight, block.Hash.ToHexNumberString(), txIndex, outputIndex));
+                        //Debugger.Break();
+                        //TODO throw new Validation();
+
+                        //TODO this needs to be tracked so that blocks can be rolled back accurately
+                        //TODO track these separately on the blockchain info? gonna be costly to track on every transaction
                     }
                 }
             }
 
-            // validation successful, calculate the new utxo
-            return currentUtxo.Union(addTxOutputs.Keys).Except(removeTxOutputs.Keys);
+            // validation successful, return the new utxo
+            return newUtxoBuilder.ToImmutable();
         }
 
         private ImmutableHashSet<TxOutputKey> RollbackUtxo(long blockHeight, Block block, ImmutableHashSet<TxOutputKey> currentUtxo)
