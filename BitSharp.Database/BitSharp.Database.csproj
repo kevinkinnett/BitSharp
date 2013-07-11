@@ -94,6 +94,7 @@
   </Choose>
   <ItemGroup>
     <Compile Include="BlockHeaderStorage.cs" />
+    <Compile Include="BlockchainStorage.cs" />
     <Compile Include="TransactionStorage.cs" />
     <Compile Include="KnownAddressStorage.cs" />
     <Compile Include="ExtensionMethods.cs" />
@@ -134,6 +135,9 @@
   <ItemGroup>
     <None Include="x64\SQLite.Interop.dll" />
     <None Include="x86\SQLite.Interop.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Service References\" />
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">
