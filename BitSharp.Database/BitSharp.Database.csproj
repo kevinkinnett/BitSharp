@@ -127,9 +127,6 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="SQLite.Interop.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <EmbeddedResource Include="Sql\CreateDatabase.sql" />
   </ItemGroup>
   <ItemGroup>
@@ -160,11 +157,10 @@
   <Import Project="$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets" Condition="Exists('$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets')" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
+    <Copy SourceFiles="$(ProjectDir)\x64\SQLite.Interop.dll" DestinationFolder="$(TargetDir)" Condition="'$(Platform)' == 'x64'" />
+    <Copy SourceFiles="$(ProjectDir)\x86\SQLite.Interop.dll" DestinationFolder="$(TargetDir)" Condition="'$(Platform)' == 'AnyCPU'" />
   </Target>
   <Target Name="AfterBuild">
   </Target>
-  -->
 </Project>
