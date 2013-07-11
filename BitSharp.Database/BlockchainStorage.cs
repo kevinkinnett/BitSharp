@@ -22,15 +22,6 @@ namespace BitSharp.Database
 {
     public class BlockchainStorage : SqlDataStorage, IBlockchainStorage
     {
-
-        public readonly UInt256 BlockHash;
-        public readonly UInt256 PreviousBlockHash;
-        public readonly BigInteger Work;
-        public readonly long? Height;
-        public readonly BigInteger? TotalWork;
-        public readonly bool? IsValid;
-        private readonly bool notDefault;
-
         private readonly string dbFolderPath;
 
         public BlockchainStorage()
