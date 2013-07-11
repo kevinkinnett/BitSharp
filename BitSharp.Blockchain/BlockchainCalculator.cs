@@ -29,7 +29,7 @@ namespace BitSharp.Blockchain
             this.shutdownToken = shutdownToken;
         }
 
-        public Blockchain CalculateBlockchainFromExisting(Blockchain currentBlockchain, BlockMetadata targetBlockMetadata, Action<Blockchain> onProgress = null)
+        public Blockchain CalculateBlockchainFromExisting(Blockchain currentBlockchain, BlockMetadata targetBlockMetadata, CancellationToken cancelToken, Action<Blockchain> onProgress = null)
         {
             Debug.WriteLine("Winning chained block {0} at height {1}, total work: {2}".Format2(targetBlockMetadata.BlockHash.ToHexNumberString(), targetBlockMetadata.Height.Value, targetBlockMetadata.TotalWork.Value.ToString("X")));
 
@@ -49,6 +49,7 @@ namespace BitSharp.Blockchain
                 {
                     // cooperative loop
                     this.shutdownToken.ThrowIfCancellationRequested();
+                    cancelToken.ThrowIfCancellationRequested();
 
                     newChainBlockMetadata = this.retriever.GetBlockMetadata(newChainBlockMetadata.PreviousBlockHash);
 
@@ -79,6 +80,7 @@ namespace BitSharp.Blockchain
                 {
                     // cooperative loop
                     this.shutdownToken.ThrowIfCancellationRequested();
+                    cancelToken.ThrowIfCancellationRequested();
 
                     currentBlockchain = RollbackBlockchain(currentBlockchain);
                 }
@@ -99,6 +101,7 @@ namespace BitSharp.Blockchain
             {
                 // cooperative loop
                 this.shutdownToken.ThrowIfCancellationRequested();
+                cancelToken.ThrowIfCancellationRequested();
 
                 // roll back current block chain
                 currentBlockchain = RollbackBlockchain(currentBlockchain);
@@ -149,6 +152,7 @@ namespace BitSharp.Blockchain
             {
                 // cooperative loop
                 this.shutdownToken.ThrowIfCancellationRequested();
+                cancelToken.ThrowIfCancellationRequested();
 
                 try
                 {

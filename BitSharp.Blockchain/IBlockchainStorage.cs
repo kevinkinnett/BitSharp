@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -13,5 +14,7 @@ namespace BitSharp.Blockchain
         Blockchain ReadBlockchain(BlockchainKey blockMetadata);
 
         BlockchainKey WriteBlockchain(Blockchain blockchain);
+
+        void RemoveBlockchains(BigInteger lessThanTotalWork);
     }
 }

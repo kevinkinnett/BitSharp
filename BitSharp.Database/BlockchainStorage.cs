@@ -39,21 +39,26 @@ namespace BitSharp.Database
                 try
                 {
                     using (var conn = new SQLiteConnection(@"Data Source=""{0}"";".Format2(file)))
-                    using (var cmd = conn.CreateCommand())
                     {
-                        cmd.CommandText = @"
-                            SELECT Guid, RootBlockHash, TotalWork
-                            FROM BlockchainMetadata";
+                        conn.Open();
 
-                        using (var reader = cmd.ExecuteReader())
+                        using (var cmd = conn.CreateCommand())
                         {
-                            while (reader.Read())
-                            {
-                                var guid = new Guid(reader.GetBytes(0));
-                                var rootBlockHash = reader.GetUInt256(1);
-                                var totalWork = reader.GetBigInteger(2);
+                            cmd.CommandText = @"
+                            SELECT Guid, RootBlockHash, TotalWork
+                            FROM BlockchainMetadata
+                            WHERE IsComplete = 1";
 
-                                results.Add(Tuple.Create(new BlockchainKey(file, guid, rootBlockHash), new BlockchainMetadata(guid, rootBlockHash, totalWork)));
+                            using (var reader = cmd.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    var guid = new Guid(reader.GetBytes(0));
+                                    var rootBlockHash = reader.GetUInt256(1);
+                                    var totalWork = reader.GetBigInteger(2);
+
+                                    results.Add(Tuple.Create(new BlockchainKey(file, guid, rootBlockHash), new BlockchainMetadata(guid, rootBlockHash, totalWork)));
+                                }
                             }
                         }
                     }
@@ -78,6 +83,8 @@ namespace BitSharp.Database
 
             using (var conn = new SQLiteConnection(@"Data Source=""{0}"";".Format2(blockchainKey.FilePath)))
             {
+                conn.Open();
+
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = @"
@@ -153,8 +160,9 @@ namespace BitSharp.Database
             var blockchainKey = new BlockchainKey(filePath, guid, blockchain.RootBlockHash);
 
             using (var conn = new SQLiteConnection(@"Data Source=""{0}"";".Format2(blockchainKey.FilePath)))
-            using (var trans = conn.BeginTransaction())
             {
+                conn.Open();
+
                 // create blockchain schema
                 using (var cmd = conn.CreateCommand())
                 {
@@ -165,6 +173,7 @@ namespace BitSharp.Database
                             [Guid] [binary](16) NOT NULL,
                             [RootBlockHash] [binary](32) NOT NULL,
                             [TotalWork] [binary](64) NOT NULL,
+                            [IsComplete] [bit] NOT NULL,
 	                        CONSTRAINT [PK_BlockchainMetaData] PRIMARY KEY
 	                        (
                                 [Guid] ASC,
@@ -202,105 +211,136 @@ namespace BitSharp.Database
                     cmd.ExecuteNonQuery();
                 }
 
-                // write out the metadata for the blockchain
-                using (var cmd = conn.CreateCommand())
+                using (var trans = conn.BeginTransaction())
                 {
-                    cmd.CommandText = @"
-                        INSERT OR REPLACE
-                        INTO BlockchainMetadata (Guid, RootBlockHash, TotalWork)
-                        VALUES (@guid, @rootBlockHash, @totalWork)
-
-                        DELETE FROM BlockMetadata WHERE Guid = @guid AND RootBlockHash = @rootBlockHash;
-                        DELETE FROM UtxoData WHERE Guid = @guid AND RootBlockHash = @rootBlockHash;";
-
-                    cmd.Parameters.SetValue("@guid", System.Data.DbType.Binary, 16).Value = blockchainKey.Guid.ToByteArray();
-                    cmd.Parameters.SetValue("@rootBlockHash", System.Data.DbType.Binary, 32).Value = blockchainKey.RootBlockHash.ToDbByteArray();
-                    cmd.Parameters.SetValue("@totalWork", System.Data.DbType.Binary, 64).Value = blockchain.TotalWork.ToDbByteArray();
-
-                    cmd.ExecuteNonQuery();
-                }
-
-                // write out the block metadata comprising the blockchain
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = @"
-                        INSERT OR REPLACE
-                        INTO BlockMetadata (Guid, RootBlockHash, BlockHash, PreviousBlockHash, Work, Height, TotalWork, IsValid)
-                        VALUES (@guid, @rootBlockHash, @blockHash, @previousBlockHash, @work, @height, @totalWork, @isValid)";
-
-                    cmd.Parameters.SetValue("@guid", System.Data.DbType.Binary, 16).Value = blockchainKey.Guid.ToByteArray();
-                    cmd.Parameters.SetValue("@rootBlockHash", System.Data.DbType.Binary, 32).Value = blockchainKey.RootBlockHash.ToDbByteArray();
-
-                    foreach (var blockMetadata in blockchain.BlockList)
+                    // write out the metadata for the blockchain
+                    using (var cmd = conn.CreateCommand())
                     {
-                        cmd.Parameters.SetValue("@blockHash", System.Data.DbType.Binary, 32).Value = blockMetadata.BlockHash.ToDbByteArray();
-                        cmd.Parameters.SetValue("@previousBlockHash", System.Data.DbType.Binary, 32).Value = blockMetadata.PreviousBlockHash.ToDbByteArray();
-                        cmd.Parameters.SetValue("@work", System.Data.DbType.Binary, 64).Value = (object)blockMetadata.Work.ToDbByteArray();
-                        cmd.Parameters.SetValue("@height", System.Data.DbType.Int64).Value = (object)blockMetadata.Height ?? DBNull.Value;
-                        cmd.Parameters.SetValue("@totalWork", System.Data.DbType.Binary, 64).Value = blockMetadata.TotalWork != null ? (object)blockMetadata.TotalWork.Value.ToDbByteArray() : DBNull.Value;
-                        cmd.Parameters.SetValue("@isValid", System.Data.DbType.Boolean).Value = (object)blockMetadata.IsValid ?? DBNull.Value;
+                        cmd.CommandText = @"
+                            INSERT INTO BlockchainMetadata (Guid, RootBlockHash, TotalWork, IsComplete)
+                            VALUES (@guid, @rootBlockHash, @totalWork, 0);";
+
+                        cmd.Parameters.SetValue("@guid", System.Data.DbType.Binary, 16).Value = blockchainKey.Guid.ToByteArray();
+                        cmd.Parameters.SetValue("@rootBlockHash", System.Data.DbType.Binary, 32).Value = blockchainKey.RootBlockHash.ToDbByteArray();
+                        cmd.Parameters.SetValue("@totalWork", System.Data.DbType.Binary, 64).Value = blockchain.TotalWork.ToDbByteArray();
 
                         cmd.ExecuteNonQuery();
                     }
-                }
 
-                // write out the utxo
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = @"
-                        INSERT
-                        INTO UtxoData (Guid, RootBlockhash, UtxoChunkBytes)
-                        VALUES (@guid, @rootBlockHash, @utxoChunkBytes)";
-
-                    cmd.Parameters.SetValue("@guid", System.Data.DbType.Binary, 16).Value = blockchainKey.Guid.ToByteArray();
-                    cmd.Parameters.SetValue("@rootBlockHash", System.Data.DbType.Binary, 32).Value = blockchainKey.RootBlockHash.ToDbByteArray();
-
-                    var chunkSize = 1820; // target 65,529 byte size
-                    var currentOffset = 0;
-
-                    using (var utxoEnumerator = blockchain.Utxo.GetEnumerator())
+                    // write out the block metadata comprising the blockchain
+                    using (var cmd = conn.CreateCommand())
                     {
-                        // chunk outer loop
-                        while (currentOffset < blockchain.Utxo.Count)
+                        cmd.CommandText = @"
+                            INSERT INTO BlockMetadata (Guid, RootBlockHash, BlockHash, PreviousBlockHash, Work, Height, TotalWork, IsValid)
+                            VALUES (@guid, @rootBlockHash, @blockHash, @previousBlockHash, @work, @height, @totalWork, @isValid)";
+
+                        cmd.Parameters.SetValue("@guid", System.Data.DbType.Binary, 16).Value = blockchainKey.Guid.ToByteArray();
+                        cmd.Parameters.SetValue("@rootBlockHash", System.Data.DbType.Binary, 32).Value = blockchainKey.RootBlockHash.ToDbByteArray();
+
+                        foreach (var blockMetadata in blockchain.BlockList)
                         {
-                            var chunkLength = Math.Min(chunkSize, blockchain.Utxo.Count - currentOffset);
+                            cmd.Parameters.SetValue("@blockHash", System.Data.DbType.Binary, 32).Value = blockMetadata.BlockHash.ToDbByteArray();
+                            cmd.Parameters.SetValue("@previousBlockHash", System.Data.DbType.Binary, 32).Value = blockMetadata.PreviousBlockHash.ToDbByteArray();
+                            cmd.Parameters.SetValue("@work", System.Data.DbType.Binary, 64).Value = (object)blockMetadata.Work.ToDbByteArray();
+                            cmd.Parameters.SetValue("@height", System.Data.DbType.Int64).Value = (object)blockMetadata.Height ?? DBNull.Value;
+                            cmd.Parameters.SetValue("@totalWork", System.Data.DbType.Binary, 64).Value = blockMetadata.TotalWork != null ? (object)blockMetadata.TotalWork.Value.ToDbByteArray() : DBNull.Value;
+                            cmd.Parameters.SetValue("@isValid", System.Data.DbType.Boolean).Value = (object)blockMetadata.IsValid ?? DBNull.Value;
 
-                            // varint is up to 9 bytes and txoutputkey is 36 bytes
-                            var chunkBytes = new byte[9 + (36 * chunkSize)];
-                            var chunkStream = new MemoryStream(chunkBytes);
-                            var chunkWriter = new WireWriter(chunkStream);
-                            chunkWriter.WriteVarInt((UInt32)chunkLength);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
 
-                            // chunk inner loop
-                            for (var i = 0; i < chunkLength; i++)
+                    // write out the utxo
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = @"
+                            INSERT INTO UtxoData (Guid, RootBlockhash, UtxoChunkBytes)
+                            VALUES (@guid, @rootBlockHash, @utxoChunkBytes)";
+
+                        cmd.Parameters.SetValue("@guid", System.Data.DbType.Binary, 16).Value = blockchainKey.Guid.ToByteArray();
+                        cmd.Parameters.SetValue("@rootBlockHash", System.Data.DbType.Binary, 32).Value = blockchainKey.RootBlockHash.ToDbByteArray();
+
+                        var chunkSize = 1820; // target 65,529 byte size
+                        var currentOffset = 0;
+
+                        using (var utxoEnumerator = blockchain.Utxo.GetEnumerator())
+                        {
+                            // chunk outer loop
+                            while (currentOffset < blockchain.Utxo.Count)
                             {
-                                // get the next output from the utxo
-                                if (!utxoEnumerator.MoveNext())
-                                    throw new Exception();
+                                var chunkLength = Math.Min(chunkSize, blockchain.Utxo.Count - currentOffset);
 
-                                var output = utxoEnumerator.Current;
-                                chunkWriter.Write32Bytes(output.previousTransactionHash);
-                                chunkWriter.Write4Bytes((UInt32)output.previousOutputIndex);
+                                // varint is up to 9 bytes and txoutputkey is 36 bytes
+                                var chunkBytes = new byte[9 + (36 * chunkSize)];
+                                var chunkStream = new MemoryStream(chunkBytes);
+                                var chunkWriter = new WireWriter(chunkStream);
+                                chunkWriter.WriteVarInt((UInt32)chunkLength);
+
+                                // chunk inner loop
+                                for (var i = 0; i < chunkLength; i++)
+                                {
+                                    // get the next output from the utxo
+                                    if (!utxoEnumerator.MoveNext())
+                                        throw new Exception();
+
+                                    var output = utxoEnumerator.Current;
+                                    chunkWriter.Write32Bytes(output.previousTransactionHash);
+                                    chunkWriter.Write4Bytes((UInt32)output.previousOutputIndex);
+                                }
+
+                                cmd.Parameters.SetValue("@utxoChunkBytes", System.Data.DbType.Binary, chunkBytes.Length).Value = chunkBytes;
+
+                                // write the chunk
+                                cmd.ExecuteNonQuery();
+
+                                currentOffset += chunkLength;
                             }
 
-                            cmd.Parameters.SetValue("@utxoChunkBytes", System.Data.DbType.Binary, chunkBytes.Length).Value = chunkBytes;
-
-                            // write the chunk
-                            cmd.ExecuteNonQuery();
-
-                            currentOffset += chunkLength;
+                            // there should be no items left in utxo at this point
+                            if (utxoEnumerator.MoveNext())
+                                throw new Exception();
                         }
-
-                        // there should be no items left in utxo at this point
-                        if (utxoEnumerator.MoveNext())
-                            throw new Exception();
                     }
-                }
 
-                trans.Commit();
+                    // mark write as complete
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = @"
+                            UPDATE BlockchainMetadata SET IsComplete = 1
+                            WHERE Guid = @guid AND RootBlockHash = @rootBlockHash;";
+
+                        cmd.Parameters.SetValue("@guid", System.Data.DbType.Binary, 16).Value = blockchainKey.Guid.ToByteArray();
+                        cmd.Parameters.SetValue("@rootBlockHash", System.Data.DbType.Binary, 32).Value = blockchainKey.RootBlockHash.ToDbByteArray();
+
+                        cmd.ExecuteNonQuery();
+                    }
+
+
+                    trans.Commit();
+                }
             }
 
             return blockchainKey;
+        }
+
+        public void RemoveBlockchains(BigInteger lessThanTotalWork)
+        {
+            var blockchains = ListBlockchains().ToList();
+            var removedCount = 0;
+            foreach (var tuple in blockchains)
+            {
+                // always leave at least one blockchain
+                if (removedCount + 1 == blockchains.Count)
+                    break;
+
+                if (tuple.Item2.TotalWork < lessThanTotalWork)
+                {
+                    removedCount++;
+
+                    //TODO delete individual blockchain from database, and then the whole file if nothing else is left
+                    File.Delete(tuple.Item1.FilePath);
+                }
+            }
         }
 
         private void CheckDatabaseFolder()
@@ -308,141 +348,5 @@ namespace BitSharp.Database
             if (!Directory.Exists(this.dbFolderPath))
                 Directory.CreateDirectory(this.dbFolderPath);
         }
-
-        //        public IEnumerable<UInt256> ReadAllKeys()
-        //        {
-        //            Debug.WriteLine(new string('*', 80));
-        //            Debug.WriteLine("EXPENSIVE OPERATION: TransactionStorage.GetAllKeys");
-        //            Debug.WriteLine(new string('*', 80));
-
-        //            using (var conn = this.OpenConnection())
-        //            using (var cmd = conn.CreateCommand())
-        //            {
-        //                cmd.CommandText = @"
-        //                    SELECT TransactionHash
-        //                    FROM Tranactions";
-
-        //                using (var reader = cmd.ExecuteReader())
-        //                {
-        //                    while (reader.Read())
-        //                    {
-        //                        var blockHash = reader.GetUInt256(0);
-        //                        yield return blockHash;
-        //                    }
-        //                }
-        //            }
-        //        }
-
-        //        public IEnumerable<KeyValuePair<UInt256, Transaction>> ReadAllValues()
-        //        {
-        //            Debug.WriteLine(new string('*', 80));
-        //            Debug.WriteLine("EXPENSIVE OPERATION: TransactionStorage.GetAllValues");
-        //            Debug.WriteLine(new string('*', 80));
-
-        //            using (var conn = this.OpenConnection())
-        //            using (var cmd = conn.CreateCommand())
-        //            {
-        //                cmd.CommandText = @"
-        //                    SELECT TransactionHash, TransactionData
-        //                    FROM Transactions";
-
-        //                using (var reader = cmd.ExecuteReader())
-        //                {
-        //                    while (reader.Read())
-        //                    {
-        //                        var txHash = reader.GetUInt256(0);
-        //                        var txBytes = reader.GetBytes(1);
-
-        //                        var tx = Transaction.FromRawBytes(txBytes, txHash);
-
-        //                        yield return new KeyValuePair<UInt256, Transaction>(txHash, tx);
-        //                    }
-        //                }
-        //            }
-        //        }
-
-        //        public bool TryReadValue(UInt256 txHash, out Transaction tx)
-        //        {
-        //            using (var conn = this.OpenConnection())
-        //            using (var cmd = conn.CreateCommand())
-        //            {
-        //                cmd.CommandText = @"
-        //                    SELECT TransactionData
-        //                    FROM Transactions
-        //                    WHERE TransactionHash = @txHash";
-
-        //                cmd.Parameters.SetValue("@txHash", System.Data.DbType.Binary, 32).Value = txHash.ToDbByteArray();
-
-        //                using (var reader = cmd.ExecuteReader())
-        //                {
-        //                    if (reader.Read())
-        //                    {
-        //                        var txBytes = reader.GetBytes(0);
-        //                        tx = Transaction.FromRawBytes(txBytes, txHash);
-        //                        return true;
-        //                    }
-        //                    else
-        //                    {
-        //                        tx = default(Transaction);
-        //                        return false;
-        //                    }
-        //                }
-        //            }
-        //        }
-
-        //        public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<Transaction>>> values)
-        //        {
-        //            using (var conn = this.OpenConnection())
-        //            using (var trans = conn.BeginTransaction())
-        //            using (var cmd = trans.CreateCommand())
-        //            {
-        //                foreach (var keyPair in values)
-        //                {
-        //                    cmd.CommandText = keyPair.Value.IsCreate ? CREATE_QUERY : UPDATE_QUERY;
-
-        //                    var tx = keyPair.Value.Value;
-
-        //                    var txBytes = tx.ToRawBytes();
-        //                    cmd.Parameters.SetValue("@txHash", System.Data.DbType.Binary, 32).Value = tx.Hash.ToDbByteArray();
-        //                    cmd.Parameters.SetValue("@txBytes", System.Data.DbType.Binary, txBytes.Length).Value = txBytes;
-
-        //                    cmd.ExecuteNonQuery();
-        //                }
-
-        //                trans.Commit();
-        //                return true;
-        //            }
-        //        }
-
-        //#if SQLITE
-        //        private const string CREATE_QUERY = @"
-        //            INSERT OR IGNORE
-        //            INTO TRANSACTIONS (TransactionHash, TransactionData)
-        //	        VALUES (@txHash, @txBytes)";
-
-        //        private const string UPDATE_QUERY = @"
-        //            INSERT OR REPLACE
-        //            INTO TRANSACTIONS (TransactionHash, TransactionData)
-        //	        VALUES (@txHash, @txBytes)";
-
-        //#elif SQL_SERVER
-        //        private const string CREATE_QUERY = @"
-        //            MERGE Transactions AS target
-        //            USING (SELECT @txHash) AS source (TransactionHash)
-        //            ON (target.TransactionHash = source.TransactionHash)
-        //            WHEN NOT MATCHED THEN	
-        //                INSERT (TransactionHash, TransactionData)
-        //                VALUES (@txHash, @txBytes);";
-
-        //        private const string UPDATE_QUERY = @"
-        //            MERGE Transactions AS target
-        //            USING (SELECT @txHash) AS source (TransactionHash)
-        //            ON (target.TransactionHash = source.TransactionHash)
-        //            WHEN NOT MATCHED THEN	
-        //                INSERT (TransactionHash, TransactionData)
-        //                VALUES (@txHash, @txBytes)
-        //            WHEN MATCHED THEN	
-        //                UPDATE SET TransactionHash = @txHash, TransactionData = @txBytes;";
-        //#endif
     }
 }
