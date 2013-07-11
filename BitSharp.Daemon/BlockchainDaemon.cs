@@ -99,6 +99,8 @@ namespace BitSharp.Daemon
             this._storageManager.BlockDataCache.WaitForStorageFlush();
             this._storageManager.BlockMetadataCache.WaitForStorageFlush();
 
+            //TODO add method to fill storage up to its cache
+
             // start loading the existing state from storage
             //LoadExistingState();
 
