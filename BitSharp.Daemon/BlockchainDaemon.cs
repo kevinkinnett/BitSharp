@@ -43,6 +43,9 @@ namespace BitSharp.Daemon
 
         private BlockMetadata winningBlock;
         private Blockchain.Blockchain currentBlockchain;
+        private ReaderWriterLock currentBlockchainLock;
+        //TODO
+        private Guid lastCurrentBlockchainWrite;
 
         private readonly ConcurrentSet<UInt256> missingBlocks;
         private readonly ConcurrentSet<UInt256> missingBlockMetadata;
@@ -75,6 +78,10 @@ namespace BitSharp.Daemon
         private readonly ThrottledNotifyEvent validateCurrentChainWorkerNotifyEvent;
         private readonly ManualResetEvent validateCurrentChainWorkerIdleEvent;
 
+        private readonly Thread writeBlockchainWorkerThread;
+        private readonly ThrottledNotifyEvent writeBlockchainWorkerNotifyEvent;
+        private readonly ManualResetEvent writeBlockchainWorkerIdleEvent;
+
         public BlockchainDaemon(IBlockchainRules rules, StorageManager storageManager)
         {
             this.shutdownToken = new CancellationTokenSource();
@@ -85,6 +92,9 @@ namespace BitSharp.Daemon
 
             this.winningBlock = this._rules.GenesisBlockMetadata;
             this.currentBlockchain = this._rules.GenesisBlockchain;
+            this.currentBlockchainLock = new ReaderWriterLock();
+            //TODO
+            this.lastCurrentBlockchainWrite = Guid.NewGuid();
 
             this.missingBlocks = new ConcurrentSet<UInt256>();
             this.missingBlockMetadata = new ConcurrentSet<UInt256>();
@@ -99,8 +109,7 @@ namespace BitSharp.Daemon
             this._storageManager.BlockDataCache.WaitForStorageFlush();
             this._storageManager.BlockMetadataCache.WaitForStorageFlush();
 
-            // start loading the existing state from storage
-            //LoadExistingState();
+            //TODO add method to fill storage up to its cache
 
             // create worker notification events
             this.missingMetadataWorkerNotifyEvent = new ThrottledNotifyEvent(true, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(5));
@@ -108,7 +117,8 @@ namespace BitSharp.Daemon
             this.chainingWorkerNotifyEvent = new ThrottledNotifyEvent(true, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(5));
             this.validationWorkerNotifyEvent = new ThrottledNotifyEvent(true, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(5));
             this.blockchainWorkerNotifyEvent = new ThrottledNotifyEvent(true, TimeSpan.FromSeconds(2), TimeSpan.FromMinutes(5));
-            this.validateCurrentChainWorkerNotifyEvent = new ThrottledNotifyEvent(true, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(30));
+            this.validateCurrentChainWorkerNotifyEvent = new ThrottledNotifyEvent(true, TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(30));
+            this.writeBlockchainWorkerNotifyEvent = new ThrottledNotifyEvent(false, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(30));
 
             // create worker idle events
             this.missingMetadataWorkerIdleEvent = new ManualResetEvent(false);
@@ -117,6 +127,7 @@ namespace BitSharp.Daemon
             this.validationWorkerIdleEvent = new ManualResetEvent(false);
             this.blockchainWorkerIdleEvent = new ManualResetEvent(false);
             this.validateCurrentChainWorkerIdleEvent = new ManualResetEvent(false);
+            this.writeBlockchainWorkerIdleEvent = new ManualResetEvent(false);
 
             this._storageManager.BlockDataCache.OnAddition += OnBlockDataAddition;
             this._storageManager.BlockDataCache.OnModification += OnBlockDataModification;
@@ -130,6 +141,7 @@ namespace BitSharp.Daemon
             this.validationWorkerThread = new Thread(ValidationWorker);
             this.blockchainWorkerThread = new Thread(BlockchainWorker);
             this.validateCurrentChainWorkerThread = new Thread(ValidateCurrentChainWorker);
+            this.writeBlockchainWorkerThread = new Thread(WriteBlockchainWorker);
         }
 
         public IBlockchainRules Rules { get { return this._rules; } }
@@ -153,12 +165,17 @@ namespace BitSharp.Daemon
         {
             try
             {
+                // start loading the existing state from storage
+                LoadExistingState();
+
+                // startup threads
                 this.missingMetadataWorkerThread.Start();
                 this.metadataWorkerThread.Start();
                 this.chainingWorkerThread.Start();
                 this.validationWorkerThread.Start();
                 this.blockchainWorkerThread.Start();
                 this.validateCurrentChainWorkerThread.Start();
+                this.writeBlockchainWorkerThread.Start();
             }
             catch (Exception)
             {
@@ -187,7 +204,7 @@ namespace BitSharp.Daemon
 
             //TODO Join() all threads simultaneously so that overall timeout isn't 240 seconds
             // grace period for threads to cleanly shut down
-            var timeout = TimeSpan.FromSeconds(60);
+            var timeout = TimeSpan.FromSeconds(3);
 
             // cleanup missing metadata worker
             if (!this.missingMetadataWorkerThread.Join(timeout))
@@ -195,7 +212,7 @@ namespace BitSharp.Daemon
                 try { this.missingMetadataWorkerThread.Abort(); }
                 catch (Exception) { }
             }
-            
+
             // cleanup metadata worker
             if (!this.metadataWorkerThread.Join(timeout))
             {
@@ -228,6 +245,13 @@ namespace BitSharp.Daemon
             if (!this.validateCurrentChainWorkerThread.Join(timeout))
             {
                 try { this.validateCurrentChainWorkerThread.Abort(); }
+                catch (Exception) { }
+            }
+
+            // cleanup write blockchain worker
+            if (!this.writeBlockchainWorkerThread.Join(timeout))
+            {
+                try { this.writeBlockchainWorkerThread.Abort(); }
                 catch (Exception) { }
             }
 
@@ -379,6 +403,62 @@ namespace BitSharp.Daemon
             //this.blockchainWorkerNotifyEvent.Set();
         }
 
+        private void LoadExistingState()
+        {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            //TODO
+            using (var blockchainStorage = new BlockchainStorage())
+            {
+                Tuple<BlockchainKey, BlockchainMetadata> winner = null;
+
+                foreach (var tuple in blockchainStorage.ListBlockchains())
+                {
+                    if (winner == null)
+                        winner = tuple;
+
+                    if (tuple.Item2.TotalWork > winner.Item2.TotalWork)
+                    {
+                        winner = tuple;
+                    }
+                }
+
+                // check if an existing blockchain has been found
+                if (winner != null)
+                {
+                    // read the winning blockchain
+                    var blockchain = blockchainStorage.ReadBlockchain(winner.Item1);
+                    UpdateCurrentBlockchain(blockchain);
+
+                    // collect after loading
+                    GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true);
+
+                    // clean up any old blockchains
+                    blockchainStorage.RemoveBlockchains(winner.Item2.TotalWork);
+
+                    // log statistics
+                    stopwatch.Stop();
+                    Debug.WriteLine(
+                        string.Join("\n",
+                            new string('-', 80),
+                            "Loaded blockchain on startup in {0:#,##0.000} seconds, height: {1:#,##0}, utxo size: {2:#,##0}",
+                            "GC Memory:      {3,10:#,##0.00} MB",
+                            "Process Memory: {4,10:#,##0.00} MB",
+                            new string('-', 80)
+                        )
+                        .Format2
+                        (
+                            stopwatch.EllapsedSecondsFloat(),
+                            blockchain.Height,
+                            blockchain.Utxo.Count,
+                            (float)GC.GetTotalMemory(false) / 1.MILLION(),
+                            (float)Process.GetCurrentProcess().PrivateMemorySize64 / 1.MILLION()
+                        ));
+                }
+            }
+        }
+
         private void MissingMetadataWorker()
         {
             try
@@ -498,11 +578,11 @@ namespace BitSharp.Daemon
                     updatedMetadata = new BlockMetadata
                     (
                         blockHash,
-                        PreviousBlockHash: blockHeader.PreviousBlock,
-                        Work: this.Rules.CalculateWork(blockHeader),
-                        Height: null,
-                        TotalWork: null,
-                        IsValid: null
+                        previousBlockHash: blockHeader.PreviousBlock,
+                        work: this.Rules.CalculateWork(blockHeader),
+                        height: null,
+                        totalWork: null,
+                        isValid: null
                     );
                 }
                 else
@@ -525,12 +605,12 @@ namespace BitSharp.Daemon
                     isChanged = true;
                     updatedMetadata = new BlockMetadata
                     (
-                            BlockHash: updatedMetadata.BlockHash,
-                            PreviousBlockHash: updatedMetadata.PreviousBlockHash,
-                            Work: updatedMetadata.Work,
-                            Height: prevBlockMetadata.Height + 1,
-                            TotalWork: prevBlockMetadata.TotalWork + updatedMetadata.Work,
-                            IsValid: null
+                            blockHash: updatedMetadata.BlockHash,
+                            previousBlockHash: updatedMetadata.PreviousBlockHash,
+                            work: updatedMetadata.Work,
+                            height: prevBlockMetadata.Height + 1,
+                            totalWork: prevBlockMetadata.TotalWork + updatedMetadata.Work,
+                            isValid: null
                     );
                 }
                 else
@@ -632,12 +712,12 @@ namespace BitSharp.Daemon
 
                                     var newMetadata = new BlockMetadata
                                     (
-                                        BlockHash: unchained.BlockHash,
-                                        PreviousBlockHash: unchained.PreviousBlockHash,
-                                        Work: unchained.Work,
-                                        Height: chained.Height.Value + 1,
-                                        TotalWork: chained.TotalWork.Value + unchained.Work,
-                                        IsValid: unchained.IsValid
+                                        blockHash: unchained.BlockHash,
+                                        previousBlockHash: unchained.PreviousBlockHash,
+                                        work: unchained.Work,
+                                        height: chained.Height.Value + 1,
+                                        totalWork: chained.TotalWork.Value + unchained.Work,
+                                        isValid: unchained.IsValid
                                     );
 
                                     this._storageManager.BlockMetadataCache.UpdateValue(newMetadata.BlockHash, newMetadata);
@@ -820,11 +900,32 @@ namespace BitSharp.Daemon
                     {
                         try
                         {
-                            // try to advance the blockchain with the new winning block
-                            var newBlockchain = this.calculator.CalculateBlockchainFromExisting(this.currentBlockchain, winningChainedBlock,
-                                progressBlockchain => UpdateCurrentBlockchain(progressBlockchain));
+                            var lastCurrentBlockchainWriteLocal = this.lastCurrentBlockchainWrite;
+                            var cancelToken = new CancellationTokenSource();
 
-                            UpdateCurrentBlockchain(newBlockchain);
+                            // try to advance the blockchain with the new winning block
+                            var newBlockchain = this.calculator.CalculateBlockchainFromExisting(this.currentBlockchain, winningChainedBlock, cancelToken.Token,
+                                progressBlockchain =>
+                                {
+                                    // check that nothing else has changed the current blockchain
+                                    currentBlockchainLock.DoRead(() =>
+                                    {
+                                        if (lastCurrentBlockchainWriteLocal != this.lastCurrentBlockchainWrite)
+                                        {
+                                            cancelToken.Cancel();
+                                            return;
+                                        }
+                                    });
+
+                                    // update the current blockchain
+                                    lastCurrentBlockchainWriteLocal = UpdateCurrentBlockchain(progressBlockchain);
+
+                                    // let the blockchain writer know there is new work
+                                    this.writeBlockchainWorkerNotifyEvent.Set();
+                                });
+
+                            // collect after processing
+                            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true);
 
                             //TODO
                             // only partially constructed, try to grab the missing data
@@ -880,9 +981,44 @@ namespace BitSharp.Daemon
             catch (OperationCanceledException) { }
         }
 
-        //TODO
-        private void LoadExistingState()
+        private void WriteBlockchainWorker()
         {
+            try
+            {
+                while (true)
+                {
+                    // cooperative loop
+                    this.shutdownToken.Token.ThrowIfCancellationRequested();
+
+                    // wait for work notification
+                    this.writeBlockchainWorkerIdleEvent.Set();
+                    this.writeBlockchainWorkerNotifyEvent.WaitOne();
+
+                    // notify that work is starting
+                    this.writeBlockchainWorkerIdleEvent.Reset();
+
+                    var stopwatch = new Stopwatch();
+                    stopwatch.Start();
+
+                    // grab a snapshot
+                    var currentBlockchainLocal = this.currentBlockchain;
+
+                    // don't write out genesis blockchain
+                    if (currentBlockchainLocal.Height > 0)
+                    {
+                        //TODO
+                        using (var blockchainStorage = new BlockchainStorage())
+                        {
+                            blockchainStorage.WriteBlockchain(currentBlockchainLocal);
+                            blockchainStorage.RemoveBlockchains(currentBlockchainLocal.TotalWork);
+                        }
+                    }
+
+                    stopwatch.Stop();
+                    Debug.WriteLine("WriteBlockchainWorker: {0:#,##0.000}s".Format2(stopwatch.EllapsedSecondsFloat()));
+                }
+            }
+            catch (OperationCanceledException) { }
         }
 
         public bool TryGetBlock(UInt256 blockHash, out Block block, bool saveInCache = true)
@@ -996,13 +1132,21 @@ namespace BitSharp.Daemon
                 handler(this, winningBlock);
         }
 
-        private void UpdateCurrentBlockchain(Blockchain.Blockchain newBlockchain)
+        private Guid UpdateCurrentBlockchain(Blockchain.Blockchain newBlockchain)
         {
-            this.currentBlockchain = newBlockchain;
+            var guid = Guid.NewGuid();
+
+            this.currentBlockchainLock.DoWrite(() =>
+            {
+                this.lastCurrentBlockchainWrite = guid;
+                this.currentBlockchain = newBlockchain;
+            });
 
             var handler = this.OnCurrentBlockchainChanged;
             if (handler != null)
                 handler(this, newBlockchain);
+
+            return guid;
         }
     }
 }

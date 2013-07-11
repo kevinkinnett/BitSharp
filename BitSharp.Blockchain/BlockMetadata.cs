@@ -8,30 +8,42 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Blockchain
 {
-    public struct BlockMetadata : IComparable<BlockMetadata>
+    public struct BlockMetadata
     {
-        public readonly UInt256 BlockHash;
-        public readonly UInt256 PreviousBlockHash;
-        public readonly BigInteger Work;
-        public readonly long? Height;
-        public readonly BigInteger? TotalWork;
-        public readonly bool? IsValid;
+        private readonly UInt256 _blockHash;
+        private readonly UInt256 _previousBlockHash;
+        private readonly BigInteger _work;
+        private readonly long? _height;
+        private readonly BigInteger? _totalWork;
+        private readonly bool? _isValid;
         private readonly bool notDefault;
 
-        public BlockMetadata(UInt256 BlockHash, UInt256 PreviousBlockHash, BigInteger Work, long? Height, BigInteger? TotalWork, bool? IsValid)
+        public BlockMetadata(UInt256 blockHash, UInt256 previousBlockHash, BigInteger work, long? height, BigInteger? totalWork, bool? isValid)
         {
-            this.BlockHash = BlockHash;
-            this.PreviousBlockHash = PreviousBlockHash;
-            this.Work = Work;
-            this.Height = Height;
-            this.TotalWork = TotalWork;
-            this.IsValid = IsValid;
+            this._blockHash = blockHash;
+            this._previousBlockHash = previousBlockHash;
+            this._work = work;
+            this._height = height;
+            this._totalWork = totalWork;
+            this._isValid = isValid;
             this.notDefault = true;
         }
 
         public bool IsDefault { get { return !this.notDefault; } }
 
-        public static long SizeEstimator(BlockMetadata blockMetadata)   
+        public UInt256 BlockHash { get { return this._blockHash; } }
+
+        public UInt256 PreviousBlockHash { get { return this._previousBlockHash; } }
+
+        public BigInteger Work { get { return this._work; } }
+
+        public long? Height { get { return this._height; } }
+
+        public BigInteger? TotalWork { get { return this._totalWork; } }
+
+        public bool? IsValid { get { return this._isValid; } }
+
+        public static long SizeEstimator(BlockMetadata blockMetadata)
         {
             return 210;
         }
@@ -42,7 +54,7 @@ namespace BitSharp.Blockchain
                 return false;
 
             var other = (BlockMetadata)obj;
-            return other.BlockHash == this.BlockHash && other.PreviousBlockHash == this.PreviousBlockHash && other.Height == this.Height && other.Work == this.Work && other.TotalWork == this.TotalWork && other.IsValid == this.IsValid;
+            return other == this;
         }
 
         public override int GetHashCode()
@@ -50,9 +62,14 @@ namespace BitSharp.Blockchain
             return this.BlockHash.GetHashCode();
         }
 
-        public int CompareTo(BlockMetadata other)
+        public static bool operator ==(BlockMetadata left, BlockMetadata right)
         {
-            return this.BlockHash.CompareTo(other.BlockHash);
+            return left.BlockHash == right.BlockHash && left.PreviousBlockHash == right.PreviousBlockHash && left.Height == right.Height && left.Work == right.Work && left.TotalWork == right.TotalWork && left.IsValid == right.IsValid;
+        }
+
+        public static bool operator !=(BlockMetadata left, BlockMetadata right)
+        {
+            return !(left == right);
         }
     }
 }

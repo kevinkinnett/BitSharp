@@ -592,7 +592,7 @@ namespace BitSharp.Storage
                         Interlocked.Add(ref this.flushPendingSize, sizeDelta);
 
                         stopwatch.Stop();
-                        Debug.WriteLine("{0,25} StorageWorker flushed {1:#,##0} items, {2:#,##0.000} KB in {3:#,##0} ms".Format2(this.name + ":", flushPendingLocal.Count, (float)-sizeDelta / 1.THOUSAND(), stopwatch.ElapsedMilliseconds));
+                        //Debug.WriteLine("{0,25} StorageWorker flushed {1:#,##0} items, {2:#,##0.000} KB in {3:#,##0} ms".Format2(this.name + ":", flushPendingLocal.Count, (float)-sizeDelta / 1.THOUSAND(), stopwatch.ElapsedMilliseconds));
                     }
 
                     // unblock any threads waiting on an excess storage flush

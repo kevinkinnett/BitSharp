@@ -53,7 +53,12 @@ namespace BitSharp.Database
 
         internal static SQLiteConnection OpenNewConnection()
         {
-            var dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BitSharp/BitSharp.sqlite");
+            // create db folder
+            var dbFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BitSharp");
+            if (!Directory.Exists(dbFolderPath))
+                Directory.CreateDirectory(dbFolderPath);
+
+            var dbPath = Path.Combine(dbFolderPath, "BitSharp.sqlite");
             var connection = new SQLiteConnection(@"Data Source=""{0}"";".Format2(dbPath));
             try
             {

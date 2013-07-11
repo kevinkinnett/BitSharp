@@ -29,7 +29,7 @@ namespace BitSharp.Blockchain
             this.shutdownToken = shutdownToken;
         }
 
-        public Blockchain CalculateBlockchainFromExisting(Blockchain currentBlockchain, BlockMetadata targetBlockMetadata, Action<Blockchain> onProgress = null)
+        public Blockchain CalculateBlockchainFromExisting(Blockchain currentBlockchain, BlockMetadata targetBlockMetadata, CancellationToken cancelToken, Action<Blockchain> onProgress = null)
         {
             Debug.WriteLine("Winning chained block {0} at height {1}, total work: {2}".Format2(targetBlockMetadata.BlockHash.ToHexNumberString(), targetBlockMetadata.Height.Value, targetBlockMetadata.TotalWork.Value.ToString("X")));
 
@@ -49,6 +49,7 @@ namespace BitSharp.Blockchain
                 {
                     // cooperative loop
                     this.shutdownToken.ThrowIfCancellationRequested();
+                    cancelToken.ThrowIfCancellationRequested();
 
                     newChainBlockMetadata = this.retriever.GetBlockMetadata(newChainBlockMetadata.PreviousBlockHash);
 
@@ -79,6 +80,7 @@ namespace BitSharp.Blockchain
                 {
                     // cooperative loop
                     this.shutdownToken.ThrowIfCancellationRequested();
+                    cancelToken.ThrowIfCancellationRequested();
 
                     currentBlockchain = RollbackBlockchain(currentBlockchain);
                 }
@@ -99,6 +101,7 @@ namespace BitSharp.Blockchain
             {
                 // cooperative loop
                 this.shutdownToken.ThrowIfCancellationRequested();
+                cancelToken.ThrowIfCancellationRequested();
 
                 // roll back current block chain
                 currentBlockchain = RollbackBlockchain(currentBlockchain);
@@ -140,8 +143,8 @@ namespace BitSharp.Blockchain
             // use ImmutableList for BlockList during modification
             var newBlockchain = new Blockchain
             (
-                BlockList: currentBlockchain.BlockList,
-                Utxo: currentBlockchain.Utxo
+                blockList: currentBlockchain.BlockList,
+                utxo: currentBlockchain.Utxo
             );
 
             // start calculating new utxo
@@ -149,6 +152,7 @@ namespace BitSharp.Blockchain
             {
                 // cooperative loop
                 this.shutdownToken.ThrowIfCancellationRequested();
+                cancelToken.ThrowIfCancellationRequested();
 
                 try
                 {
@@ -166,8 +170,8 @@ namespace BitSharp.Blockchain
                     var nextBlockchain =
                         new Blockchain
                         (
-                            BlockList: newBlockchain.BlockList.Add(nextBlockMetadata),
-                            Utxo: newUtxo
+                            blockList: newBlockchain.BlockList.Add(nextBlockMetadata),
+                            utxo: newUtxo
                         );
 
                     //TODO rewrite transactions
@@ -229,8 +233,8 @@ namespace BitSharp.Blockchain
 
             return new Blockchain
             (
-                BlockList: blockchain.BlockList.RemoveAt(blockchain.BlockCount - 1),
-                Utxo: newUtxo
+                blockList: blockchain.BlockList.RemoveAt(blockchain.BlockCount - 1),
+                utxo: newUtxo
             );
         }
 
@@ -244,6 +248,8 @@ namespace BitSharp.Blockchain
                 string.Join("\n",
                     new string('-', 80),
                     "Height: {0,10} | Date: {1} | Duration: {7} hh:mm:ss | Validation: {8} hh:mm:ss | Blocks/s: {2,7} | Tx/s: {3,7} | Inputs/s: {4,7} | Total Tx: {5,7} | Total Inputs: {6,7} | Utxo Size: {9,7}",
+                    "GC Memory:      {10,10:#,##0.00} MB",
+                    "Process Memory: {11,10:#,##0.00} MB",
                     new string('-', 80)
                 )
                 .Format2
@@ -257,7 +263,9 @@ namespace BitSharp.Blockchain
                     totalInputCount.ToString("#,##0"),
                     totalStopwatch.Elapsed.ToString(@"hh\:mm\:ss"),
                     validateStopwatch.Elapsed.ToString(@"hh\:mm\:ss"),
-                    blockchain.Utxo.Count.ToString("#,##0")
+                    blockchain.Utxo.Count.ToString("#,##0"),
+                    (float)GC.GetTotalMemory(false) / 1.MILLION(),
+                    (float)Process.GetCurrentProcess().PrivateMemorySize64 / 1.MILLION()
                 ));
         }
 
@@ -266,29 +274,32 @@ namespace BitSharp.Blockchain
             txCount = 0;
             inputCount = 0;
 
-            //TODO apply real coinbase rule
-            // https://github.com/bitcoin/bitcoin/blob/481d89979457d69da07edd99fba451fd42a47f5c/src/core.h#L219
-            var coinbaseTx = block.Transactions[0];
+            // create builder for new utxo
+            var newUtxoBuilder = currentUtxo.ToBuilder();
 
-            var removeTxOutputs = new Dictionary<TxOutputKey, object>();
-            var addTxOutputs = new Dictionary<TxOutputKey, object>();
-
-            // add the coinbase outputs to the list to be added to the utxo
-            for (var outputIndex = 0; outputIndex < coinbaseTx.Outputs.Length; outputIndex++)
+            // don't include genesis block coinbase in utxo
+            if (blockHeight > 0)
             {
-                var txOutputKey = new TxOutputKey(coinbaseTx.Hash, outputIndex);
+                //TODO apply real coinbase rule
+                // https://github.com/bitcoin/bitcoin/blob/481d89979457d69da07edd99fba451fd42a47f5c/src/core.h#L219
+                var coinbaseTx = block.Transactions[0];
+            
+                // add the coinbase outputs to the utxo
+                for (var outputIndex = 0; outputIndex < coinbaseTx.Outputs.Length; outputIndex++)
+                {
+                    var txOutputKey = new TxOutputKey(coinbaseTx.Hash, outputIndex);
 
-                // add transaction output to the list to be added to the utxo, if it isn't a duplicate
-                //TODO don't include genesis block coinbase in utxo as it's not spendable... but should it actually be excluded from UTXO?
-                //TODO should a duplicate transaction get ignored or overwrite the original?
-                if (blockHeight > 0 && !currentUtxo.Contains(txOutputKey))
-                {
-                    addTxOutputs.Add(txOutputKey, null);
-                }
-                else
-                {
-                    //TODO this needs to be tracked so that blocks can be rolled back accurately
-                    //TODO track these separately on the blockchain info? gonna be costly to track on every transaction
+                    // add transaction output to to the utxo
+                    if (!newUtxoBuilder.Add(txOutputKey))
+                    {
+                        // duplicate transaction output
+                        Debug.WriteLine("Duplicate transaction at block {0:#,##0}, {1}, coinbase".Format2(blockHeight, block.Hash.ToHexNumberString()));
+                        //Debugger.Break();
+                        //TODO throw new Validation();
+                        
+                        //TODO this needs to be tracked so that blocks can be rolled back accurately
+                        //TODO track these separately on the blockchain info? gonna be costly to track on every transaction
+                    }
                 }
             }
 
@@ -306,18 +317,10 @@ namespace BitSharp.Blockchain
                     // get the previous transaction output key
                     var prevTxOutputKey = new TxOutputKey(input.PreviousTransactionHash, input.PreviousTransactionIndex.ToIntChecked());
 
-                    // check for a double spend within the same block
-                    if (removeTxOutputs.ContainsKey(prevTxOutputKey))
+                    // remove the output from the utxo
+                    if (!newUtxoBuilder.Remove(prevTxOutputKey))
                     {
-                        throw new ValidationException();
-                    }
-
-                    // add the previous output to the list to be removed from the utxo
-                    removeTxOutputs.Add(prevTxOutputKey, null);
-
-                    // check that previous transaction output is in the utxo or in the same block
-                    if (!currentUtxo.Contains(prevTxOutputKey) && !addTxOutputs.ContainsKey(prevTxOutputKey))
-                    {
+                        // output wasn't present in utxo, invalid block
                         throw new ValidationException();
                     }
                 }
@@ -329,16 +332,22 @@ namespace BitSharp.Blockchain
                     // add the output to the list to be added to the utxo
                     var txOutputKey = new TxOutputKey(tx.Hash, outputIndex);
 
-                    // add transaction output to the list to be added to the utxo, if it isn't a duplicate
-                    if (!currentUtxo.Contains(txOutputKey)) //TODO should a duplicate transaction get ignored or overwrite the original?
+                    // add transaction output to to the utxo
+                    if (!newUtxoBuilder.Add(txOutputKey))
                     {
-                        addTxOutputs.Add(txOutputKey, null);
+                        // duplicate transaction output
+                        Debug.WriteLine("Duplicate transaction at block {0:#,##0}, {1}, tx {2}, output {3}".Format2(blockHeight, block.Hash.ToHexNumberString(), txIndex, outputIndex));
+                        //Debugger.Break();
+                        //TODO throw new Validation();
+
+                        //TODO this needs to be tracked so that blocks can be rolled back accurately
+                        //TODO track these separately on the blockchain info? gonna be costly to track on every transaction
                     }
                 }
             }
 
-            // validation successful, calculate the new utxo
-            return currentUtxo.Union(addTxOutputs.Keys).Except(removeTxOutputs.Keys);
+            // validation successful, return the new utxo
+            return newUtxoBuilder.ToImmutable();
         }
 
         private ImmutableHashSet<TxOutputKey> RollbackUtxo(long blockHeight, Block block, ImmutableHashSet<TxOutputKey> currentUtxo)
@@ -469,129 +478,10 @@ namespace BitSharp.Blockchain
 
         public IEnumerable<Tuple<Block, BlockMetadata>> BlockAndMetadataLookAhead(IList<UInt256> blockHashes)
         {
-            var blockLookAhead = LookAhead<UInt256, Block>(blockHashes, blockHash => this.retriever.GetBlock(blockHash, saveInCache: false), this.shutdownToken);
-            var metadataLookAhead = LookAhead<UInt256, BlockMetadata>(blockHashes, blockHash => this.retriever.GetBlockMetadata(blockHash, saveInCache: false), this.shutdownToken);
+            var blockLookAhead = LookAheadMethods.ParallelLookupLookAhead<UInt256, Block>(blockHashes, blockHash => this.retriever.GetBlock(blockHash, saveInCache: false), this.shutdownToken);
+            var metadataLookAhead = LookAheadMethods.ParallelLookupLookAhead<UInt256, BlockMetadata>(blockHashes, blockHash => this.retriever.GetBlockMetadata(blockHash, saveInCache: false), this.shutdownToken);
 
             return blockLookAhead.Zip(metadataLookAhead, (block, blockMetadata) => Tuple.Create(block, blockMetadata));
-        }
-
-        public IEnumerable<TValue> LookAhead<TKey, TValue>(IList<TKey> keys, Func<TKey, TValue> lookup, CancellationToken cancelToken)
-        {
-            // setup task completion sources to read results of look ahead
-            var results = keys.Select(x => default(TValue)).ToList();
-            var resultEvents = keys.Select(x => new ManualResetEvent(false)).ToList();
-            var resultReadEvent = new AutoResetEvent(false);
-            var resultReadIndex = new[] { -1 };
-            var internalCancelToken = new CancellationTokenSource();
-
-            var readTimes = new List<DateTime>();
-            readTimes.Add(DateTime.UtcNow);
-
-            var lookAheadThread = new Thread(() =>
-            {
-                // calculate how far to look-ahead based on how quickly the results are being read
-                Func<long> targetIndex = () =>
-                {
-                    var firstReadTime = readTimes[0];
-                    var readPerMillisecond = (float)(readTimes.Count / (DateTime.UtcNow - firstReadTime).TotalMilliseconds);
-                    return resultReadIndex[0] + 1 + (int)(readPerMillisecond * 1000); // look ahead 1000 milliseconds
-                };
-
-                // look-ahead loop
-                Parallel.ForEach(keys, new ParallelOptions { MaxDegreeOfParallelism = 5 }, (key, loopState, indexLocal) =>
-                {
-                    // cooperative loop
-                    if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
-                    {
-                        loopState.Break();
-                        return;
-                    }
-
-                    // make sure look-ahead doesn't go too far ahead, based on calculated index above
-                    while (indexLocal > targetIndex())
-                    {
-                        // cooperative loop
-                        if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
-                        {
-                            loopState.Break();
-                            return;
-                        }
-
-                        // wait for a result to be read
-                        resultReadEvent.WaitOne(TimeSpan.FromMilliseconds(1));
-                    }
-
-                    // execute the lookup
-                    var result = lookup(key);
-
-                    // store the result and notify
-                    results[(int)indexLocal] = result;
-                    resultEvents[(int)indexLocal].Set();
-                });
-            });
-            lookAheadThread.Start();
-
-            // enumerate the results
-            for (var i = 0; i < results.Count; i++)
-            {
-                TValue result;
-                try
-                {
-                    try
-                    {
-                        resultReadEvent.Set();
-
-                        resultEvents[i].WaitOne();
-
-                        result = results[i];
-                        results[i] = default(TValue);
-                    }
-                    catch (AggregateException e)
-                    {
-                        var missingDataException = e.InnerExceptions.FirstOrDefault(x => x is MissingDataException);
-                        if (missingDataException != null)
-                            throw missingDataException;
-                        else
-                            throw;
-                    }
-                    finally
-                    {
-                        resultEvents[i].Dispose();
-                    }
-                }
-                catch (Exception)
-                {
-                    internalCancelToken.Cancel();
-                    lookAheadThread.Join();
-
-                    // clean-up disposables on exception
-                    for (var j = i; j < results.Count; j++)
-                    {
-                        try
-                        {
-                            resultEvents[j].Dispose();
-                        }
-                        catch (Exception) { }
-                    }
-
-                    // continue with exception
-                    throw;
-                }
-
-                resultReadIndex[0] = i;
-                resultReadEvent.Set();
-
-                // yield result
-                yield return result;
-
-                // store time the result was read
-                readTimes.Add(DateTime.UtcNow);
-                while (readTimes.Count > 500)
-                    readTimes.RemoveAt(0);
-            }
-
-            internalCancelToken.Cancel();
-            lookAheadThread.Join();
         }
     }
 }

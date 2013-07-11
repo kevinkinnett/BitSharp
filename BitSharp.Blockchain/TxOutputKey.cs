@@ -7,18 +7,22 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Blockchain
 {
-    public struct TxOutputKey : IComparable<TxOutputKey>
+    public struct TxOutputKey
     {
-        public readonly UInt256 previousTransactionHash;
-        public readonly int previousOutputIndex;
-        private readonly int _hashCode;
+        private readonly UInt256 _previousTransactionHash;
+        private readonly int _previousOutputIndex;
+        private readonly int hashCode;
 
         public TxOutputKey(UInt256 previousTransactionHash, int previousOutputIndex)
         {
-            this.previousTransactionHash = previousTransactionHash;
-            this.previousOutputIndex = previousOutputIndex;
-            _hashCode = this.previousTransactionHash.GetHashCode() ^ previousOutputIndex.GetHashCode();
+            this._previousTransactionHash = previousTransactionHash;
+            this._previousOutputIndex = previousOutputIndex;
+            this.hashCode = previousTransactionHash.GetHashCode() ^ previousOutputIndex.GetHashCode();
         }
+
+        public UInt256 PreviousTransactionHash { get { return this._previousTransactionHash; } }
+
+        public int PreviousOutputIndex { get { return this._previousOutputIndex; } }
 
         public override bool Equals(object obj)
         {
@@ -26,21 +30,22 @@ namespace BitSharp.Blockchain
                 return false;
 
             var other = (TxOutputKey)obj;
-            return other.previousTransactionHash == this.previousTransactionHash && other.previousOutputIndex == this.previousOutputIndex;
+            return other == this;
         }
 
         public override int GetHashCode()
         {
-            return this._hashCode;
+            return this.hashCode;
         }
 
-        public int CompareTo(TxOutputKey other)
+        public static bool operator ==(TxOutputKey left, TxOutputKey right)
         {
-            var hashCompare = this.previousTransactionHash.CompareTo(other.previousTransactionHash);
-            if (hashCompare != 0)
-                return hashCompare;
-            else
-                return this.previousOutputIndex.CompareTo(other.previousOutputIndex);
+            return left.PreviousTransactionHash == right.PreviousTransactionHash && left.PreviousOutputIndex == right.PreviousOutputIndex;
+        }
+
+        public static bool operator !=(TxOutputKey left, TxOutputKey right)
+        {
+            return !(left == right);
         }
     }
 }
