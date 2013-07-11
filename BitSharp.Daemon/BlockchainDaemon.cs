@@ -110,7 +110,7 @@ namespace BitSharp.Daemon
             this.chainingWorkerNotifyEvent = new ThrottledNotifyEvent(true, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(5));
             this.validationWorkerNotifyEvent = new ThrottledNotifyEvent(true, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(5));
             this.blockchainWorkerNotifyEvent = new ThrottledNotifyEvent(true, TimeSpan.FromSeconds(2), TimeSpan.FromMinutes(5));
-            this.validateCurrentChainWorkerNotifyEvent = new ThrottledNotifyEvent(true, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(30));
+            this.validateCurrentChainWorkerNotifyEvent = new ThrottledNotifyEvent(true, TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(30));
 
             // create worker idle events
             this.missingMetadataWorkerIdleEvent = new ManualResetEvent(false);
