@@ -284,8 +284,8 @@ namespace BitSharp.Database
                                         throw new Exception();
 
                                     var output = utxoEnumerator.Current;
-                                    chunkWriter.Write32Bytes(output.previousTransactionHash);
-                                    chunkWriter.Write4Bytes((UInt32)output.previousOutputIndex);
+                                    chunkWriter.Write32Bytes(output.PreviousTransactionHash);
+                                    chunkWriter.Write4Bytes((UInt32)output.PreviousOutputIndex);
                                 }
 
                                 cmd.Parameters.SetValue("@utxoChunkBytes", System.Data.DbType.Binary, chunkBytes.Length).Value = chunkBytes;

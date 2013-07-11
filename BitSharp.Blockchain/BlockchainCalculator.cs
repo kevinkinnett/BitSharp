@@ -143,8 +143,8 @@ namespace BitSharp.Blockchain
             // use ImmutableList for BlockList during modification
             var newBlockchain = new Blockchain
             (
-                BlockList: currentBlockchain.BlockList,
-                Utxo: currentBlockchain.Utxo
+                blockList: currentBlockchain.BlockList,
+                utxo: currentBlockchain.Utxo
             );
 
             // start calculating new utxo
@@ -170,8 +170,8 @@ namespace BitSharp.Blockchain
                     var nextBlockchain =
                         new Blockchain
                         (
-                            BlockList: newBlockchain.BlockList.Add(nextBlockMetadata),
-                            Utxo: newUtxo
+                            blockList: newBlockchain.BlockList.Add(nextBlockMetadata),
+                            utxo: newUtxo
                         );
 
                     //TODO rewrite transactions
@@ -233,8 +233,8 @@ namespace BitSharp.Blockchain
 
             return new Blockchain
             (
-                BlockList: blockchain.BlockList.RemoveAt(blockchain.BlockCount - 1),
-                Utxo: newUtxo
+                blockList: blockchain.BlockList.RemoveAt(blockchain.BlockCount - 1),
+                utxo: newUtxo
             );
         }
 

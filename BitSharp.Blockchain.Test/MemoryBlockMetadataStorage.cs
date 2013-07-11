@@ -55,12 +55,12 @@ namespace BitSharp.Blockchain.Test
 
                 blockMetadata = new BlockMetadata
                 (
-                    BlockHash: block.Hash,
-                    PreviousBlockHash: block.Header.PreviousBlock,
-                    Work: this.rules.CalculateWork(block.Header),
-                    Height: null,
-                    TotalWork: null,
-                    IsValid: null
+                    blockHash: block.Hash,
+                    previousBlockHash: block.Header.PreviousBlock,
+                    work: this.rules.CalculateWork(block.Header),
+                    height: null,
+                    totalWork: null,
+                    isValid: null
                 );
             }
 
@@ -69,12 +69,12 @@ namespace BitSharp.Blockchain.Test
             {
                 blockMetadata = new BlockMetadata
                 (
-                    BlockHash: blockMetadata.BlockHash,
-                    PreviousBlockHash: blockMetadata.PreviousBlockHash,
-                    Work: blockMetadata.Work,
-                    Height: 0,
-                    TotalWork: blockMetadata.Work,
-                    IsValid: true
+                    blockHash: blockMetadata.BlockHash,
+                    previousBlockHash: blockMetadata.PreviousBlockHash,
+                    work: blockMetadata.Work,
+                    height: 0,
+                    totalWork: blockMetadata.Work,
+                    isValid: true
                 );
             }
 
@@ -89,12 +89,12 @@ namespace BitSharp.Blockchain.Test
                 {
                     blockMetadata = new BlockMetadata
                     (
-                        BlockHash: blockMetadata.BlockHash,
-                        PreviousBlockHash: blockMetadata.PreviousBlockHash,
-                        Work: blockMetadata.Work,
-                        Height: prevBlockMetadata.Height + 1,
-                        TotalWork: prevBlockMetadata.TotalWork + blockMetadata.Work,
-                        IsValid: null
+                        blockHash: blockMetadata.BlockHash,
+                        previousBlockHash: blockMetadata.PreviousBlockHash,
+                        work: blockMetadata.Work,
+                        height: prevBlockMetadata.Height + 1,
+                        totalWork: prevBlockMetadata.TotalWork + blockMetadata.Work,
+                        isValid: null
                     );
                 }
             }

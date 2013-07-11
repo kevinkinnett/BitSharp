@@ -94,19 +94,19 @@ namespace BitSharp.Blockchain
             this._genesisBlockMetadata =
                 new BlockMetadata
                 (
-                    BlockHash: this._genesisBlock.Hash,
-                    PreviousBlockHash: this._genesisBlock.Header.PreviousBlock,
-                    Work: CalculateWork(this._genesisBlock.Header),
-                    Height: 0,
-                    TotalWork: CalculateWork(this._genesisBlock.Header),
-                    IsValid: true
+                    blockHash: this._genesisBlock.Hash,
+                    previousBlockHash: this._genesisBlock.Header.PreviousBlock,
+                    work: CalculateWork(this._genesisBlock.Header),
+                    height: 0,
+                    totalWork: CalculateWork(this._genesisBlock.Header),
+                    isValid: true
                 );
 
             this._genesisBlockchain =
                 new Blockchain
                 (
-                    BlockList: ImmutableList.Create(this._genesisBlockMetadata),
-                    Utxo: ImmutableHashSet.Create<TxOutputKey>() // genesis block coinbase is not included in utxo, it is unspendable
+                    blockList: ImmutableList.Create(this._genesisBlockMetadata),
+                    utxo: ImmutableHashSet.Create<TxOutputKey>() // genesis block coinbase is not included in utxo, it is unspendable
                 );
         }
 
@@ -382,9 +382,9 @@ namespace BitSharp.Blockchain
                 var prevTxOutputKey = new TxOutputKey(input.PreviousTransactionHash, input.PreviousTransactionIndex.ToIntChecked());
 
                 // find previous transaction output
-                var prevTx = retriever.GetTransaction(prevTxOutputKey.previousTransactionHash);
+                var prevTx = retriever.GetTransaction(prevTxOutputKey.PreviousTransactionHash);
 
-                var prevOutput = prevTx.Outputs[prevTxOutputKey.previousOutputIndex];
+                var prevOutput = prevTx.Outputs[prevTxOutputKey.PreviousOutputIndex];
 
                 previousOutputs.Add(prevTxOutputKey, Tuple.Create(input, inputIndex, prevOutput));
             }

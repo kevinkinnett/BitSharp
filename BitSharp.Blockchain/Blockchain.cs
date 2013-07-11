@@ -13,31 +13,23 @@ namespace BitSharp.Blockchain
     public struct Blockchain
     {
         //TODO use block hash instead of block metadata
-        public readonly ImmutableList<BlockMetadata> BlockList;
-        public readonly ImmutableHashSet<TxOutputKey> Utxo;
-
+        private readonly ImmutableList<BlockMetadata> _blockList;
+        private readonly ImmutableHashSet<TxOutputKey> _utxo;
         private readonly bool notDefault;
-        private readonly int _hashCode;
 
-        public Blockchain(ImmutableList<BlockMetadata> BlockList, ImmutableHashSet<TxOutputKey> Utxo)
+        public Blockchain(ImmutableList<BlockMetadata> blockList, ImmutableHashSet<TxOutputKey> utxo)
         {
-            //if (BlockList.Count == 0)
-            //    throw new ArgumentOutOfRangeException();
-            //if (BlockList.Where((data, i) => data.Height == null || data.Height != i || data.TotalWork == null).Any())
-            //    throw new ArgumentOutOfRangeException();
-
-            this.BlockList = BlockList;
-            this.Utxo = Utxo;
+            this._blockList = blockList;
+            this._utxo = utxo;
 
             this.notDefault = true;
-
-            //TODO seems expensive
-            //this._hashCode = (int)((this.Height ^ (BigInteger)this.LatestBlockHash ^ this.TotalWork ^ MerkleTree.GetHashCode() ^ (BigInteger)MerkleRoot ^ this.BlockHashes.GetHashCode()) % int.MaxValue);
-            //TODO this hash code is not complete
-            this._hashCode = BlockList[BlockList.Count - 1].GetHashCode();
         }
 
         public bool IsDefault { get { return !this.notDefault; } }
+
+        public ImmutableList<BlockMetadata> BlockList { get { return this._blockList; } }
+
+        public ImmutableHashSet<TxOutputKey> Utxo { get { return this._utxo; } }
 
         public int BlockCount { get { return this.BlockList.Count; } }
 
@@ -48,21 +40,5 @@ namespace BitSharp.Blockchain
         public BlockMetadata RootBlock { get { return this.BlockList[this.BlockList.Count - 1]; } }
 
         public UInt256 RootBlockHash { get { return this.RootBlock.BlockHash; } }
-
-        public override bool Equals(object obj)
-        {
-            if (!(obj is Blockchain))
-                return false;
-
-            var other = (Blockchain)obj;
-            //TODO
-            Debugger.Break();
-            return other.BlockList.SequenceEqual(this.BlockList) && other.Utxo.SequenceEqual(this.Utxo);
-        }
-
-        public override int GetHashCode()
-        {
-            return this._hashCode;
-        }
     }
 }

@@ -578,11 +578,11 @@ namespace BitSharp.Daemon
                     updatedMetadata = new BlockMetadata
                     (
                         blockHash,
-                        PreviousBlockHash: blockHeader.PreviousBlock,
-                        Work: this.Rules.CalculateWork(blockHeader),
-                        Height: null,
-                        TotalWork: null,
-                        IsValid: null
+                        previousBlockHash: blockHeader.PreviousBlock,
+                        work: this.Rules.CalculateWork(blockHeader),
+                        height: null,
+                        totalWork: null,
+                        isValid: null
                     );
                 }
                 else
@@ -605,12 +605,12 @@ namespace BitSharp.Daemon
                     isChanged = true;
                     updatedMetadata = new BlockMetadata
                     (
-                            BlockHash: updatedMetadata.BlockHash,
-                            PreviousBlockHash: updatedMetadata.PreviousBlockHash,
-                            Work: updatedMetadata.Work,
-                            Height: prevBlockMetadata.Height + 1,
-                            TotalWork: prevBlockMetadata.TotalWork + updatedMetadata.Work,
-                            IsValid: null
+                            blockHash: updatedMetadata.BlockHash,
+                            previousBlockHash: updatedMetadata.PreviousBlockHash,
+                            work: updatedMetadata.Work,
+                            height: prevBlockMetadata.Height + 1,
+                            totalWork: prevBlockMetadata.TotalWork + updatedMetadata.Work,
+                            isValid: null
                     );
                 }
                 else
@@ -712,12 +712,12 @@ namespace BitSharp.Daemon
 
                                     var newMetadata = new BlockMetadata
                                     (
-                                        BlockHash: unchained.BlockHash,
-                                        PreviousBlockHash: unchained.PreviousBlockHash,
-                                        Work: unchained.Work,
-                                        Height: chained.Height.Value + 1,
-                                        TotalWork: chained.TotalWork.Value + unchained.Work,
-                                        IsValid: unchained.IsValid
+                                        blockHash: unchained.BlockHash,
+                                        previousBlockHash: unchained.PreviousBlockHash,
+                                        work: unchained.Work,
+                                        height: chained.Height.Value + 1,
+                                        totalWork: chained.TotalWork.Value + unchained.Work,
+                                        isValid: unchained.IsValid
                                     );
 
                                     this._storageManager.BlockMetadataCache.UpdateValue(newMetadata.BlockHash, newMetadata);
