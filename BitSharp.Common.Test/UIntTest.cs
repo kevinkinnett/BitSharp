@@ -25,7 +25,7 @@ namespace BitSharp.Common.Test
         public void TestUInt256Inequality()
         {
             var expected = UInt256.Parse(TestData.HEX_STRING_64, NumberStyles.HexNumber);
-            var actual = (UInt256)0;
+            var actual = UInt256.Zero;
 
             Assert.AreNotEqual(expected, actual);
             Assert.IsFalse(expected == actual);

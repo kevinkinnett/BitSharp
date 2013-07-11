@@ -497,7 +497,7 @@ namespace BitSharp.Common
 
         public bool Equals(UInt256 other)
         {
-            return this.value.Equals((BigInteger)other);
+            return this.value.Equals(other.ToBigInteger());
         }
 
         public bool Equals(UInt128 other)
