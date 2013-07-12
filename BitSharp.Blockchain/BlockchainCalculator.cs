@@ -224,12 +224,18 @@ namespace BitSharp.Blockchain
 
         public Blockchain RollbackBlockchain(Blockchain blockchain)
         {
+            List<TxOutputKey> spendOutputs, receiveOutputs;
+            return RollbackBlockchain(blockchain, out spendOutputs, out receiveOutputs);
+        }
+
+        public Blockchain RollbackBlockchain(Blockchain blockchain, out List<TxOutputKey> spendOutputs, out List<TxOutputKey> receiveOutputs)
+        {
             if (blockchain.BlockCount == 0)
                 throw new ValidationException();
 
             var block = this.retriever.GetBlock(blockchain.RootBlockHash);
 
-            var newUtxo = RollbackUtxo(blockchain.Height, block, blockchain.Utxo);
+            var newUtxo = RollbackUtxo(blockchain.Height, block, blockchain.Utxo, out spendOutputs, out receiveOutputs);
 
             return new Blockchain
             (
@@ -283,7 +289,7 @@ namespace BitSharp.Blockchain
                 //TODO apply real coinbase rule
                 // https://github.com/bitcoin/bitcoin/blob/481d89979457d69da07edd99fba451fd42a47f5c/src/core.h#L219
                 var coinbaseTx = block.Transactions[0];
-            
+
                 // add the coinbase outputs to the utxo
                 for (var outputIndex = 0; outputIndex < coinbaseTx.Outputs.Length; outputIndex++)
                 {
@@ -296,7 +302,7 @@ namespace BitSharp.Blockchain
                         Debug.WriteLine("Duplicate transaction at block {0:#,##0}, {1}, coinbase".Format2(blockHeight, block.Hash.ToHexNumberString()));
                         //Debugger.Break();
                         //TODO throw new Validation();
-                        
+
                         //TODO this needs to be tracked so that blocks can be rolled back accurately
                         //TODO track these separately on the blockchain info? gonna be costly to track on every transaction
                     }
@@ -350,55 +356,93 @@ namespace BitSharp.Blockchain
             return newUtxoBuilder.ToImmutable();
         }
 
-        private ImmutableHashSet<TxOutputKey> RollbackUtxo(long blockHeight, Block block, ImmutableHashSet<TxOutputKey> currentUtxo)
+        private ImmutableHashSet<TxOutputKey> RollbackUtxo(long blockHeight, Block block, ImmutableHashSet<TxOutputKey> currentUtxo, out List<TxOutputKey> spendOutputs, out List<TxOutputKey> receiveOutputs)
         {
+            // create builder for prev utxo
+            var prevUtxoBuilder = currentUtxo.ToBuilder();
+            spendOutputs = new List<TxOutputKey>();
+            receiveOutputs = new List<TxOutputKey>();
+
             //TODO apply real coinbase rule
             // https://github.com/bitcoin/bitcoin/blob/481d89979457d69da07edd99fba451fd42a47f5c/src/core.h#L219
             var coinbaseTx = block.Transactions[0];
-
-            var removeTxOutputs = new Dictionary<TxOutputKey, object>();
-            var addTxOutputs = new Dictionary<TxOutputKey, object>();
 
             for (var outputIndex = 0; outputIndex < coinbaseTx.Outputs.Length; outputIndex++)
             {
                 var txOutputKey = new TxOutputKey(coinbaseTx.Hash, outputIndex);
                 if (blockHeight > 0)
                 {
-                    addTxOutputs.Add(txOutputKey, null);
+                    // remove new outputs from the rolled back utxo
+                    if (prevUtxoBuilder.Remove(txOutputKey))
+                    {
+                        receiveOutputs.Add(txOutputKey);
+                    }
+                    else
+                    {
+                        // missing transaction output
+                        Debug.WriteLine("Missing transaction at block {0:#,##0}, {1}, tx {2}, output {3}".Format2(blockHeight, block.Hash.ToHexNumberString(), 0, outputIndex));
+                        Debugger.Break();
+                        //TODO throw new Validation();
+
+                        //TODO this needs to be tracked so that blocks can be rolled back accurately
+                        //TODO track these separately on the blockchain info? gonna be costly to track on every transaction
+                    }
                 }
             }
 
-            for (var txIndex = 1; txIndex < block.Transactions.Length; txIndex++)
+            for (var txIndex = block.Transactions.Length - 1; txIndex >= 1; txIndex--)
             {
                 var tx = block.Transactions[txIndex];
 
-                for (var inputIndex = 0; inputIndex < tx.Inputs.Length; inputIndex++)
-                {
-                    var input = tx.Inputs[inputIndex];
-                    var prevTxOutputKey = new TxOutputKey(input.PreviousTransactionHash, input.PreviousTransactionIndex.ToIntChecked());
-                    removeTxOutputs.Add(prevTxOutputKey, null);
-                }
-
-                for (var outputIndex = 0; outputIndex < tx.Outputs.Length; outputIndex++)
+                for (var outputIndex = tx.Outputs.Length - 1; outputIndex >= 0; outputIndex--)
                 {
                     var output = tx.Outputs[outputIndex];
                     var txOutputKey = new TxOutputKey(tx.Hash, outputIndex);
                     //TODO what if a transaction wasn't added to the utxo because it already existed?
                     //TODO the block would still pass without adding the tx to its utxo, but here it would get rolled back
                     //TODO maybe a flag bit to track this?
-                    addTxOutputs.Add(txOutputKey, null);
+
+                    // remove new outputs from the rolled back utxo
+                    if (prevUtxoBuilder.Remove(txOutputKey))
+                    {
+                        receiveOutputs.Add(txOutputKey);
+                    }
+                    else
+                    {
+                        // missing transaction output
+                        Debug.WriteLine("Missing transaction at block {0:#,##0}, {1}, tx {2}, output {3}".Format2(blockHeight, block.Hash.ToHexNumberString(), txIndex, outputIndex));
+                        Debugger.Break();
+                        //TODO throw new Validation();
+
+                        //TODO this needs to be tracked so that blocks can be rolled back accurately
+                        //TODO track these separately on the blockchain info? gonna be costly to track on every transaction
+                    }
+                }
+
+                for (var inputIndex = tx.Inputs.Length - 1; inputIndex >= 0; inputIndex--)
+                {
+                    var input = tx.Inputs[inputIndex];
+                    var prevTxOutputKey = new TxOutputKey(input.PreviousTransactionHash, input.PreviousTransactionIndex.ToIntChecked());
+
+                    // add spent outputs back into the rolled back utxo
+                    if (prevUtxoBuilder.Add(prevTxOutputKey))
+                    {
+                        spendOutputs.Add(prevTxOutputKey);
+                    }
+                    else
+                    {
+                        // missing transaction output
+                        Debug.WriteLine("Duplicate transaction at block {0:#,##0}, {1}, tx {2}, input {3}".Format2(blockHeight, block.Hash.ToHexNumberString(), txIndex, inputIndex));
+                        Debugger.Break();
+                        //TODO throw new Validation();
+
+                        //TODO this needs to be tracked so that blocks can be rolled back accurately
+                        //TODO track these separately on the blockchain info? gonna be costly to track on every transaction
+                    }
                 }
             }
 
-            // check that all added outputs that will be rolled back are actually present in the utxo
-            if (currentUtxo.Intersect(addTxOutputs.Keys).Count != addTxOutputs.Count)
-                throw new ValidationException();
-
-            // check that all spent outputs that will be added back are not present in the utxo
-            if (currentUtxo.Intersect(removeTxOutputs.Keys).Count != 0)
-                throw new ValidationException();
-
-            return currentUtxo.Except(addTxOutputs.Keys).Union(removeTxOutputs.Keys);
+            return prevUtxoBuilder.ToImmutable();
         }
 
         public void RevalidateBlockchain(Blockchain blockchain, Block genesisBlock)
