@@ -39,7 +39,7 @@ namespace BitSharp.Daemon
         private readonly StorageManager _storageManager;
 
         private readonly IBlockchainRules _rules;
-        private readonly BlockchainCalculator calculator;
+        private readonly BlockchainCalculator _calculator;
 
         private BlockMetadata winningBlock;
         private Blockchain.Blockchain currentBlockchain;
@@ -88,7 +88,7 @@ namespace BitSharp.Daemon
 
             this._rules = rules;
             this._storageManager = storageManager;
-            this.calculator = new BlockchainCalculator(this._rules, this, this.shutdownToken.Token);
+            this._calculator = new BlockchainCalculator(this._rules, this, this.shutdownToken.Token);
 
             this.winningBlock = this._rules.GenesisBlockMetadata;
             this.currentBlockchain = this._rules.GenesisBlockchain;
@@ -145,6 +145,8 @@ namespace BitSharp.Daemon
         }
 
         public IBlockchainRules Rules { get { return this._rules; } }
+
+        public BlockchainCalculator Calculator { get { return this._calculator; } }
 
         public StorageManager StorageManager { get { return this._storageManager; } }
 
@@ -830,7 +832,7 @@ namespace BitSharp.Daemon
                     // revalidate current blockchain
                     try
                     {
-                        this.calculator.RevalidateBlockchain(this.currentBlockchain, this._rules.GenesisBlock);
+                        Calculator.RevalidateBlockchain(this.currentBlockchain, this._rules.GenesisBlock);
                     }
                     catch (ValidationException e)
                     {
@@ -901,60 +903,61 @@ namespace BitSharp.Daemon
                         try
                         {
                             var lastCurrentBlockchainWriteLocal = this.lastCurrentBlockchainWrite;
-                            var cancelToken = new CancellationTokenSource();
-
-                            // try to advance the blockchain with the new winning block
-                            var newBlockchain = this.calculator.CalculateBlockchainFromExisting(this.currentBlockchain, winningChainedBlock, cancelToken.Token,
-                                progressBlockchain =>
-                                {
-                                    // check that nothing else has changed the current blockchain
-                                    currentBlockchainLock.DoRead(() =>
+                            using (var cancelToken = new CancellationTokenSource())
+                            {
+                                // try to advance the blockchain with the new winning block
+                                var newBlockchain = Calculator.CalculateBlockchainFromExisting(this.currentBlockchain, winningChainedBlock, cancelToken.Token,
+                                    progressBlockchain =>
                                     {
-                                        if (lastCurrentBlockchainWriteLocal != this.lastCurrentBlockchainWrite)
+                                        // check that nothing else has changed the current blockchain
+                                        currentBlockchainLock.DoRead(() =>
                                         {
-                                            cancelToken.Cancel();
-                                            return;
-                                        }
+                                            if (lastCurrentBlockchainWriteLocal != this.lastCurrentBlockchainWrite)
+                                            {
+                                                cancelToken.Cancel();
+                                                return;
+                                            }
+                                        });
+
+                                        // update the current blockchain
+                                        lastCurrentBlockchainWriteLocal = UpdateCurrentBlockchain(progressBlockchain);
+
+                                        // let the blockchain writer know there is new work
+                                        this.writeBlockchainWorkerNotifyEvent.Set();
                                     });
 
-                                    // update the current blockchain
-                                    lastCurrentBlockchainWriteLocal = UpdateCurrentBlockchain(progressBlockchain);
+                                // collect after processing
+                                GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true);
 
-                                    // let the blockchain writer know there is new work
-                                    this.writeBlockchainWorkerNotifyEvent.Set();
-                                });
+                                //TODO
+                                // only partially constructed, try to grab the missing data
+                                if (newBlockchain.Height < winningChainedBlock.Height)
+                                {
+                                    this.metadataWorkerNotifyEvent.Set();
+                                    this.chainingWorkerNotifyEvent.Set();
 
-                            // collect after processing
-                            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true);
+                                    //for (var height = 0; height < currentBlockchain.BlockList.Count; height++)
+                                    //{
+                                    //    // cooperative loop
+                                    //    if (this.shutdownThreads)
+                                    //        return;
 
-                            //TODO
-                            // only partially constructed, try to grab the missing data
-                            if (newBlockchain.Height < winningChainedBlock.Height)
-                            {
-                                this.metadataWorkerNotifyEvent.Set();
-                                this.chainingWorkerNotifyEvent.Set();
+                                    //    BlockHeader blockHeader;
+                                    //    if (!TryGetBlockHeader(currentBlockchain.BlockList[height].BlockHash, out blockHeader))
+                                    //    {
+                                    //        // rollback until the point before the missing data
+                                    //        while (currentBlockchain.Height >= height)
+                                    //        {
+                                    //            // cooperative loop
+                                    //            if (this.shutdownThreads)
+                                    //                return;
 
-                                //for (var height = 0; height < currentBlockchain.BlockList.Count; height++)
-                                //{
-                                //    // cooperative loop
-                                //    if (this.shutdownThreads)
-                                //        return;
-
-                                //    BlockHeader blockHeader;
-                                //    if (!TryGetBlockHeader(currentBlockchain.BlockList[height].BlockHash, out blockHeader))
-                                //    {
-                                //        // rollback until the point before the missing data
-                                //        while (currentBlockchain.Height >= height)
-                                //        {
-                                //            // cooperative loop
-                                //            if (this.shutdownThreads)
-                                //                return;
-
-                                //            // rollback the current blockchain
-                                //            currentBlockchain = this.calculator.RollbackBlockchain(currentBlockchain);
-                                //        }
-                                //    }
-                                //}
+                                    //            // rollback the current blockchain
+                                    //            currentBlockchain = this.calculator.RollbackBlockchain(currentBlockchain);
+                                    //        }
+                                    //    }
+                                    //}
+                                }
                             }
 
                             // whenever the chain is successfully advanced, keep looking for more

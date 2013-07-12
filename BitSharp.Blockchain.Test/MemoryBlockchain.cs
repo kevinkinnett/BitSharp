@@ -238,8 +238,10 @@ namespace BitSharp.Blockchain.Test
                 try
                 {
                     // try to use the blockchain
-                    var cancelToken = new CancellationTokenSource();
-                    this._currentBlockchain = this.calculator.CalculateBlockchainFromExisting(this._currentBlockchain, newWinner, cancelToken.Token);
+                    using (var cancelToken = new CancellationTokenSource())
+                    {
+                        this._currentBlockchain = this.calculator.CalculateBlockchainFromExisting(this._currentBlockchain, newWinner, cancelToken.Token);
+                    }
 
                     // success, exit
                     return;
