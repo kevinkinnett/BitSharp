@@ -243,6 +243,11 @@ namespace BitSharp.Common
             return this.hashCode;
         }
 
+        public override string ToString()
+        {
+            return this.ToHexNumberString();
+        }
+
         public static UInt256 Parse(string value)
         {
             return new UInt256(BigInteger.Parse("0" + value).ToByteArray());
