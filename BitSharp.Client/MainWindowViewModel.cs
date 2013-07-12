@@ -72,7 +72,9 @@ namespace BitSharp.Client
             }
         }
 
-        public IList<TxOutputKey> ViewBlockchainUtxoDelta { get; protected set; }
+        public IList<TxOutputKey> ViewBlockchainSpendOutputs { get; protected set; }
+
+        public IList<TxOutputKey> ViewBlockchainReceiveOutputs { get; protected set; }
 
         public void ViewBlockchainFirst()
         {
@@ -135,19 +137,21 @@ namespace BitSharp.Client
                 List<TxOutputKey> spendOutputs, receiveOutputs;
                 this.blockchainDaemon.Calculator.RollbackBlockchain(this.viewBlockchain, out spendOutputs, out receiveOutputs);
 
-                spendOutputs.AddRange(receiveOutputs);
-                ViewBlockchainUtxoDelta = spendOutputs;
+                ViewBlockchainSpendOutputs = spendOutputs;
+                ViewBlockchainReceiveOutputs = receiveOutputs;
             }
             else
             {
-                ViewBlockchainUtxoDelta = new List<TxOutputKey>();
+                ViewBlockchainSpendOutputs = new List<TxOutputKey>();
+                ViewBlockchainReceiveOutputs = new List<TxOutputKey>();
             }
 
             var handler = this.PropertyChanged;
             if (handler != null)
             {
                 handler(this, new PropertyChangedEventArgs("ViewBlockchainHeight"));
-                handler(this, new PropertyChangedEventArgs("ViewBlockchainUtxoDelta"));
+                handler(this, new PropertyChangedEventArgs("ViewBlockchainSpendOutputs"));
+                handler(this, new PropertyChangedEventArgs("ViewBlockchainReceiveOutputs"));
             }
         }
 

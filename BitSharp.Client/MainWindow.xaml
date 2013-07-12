@@ -3,20 +3,15 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:BitSharp.Client"
         DataContext="{Binding ViewModel}"
-        Title="BitSharp 0.0.0" Height="458.905" Width="758">
+        Title="BitSharp 0.0.0" Height="612.83" Width="758">
     <Grid>
         <Label Content="Current Height:" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,10,0,0"/>
         <Label Content="{Binding CurrentBlockchainHeight}" HorizontalAlignment="Left" Margin="106,10,0,0" VerticalAlignment="Top"/>
         <Label Content="Winning Height:" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,41,0,0"/>
         <Label Content="{Binding WinningBlockchainHeight}" HorizontalAlignment="Left" Margin="106,41,0,0" VerticalAlignment="Top"/>
         <ProgressBar HorizontalAlignment="Left" Height="26" VerticalAlignment="Top" Width="730" Margin="10,72,0,0" Minimum="0" Maximum="{Binding WinningBlockchainHeight}" Value="{Binding CurrentBlockchainHeight}"/>
-        <Label Content="Block Cache (MB):" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,333,0,0"/>
-        <Slider HorizontalAlignment="Left" VerticalAlignment="Top" Margin="142,333,0,0" Width="365" Height="26" Maximum="100" Value="{Binding BlockCacheSizeMB}" TickFrequency="50" TickPlacement="BottomRight" ToolTip="{Binding BlockCacheSizeMB}" SmallChange="50"/>
-        <Label Content="Header Cache (MB):" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,364,0,0" RenderTransformOrigin="-0.219,1.808"/>
-        <Slider HorizontalAlignment="Left" VerticalAlignment="Top" Margin="142,364,0,0" Width="365" Height="26" Maximum="100" Value="{Binding HeaderCacheSizeMB}" TickFrequency="25" TickPlacement="BottomRight" ToolTip="{Binding HeaderCacheSizeMB}" SmallChange="25"/>
-        <Label Content="Metadata Cache (MB):" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,395,0,0" RenderTransformOrigin="-0.219,1.808"/>
-        <Slider HorizontalAlignment="Left" VerticalAlignment="Top" Margin="142,395,0,0" Width="365" Height="26" Maximum="100" Value="{Binding MetadataCacheSizeMB}" TickFrequency="25" TickPlacement="BottomRight" ToolTip="{Binding MetadataCacheSizeMB}" SmallChange="25"/>
-        <ListView HorizontalAlignment="Left" Height="200" VerticalAlignment="Top" Width="730" Margin="10,103,0,0" ItemsSource="{Binding ViewBlockchainUtxoDelta}">
+        <Label Content="Spent Transaction Outputs:" HorizontalAlignment="Left" Margin="10,103,0,0" VerticalAlignment="Top"/>
+        <ListView HorizontalAlignment="Left" Height="122" VerticalAlignment="Top" Width="730" Margin="10,134,0,0" ItemsSource="{Binding ViewBlockchainSpendOutputs}">
             <ListView.View>
                 <GridView>
                     <GridViewColumn Header="Prev Tx Hash" Width="450" DisplayMemberBinding="{Binding PreviousTransactionHash}"/>
@@ -24,11 +19,25 @@
                 </GridView>
             </ListView.View>
         </ListView>
-        <Button Content="&lt;&lt;" HorizontalAlignment="Left" VerticalAlignment="Top" Width="30" Margin="10,308,0,0" Click="ViewFirst_Click" IsEnabled="False"/>
-        <Button Content="&lt;" HorizontalAlignment="Left" VerticalAlignment="Top" Width="30" Margin="40,308,0,0" Click="ViewPrevious_Click"/>
-        <TextBox HorizontalAlignment="Left" Height="20" Margin="70,308,0,0" TextWrapping="Wrap" Text="{Binding ViewBlockchainHeight}" VerticalAlignment="Top" Width="55" IsEnabled="False"/>
-        <Button Content="&gt;" HorizontalAlignment="Left" VerticalAlignment="Top" Width="30" Margin="125,308,0,0" Click="ViewNext_Click"/>
-        <Button Content="&gt;&gt;" HorizontalAlignment="Left" VerticalAlignment="Top" Width="30" Margin="155,308,0,0" Click="ViewLast_Click"/>
-
+        <Button Content="&lt;&lt;" HorizontalAlignment="Left" VerticalAlignment="Top" Width="30" Margin="10,419,0,0" Click="ViewFirst_Click" IsEnabled="False"/>
+        <Button Content="&lt;" HorizontalAlignment="Left" VerticalAlignment="Top" Width="30" Margin="40,419,0,0" Click="ViewPrevious_Click"/>
+        <TextBox HorizontalAlignment="Left" Height="20" Margin="70,419,0,0" TextWrapping="Wrap" Text="{Binding ViewBlockchainHeight}" VerticalAlignment="Top" Width="55" IsEnabled="False"/>
+        <Button Content="&gt;" HorizontalAlignment="Left" VerticalAlignment="Top" Width="30" Margin="125,419,0,0" Click="ViewNext_Click"/>
+        <Button Content="&gt;&gt;" HorizontalAlignment="Left" VerticalAlignment="Top" Width="30" Margin="155,419,0,0" Click="ViewLast_Click"/>
+        <Label Content="Receiving Transaction Outputs:" HorizontalAlignment="Left" Margin="10,261,0,0" VerticalAlignment="Top"/>
+        <ListView HorizontalAlignment="Left" Height="122" VerticalAlignment="Top" Width="730" Margin="10,292,0,0" ItemsSource="{Binding ViewBlockchainReceiveOutputs}">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Tx Hash" Width="450" DisplayMemberBinding="{Binding PreviousTransactionHash}"/>
+                    <GridViewColumn Header="Tx Output Index" DisplayMemberBinding="{Binding PreviousOutputIndex}"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+        <Label Content="Block Cache (MB):" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,469,0,0"/>
+        <Slider HorizontalAlignment="Left" VerticalAlignment="Top" Margin="142,469,0,0" Width="365" Height="26" Maximum="100" Value="{Binding BlockCacheSizeMB}" TickFrequency="50" TickPlacement="BottomRight" ToolTip="{Binding BlockCacheSizeMB}" SmallChange="50"/>
+        <Label Content="Header Cache (MB):" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,500,0,0" RenderTransformOrigin="-0.219,1.808"/>
+        <Slider HorizontalAlignment="Left" VerticalAlignment="Top" Margin="142,500,0,0" Width="365" Height="26" Maximum="100" Value="{Binding HeaderCacheSizeMB}" TickFrequency="25" TickPlacement="BottomRight" ToolTip="{Binding HeaderCacheSizeMB}" SmallChange="25"/>
+        <Label Content="Metadata Cache (MB):" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,531,0,0" RenderTransformOrigin="-0.219,1.808"/>
+        <Slider HorizontalAlignment="Left" VerticalAlignment="Top" Margin="142,531,0,0" Width="365" Height="26" Maximum="100" Value="{Binding MetadataCacheSizeMB}" TickFrequency="25" TickPlacement="BottomRight" ToolTip="{Binding MetadataCacheSizeMB}" SmallChange="25"/>
     </Grid>
 </Window>
