@@ -40,8 +40,6 @@ namespace BitSharp.Client
 
         public MainWindow()
         {
-            InitializeComponent();
-
             try
             {
                 //TODO
@@ -66,8 +64,12 @@ namespace BitSharp.Client
                 // setup view model
                 this.viewModel = new MainWindowViewModel(this.blockchainDaemon);
 
+                InitializeComponent();
+
                 // start the blockchain daemon
                 this.blockchainDaemon.Start();
+
+                this.viewModel.ViewBlockchainLast();
 
                 // start p2p client
                 this.localClient.Start();
@@ -95,6 +97,26 @@ namespace BitSharp.Client
             this.blockHeaderStorage.Dispose();
             this.blockMetadataStorage.Dispose();
             this.txStorage.Dispose();
+        }
+
+        private void ViewFirst_Click(object sender, RoutedEventArgs e)
+        {
+            this.viewModel.ViewBlockchainFirst();
+        }
+
+        private void ViewPrevious_Click(object sender, RoutedEventArgs e)
+        {
+            this.viewModel.ViewBlockchainPrevious();
+        }
+
+        private void ViewNext_Click(object sender, RoutedEventArgs e)
+        {
+            this.viewModel.ViewBlockchainNext();
+        }
+
+        private void ViewLast_Click(object sender, RoutedEventArgs e)
+        {
+            this.viewModel.ViewBlockchainLast();
         }
     }
 }
