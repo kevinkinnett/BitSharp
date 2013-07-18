@@ -132,7 +132,7 @@ namespace BitSharp.Blockchain
             // with both chains at the same height, roll back to last common ancestor
             if (newChainBlockMetadata.BlockHash != currentBlockchain.RootBlockHash)
             {
-                var rollbackList = new List<UInt256>(-heightDelta);
+                var rollbackList = new List<UInt256>();
                 var currentBlockchainIndex = currentBlockchain.BlockList.Count - 1;
                 foreach (var prevBlock in PreviousBlockMetadata(newChainBlockMetadata))
                 {
