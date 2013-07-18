@@ -392,18 +392,15 @@ namespace BitSharp.Script
             //    //TODO
             //    Debug.Assert(false);
             //}
-
-            // return wire-encoded simplified transaction with the 4-byte hashType tacked onto the end
-            //var newTx = tx.With(Inputs: newInputsImmutable);
-            //var result = new byte[newTx.RawBytes.Count + 4];
-            //Buffer.BlockCopy(newTx.RawBytes, 0, result, 0, newTx.RawBytes.Count);
-            //Buffer.BlockCopy(Bits.GetBytes((UInt32)hashType), 0, result, newTx.RawBytes.Count, 4);
+            
+            // create simplified transaction
+            var newTx = tx.With(Inputs: newInputs.ToImmutableArray());
 
             // return wire-encoded simplified transaction with the 4-byte hashType tacked onto the end
             var stream = new MemoryStream();
             using (var writer = new BinaryWriter(stream))
             {
-                WireEncoder.EncodeTransaction(stream, tx);
+                WireEncoder.EncodeTransaction(stream, newTx);
                 writer.Write4Bytes(hashType);
 
                 return stream.ToArray();
