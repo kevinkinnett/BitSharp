@@ -28,6 +28,8 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>
+    </DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -37,6 +39,8 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x64</PlatformTarget>
+    <DocumentationFile>
+    </DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
@@ -46,6 +50,8 @@
     <PlatformTarget>x64</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>ManagedMinimumRules.ruleset</CodeAnalysisRuleSet>
+    <DocumentationFile>
+    </DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>bin\x64\Release\</OutputPath>
@@ -55,6 +61,8 @@
     <PlatformTarget>x64</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>ManagedMinimumRules.ruleset</CodeAnalysisRuleSet>
+    <DocumentationFile>
+    </DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="BouncyCastle.Crypto, Version=1.7.4137.9688, Culture=neutral, PublicKeyToken=a4292a325f69b123, processorArchitecture=MSIL">
@@ -68,13 +76,6 @@
     <Reference Include="System.Collections.Immutable, Version=1.0.12.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\packages\Microsoft.Bcl.Immutable.1.0.12-beta\lib\portable-net45+win8+wp8\System.Collections.Immutable.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Data.SQLite, Version=1.0.86.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\System.Data.SQLite.1.0.86.0\lib\net45\System.Data.SQLite.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Data.SQLite.Linq">
-      <HintPath>..\packages\System.Data.SQLite.1.0.86.0\lib\net45\System.Data.SQLite.Linq.dll</HintPath>
     </Reference>
     <Reference Include="System.Numerics" />
     <Reference Include="System.Runtime.Caching" />
@@ -92,20 +93,12 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
-    <Compile Include="Blockchain.cs" />
     <Compile Include="BlockchainCalculator.cs" />
-    <Compile Include="BlockchainKey.cs" />
-    <Compile Include="BlockchainMetadata.cs" />
-    <Compile Include="IBlockchainStorage.cs" />
-    <Compile Include="BlockMetadata.cs" />
     <Compile Include="ExtensionMethods.cs" />
-    <Compile Include="IBlockchainRetriever.cs" />
     <Compile Include="IBlockchainRules.cs" />
     <Compile Include="MainnetRules.cs" />
     <Compile Include="Miner.cs" />
-    <Compile Include="MissingDataException.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TxOutputKey.cs" />
     <Compile Include="ValidationException.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -113,9 +106,17 @@
       <Project>{b8d21dec-5370-4194-9e6d-2f620804a892}</Project>
       <Name>BitSharp.Common</Name>
     </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Data\BitSharp.Data.csproj">
+      <Project>{3099c2ee-055d-4856-9d86-f9f495f9c761}</Project>
+      <Name>BitSharp.Data</Name>
+    </ProjectReference>
     <ProjectReference Include="..\BitSharp.Script\BitSharp.Script.csproj">
       <Project>{b5419c45-7f0f-4dae-84bc-b6c206d8d753}</Project>
       <Name>BitSharp.Script</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Storage\BitSharp.Storage.csproj">
+      <Project>{1955dd75-ab8a-46df-9060-5b0af06338f2}</Project>
+      <Name>BitSharp.Storage</Name>
     </ProjectReference>
     <ProjectReference Include="..\BitSharp.WireProtocol\BitSharp.WireProtocol.csproj">
       <Project>{8d4572de-dd74-4a1c-81f4-7d87ae587861}</Project>

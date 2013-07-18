@@ -76,23 +76,18 @@
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="Messaging.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ReaderExtensionMethods.cs" />
     <Compile Include="Structs\AddressPayload.cs" />
     <Compile Include="Structs\AlertPayload.cs" />
-    <Compile Include="Structs\Block.cs" />
-    <Compile Include="Structs\BlockHeader.cs" />
     <Compile Include="Structs\GetBlocksPayload.cs" />
     <Compile Include="Structs\InventoryPayload.cs" />
     <Compile Include="Structs\InventoryVector.cs" />
     <Compile Include="Structs\Message.cs" />
     <Compile Include="Structs\NetworkAddress.cs" />
     <Compile Include="Structs\NetworkAddressWithTime.cs" />
-    <Compile Include="Structs\Transaction.cs" />
-    <Compile Include="Structs\TransactionIn.cs" />
-    <Compile Include="Structs\TransactionOut.cs" />
     <Compile Include="Structs\VersionPayload.cs" />
     <Compile Include="WireEncoder.cs" />
-    <Compile Include="WireReader.cs" />
-    <Compile Include="WireWriter.cs" />
+    <Compile Include="WriterExtensionMethods.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -101,6 +96,10 @@
     <ProjectReference Include="..\BitSharp.Common\BitSharp.Common.csproj">
       <Project>{b8d21dec-5370-4194-9e6d-2f620804a892}</Project>
       <Name>BitSharp.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Data\BitSharp.Data.csproj">
+      <Project>{3099c2ee-055d-4856-9d86-f9f495f9c761}</Project>
+      <Name>BitSharp.Data</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -83,9 +83,13 @@
       <Project>{fddffcb8-4445-4699-9ddc-e2d40b5c1697}</Project>
       <Name>BitSharp.Blockchain</Name>
     </ProjectReference>
-    <ProjectReference Include="..\BitSharp.Database\BitSharp.Database.csproj">
+    <ProjectReference Include="..\BitSharp.Data\BitSharp.Data.csproj">
+      <Project>{3099c2ee-055d-4856-9d86-f9f495f9c761}</Project>
+      <Name>BitSharp.Data</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Storage.Firebird\BitSharp.Storage.Firebird.csproj">
       <Project>{75d07a65-0889-405d-8a21-3cc55f136d21}</Project>
-      <Name>BitSharp.Database</Name>
+      <Name>BitSharp.Storage.Firebird</Name>
     </ProjectReference>
     <ProjectReference Include="..\BitSharp.Script\BitSharp.Script.csproj">
       <Project>{b5419c45-7f0f-4dae-84bc-b6c206d8d753}</Project>

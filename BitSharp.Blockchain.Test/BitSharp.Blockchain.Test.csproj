@@ -70,13 +70,6 @@
       <HintPath>..\packages\Microsoft.Bcl.Immutable.1.0.12-beta\lib\portable-net45+win8+wp8\System.Collections.Immutable.dll</HintPath>
     </Reference>
     <Reference Include="System.Data" />
-    <Reference Include="System.Data.SQLite, Version=1.0.86.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\System.Data.SQLite.1.0.86.0\lib\net45\System.Data.SQLite.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Data.SQLite.Linq">
-      <HintPath>..\packages\System.Data.SQLite.1.0.86.0\lib\net45\System.Data.SQLite.Linq.dll</HintPath>
-    </Reference>
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <Choose>
@@ -95,11 +88,6 @@
     <Compile Include="BlockchainTest.cs" />
     <Compile Include="MainnetRulesTest.cs" />
     <Compile Include="MemoryBlockchain.cs" />
-    <Compile Include="MemoryBlockDataStorage.cs" />
-    <Compile Include="MemoryBlockHeaderStorage.cs" />
-    <Compile Include="MemoryBlockMetadataStorage.cs" />
-    <Compile Include="MemoryStorage.cs" />
-    <Compile Include="MemoryTransactionStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UnitTestRules.cs" />
   </ItemGroup>
@@ -111,6 +99,14 @@
     <ProjectReference Include="..\BitSharp.Blockchain\BitSharp.Blockchain.csproj">
       <Project>{fddffcb8-4445-4699-9ddc-e2d40b5c1697}</Project>
       <Name>BitSharp.Blockchain</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Data\BitSharp.Data.csproj">
+      <Project>{3099c2ee-055d-4856-9d86-f9f495f9c761}</Project>
+      <Name>BitSharp.Data</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Storage.Test\BitSharp.Storage.Test.csproj">
+      <Project>{b63ceb56-b2f4-4c0a-9324-b24ed2c3ea9b}</Project>
+      <Name>BitSharp.Storage.Test</Name>
     </ProjectReference>
     <ProjectReference Include="..\BitSharp.Storage\BitSharp.Storage.csproj">
       <Project>{1955dd75-ab8a-46df-9060-5b0af06338f2}</Project>

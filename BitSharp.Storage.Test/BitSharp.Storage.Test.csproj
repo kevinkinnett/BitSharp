@@ -6,8 +6,8 @@
     <ProjectGuid>{B63CEB56-B2F4-4C0A-9324-B24ED2C3EA9B}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>BitSharp.Database.Test</RootNamespace>
-    <AssemblyName>BitSharp.Database.Test</AssemblyName>
+    <RootNamespace>BitSharp.Storage.Test</RootNamespace>
+    <AssemblyName>BitSharp.Storage.Test</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
@@ -68,6 +68,7 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\packages\Microsoft.Bcl.Immutable.1.0.12-beta\lib\portable-net45+win8+wp8\System.Collections.Immutable.dll</HintPath>
     </Reference>
+    <Reference Include="System.Numerics" />
   </ItemGroup>
   <Choose>
     <When Condition="('$(VisualStudioVersion)' == '10.0' or '$(VisualStudioVersion)' == '') and '$(TargetFrameworkVersion)' == 'v3.5'">
@@ -82,10 +83,30 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="MemoryBlockchainStorage.cs" />
+    <Compile Include="MemoryTxKeyStorage.cs" />
+    <Compile Include="MemoryBlockStorage.cs" />
+    <Compile Include="MemoryBlockMetadataStorage.cs" />
+    <Compile Include="MemoryStorage.cs" />
+    <Compile Include="MemoryStorageContext.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BitSharp.Common\BitSharp.Common.csproj">
+      <Project>{b8d21dec-5370-4194-9e6d-2f620804a892}</Project>
+      <Name>BitSharp.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Data\BitSharp.Data.csproj">
+      <Project>{3099c2ee-055d-4856-9d86-f9f495f9c761}</Project>
+      <Name>BitSharp.Data</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Storage\BitSharp.Storage.csproj">
+      <Project>{1955dd75-ab8a-46df-9060-5b0af06338f2}</Project>
+      <Name>BitSharp.Storage</Name>
+    </ProjectReference>
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">

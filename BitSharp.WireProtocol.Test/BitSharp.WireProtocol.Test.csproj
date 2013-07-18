@@ -84,27 +84,15 @@
   </Choose>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Structs\AddressPayloadTest.cs" />
-    <Compile Include="Structs\AlertPayloadTest.cs" />
-    <Compile Include="Structs\BlockTest.cs" />
-    <Compile Include="Structs\BlockHeaderTest.cs" />
-    <Compile Include="Structs\TransactionInTest.cs" />
-    <Compile Include="Structs\TransactionOutTest.cs" />
-    <Compile Include="Structs\GetBlocksPayloadTest.cs" />
-    <Compile Include="Structs\InventoryPayloadTest.cs" />
-    <Compile Include="Structs\InventoryVectorTest.cs" />
-    <Compile Include="Structs\MessageTest.cs" />
-    <Compile Include="Structs\NetworkAddressTest.cs" />
-    <Compile Include="Structs\NetworkAddressWithTimeTest.cs" />
-    <Compile Include="Structs\TransactionTest.cs" />
-    <Compile Include="Structs\VersionPayloadTest.cs" />
+    <Compile Include="WireEncoderTest.cs" />
+    <Compile Include="WireEncoderTest.Data.cs" />
     <Compile Include="WireProtocolTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\BitSharp.Common.Test.BlockHelper\BitSharp.BlockHelper.csproj">
+    <ProjectReference Include="..\BitSharp.BlockHelper\BitSharp.BlockHelper.csproj">
       <Project>{017c5f91-cce6-4bfc-88f4-9369f68f3e24}</Project>
       <Name>BitSharp.BlockHelper</Name>
     </ProjectReference>
@@ -115,6 +103,10 @@
     <ProjectReference Include="..\BitSharp.Common\BitSharp.Common.csproj">
       <Project>{b8d21dec-5370-4194-9e6d-2f620804a892}</Project>
       <Name>BitSharp.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Data\BitSharp.Data.csproj">
+      <Project>{3099c2ee-055d-4856-9d86-f9f495f9c761}</Project>
+      <Name>BitSharp.Data</Name>
     </ProjectReference>
     <ProjectReference Include="..\BitSharp.WireProtocol\BitSharp.WireProtocol.csproj">
       <Project>{8d4572de-dd74-4a1c-81f4-7d87ae587861}</Project>

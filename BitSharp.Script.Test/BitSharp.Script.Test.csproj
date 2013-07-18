@@ -95,7 +95,7 @@
       <Project>{7b9bb0f5-0fdc-45c7-a821-fdded1f27524}</Project>
       <Name>BitSharp.BlockHelper.Test</Name>
     </ProjectReference>
-    <ProjectReference Include="..\BitSharp.Common.Test.BlockHelper\BitSharp.BlockHelper.csproj">
+    <ProjectReference Include="..\BitSharp.BlockHelper\BitSharp.BlockHelper.csproj">
       <Project>{017c5f91-cce6-4bfc-88f4-9369f68f3e24}</Project>
       <Name>BitSharp.BlockHelper</Name>
     </ProjectReference>
@@ -106,6 +106,10 @@
     <ProjectReference Include="..\BitSharp.Common\BitSharp.Common.csproj">
       <Project>{b8d21dec-5370-4194-9e6d-2f620804a892}</Project>
       <Name>BitSharp.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Data\BitSharp.Data.csproj">
+      <Project>{3099c2ee-055d-4856-9d86-f9f495f9c761}</Project>
+      <Name>BitSharp.Data</Name>
     </ProjectReference>
     <ProjectReference Include="..\BitSharp.Script\BitSharp.Script.csproj">
       <Project>{b5419c45-7f0f-4dae-84bc-b6c206d8d753}</Project>
