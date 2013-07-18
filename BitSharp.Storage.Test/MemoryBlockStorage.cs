@@ -18,12 +18,22 @@ namespace BitSharp.Storage.Test
 
         public IEnumerable<KeyValuePair<UInt256, BlockHeader>> ReadAllBlockHeaders()
         {
-            throw new NotImplementedException();
+            return this.Storage.ToDictionary(x => x.Key, x => x.Value.Header);
         }
 
         public bool TryReadBlockHeader(UInt256 blockHash, out BlockHeader blockHeader)
         {
-            throw new NotImplementedException();
+            Block block;
+            if (this.Storage.TryGetValue(blockHash, out block))
+            {
+                blockHeader = block.Header;
+                return true;
+            }
+            else
+            {
+                blockHeader = default(BlockHeader);
+                return false;
+            }
         }
     }
 }

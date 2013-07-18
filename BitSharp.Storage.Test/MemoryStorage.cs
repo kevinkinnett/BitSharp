@@ -20,7 +20,7 @@ namespace BitSharp.Storage.Test
 
         public MemoryStorageContext StorageContext { get { return this._storageContext; } }
 
-        protected ConcurrentDictionary<TKey, TValue> Storage { get { return this._storage; } }
+        internal ConcurrentDictionary<TKey, TValue> Storage { get { return this._storage; } }
 
         public void Dispose()
         {
@@ -41,7 +41,7 @@ namespace BitSharp.Storage.Test
             return this._storage.TryGetValue(key, out value);
         }
 
-        public bool TryWriteValues(IEnumerable<KeyValuePair<TKey, WriteValue<TValue>>> values)
+        public virtual bool TryWriteValues(IEnumerable<KeyValuePair<TKey, WriteValue<TValue>>> values)
         {
             foreach (var keyPair in values)
             {
@@ -56,12 +56,7 @@ namespace BitSharp.Storage.Test
 
         public bool TryWriteValue(KeyValuePair<TKey, WriteValue<TValue>> keyPair)
         {
-            this._storage.AddOrUpdate(
-                keyPair.Key,
-                keyPair.Value.Value,
-                (existingKey, existingValue) => keyPair.Value.IsCreate ? existingValue : keyPair.Value.Value);
-
-            return true;
+            return TryWriteValues(new KeyValuePair<TKey, WriteValue<TValue>>[] { keyPair });
         }
     }
 }

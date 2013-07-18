@@ -10,6 +10,7 @@ using Org.BouncyCastle.Crypto.Parameters;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -64,7 +65,7 @@ namespace BitSharp.Blockchain.Test
             // update genesis blockchain and add to storage
             this.rules.SetGenesisBlock(this._genesisBlock);
             this._currentBlockchain = this.rules.GenesisBlockchain;
-            AddBlock(this._genesisBlock, this._genesisBlockMetadata);
+            this._genesisBlockMetadata = AddBlock(this._genesisBlock, null).Item2;
         }
 
         public CacheContext CacheContext { get { return this._cacheContext; } }
@@ -178,6 +179,9 @@ namespace BitSharp.Blockchain.Test
 
         public Tuple<Block, BlockMetadata> AddBlock(Block block, BlockMetadata? previousBlockMetadata)
         {
+            if (previousBlockMetadata != null)
+                Assert.AreEqual(block.Header.PreviousBlock, previousBlockMetadata.Value.BlockHash);
+
             var blockMetadata = new BlockMetadata
             (
                 block.Hash,
