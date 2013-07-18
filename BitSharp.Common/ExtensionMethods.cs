@@ -348,5 +348,15 @@ namespace BitSharp.Common.ExtensionMethods
             if (exceptions.Count > 0)
                 throw new AggregateException(exceptions);
         }
+
+        public static MemoryStream ToMemoryStream(this byte[] bytes)
+        {
+            return new MemoryStream(bytes);
+        }
+
+        public static Dictionary<TKey, TValue> ToDictionary<TKey, TValue>(this IEnumerable<KeyValuePair<TKey, TValue>> keyPairs)
+        {
+            return keyPairs.ToDictionary(x => x.Key, x => x.Value);
+        }
     }
 }

@@ -1,4 +1,6 @@
 ﻿using BitSharp.Common;
+using BitSharp.Data;
+using BitSharp.Storage;
 using BitSharp.WireProtocol;
 using System;
 using System.Collections.Generic;
@@ -20,11 +22,9 @@ namespace BitSharp.Blockchain
 
         BlockMetadata GenesisBlockMetadata { get; }
 
-        Blockchain GenesisBlockchain { get; }
+        Data.Blockchain GenesisBlockchain { get; }
 
-        BigInteger CalculateWork(BlockHeader blockHeader);
-
-        void ValidateBlock(Block block, Blockchain blockchain, IBlockchainRetriever retriever);
+        void ValidateBlock(Block block, Data.Blockchain blockchain, ImmutableDictionary<UInt256, Transaction> transactions);
 
         BlockMetadata SelectWinningBlockchain(IEnumerable<BlockMetadata> candidateBlockchains);
     }

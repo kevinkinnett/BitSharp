@@ -2,18 +2,22 @@
 using BitSharp.WireProtocol;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using BitSharp.Blockchain;
+using BitSharp.Data;
+using BitSharp.Storage;
 
 namespace BitSharp.Blockchain.ExtensionMethods
 {
     internal static class BlockchainExtensionMethods
     {
-        public static Block GetBlock(this IBlockchainRetriever retriever, UInt256 blockHash, bool saveInCache = true)
+        public static Block GetBlock(this CacheContext cacheContext, UInt256 blockHash, bool saveInCache = true)
         {
             Block block;
-            if (!retriever.TryGetBlock(blockHash, out block, saveInCache))
+            if (!cacheContext.BlockCache.TryGetValue(blockHash, out block, saveInCache))
             {
                 throw new MissingDataException(DataType.Block, blockHash);
             }
@@ -21,10 +25,10 @@ namespace BitSharp.Blockchain.ExtensionMethods
             return block;
         }
 
-        public static BlockHeader GetBlockHeader(this IBlockchainRetriever retriever, UInt256 blockHash, bool saveInCache = true)
+        public static BlockHeader GetBlockHeader(this CacheContext cacheContext, UInt256 blockHash, bool saveInCache = true)
         {
             BlockHeader blockHeader;
-            if (!retriever.TryGetBlockHeader(blockHash, out blockHeader, saveInCache))
+            if (!cacheContext.BlockHeaderCache.TryGetValue(blockHash, out blockHeader, saveInCache))
             {
                 throw new MissingDataException(DataType.BlockHeader, blockHash);
             }
@@ -32,10 +36,10 @@ namespace BitSharp.Blockchain.ExtensionMethods
             return blockHeader;
         }
 
-        public static BlockMetadata GetBlockMetadata(this IBlockchainRetriever retriever, UInt256 blockHash, bool saveInCache = true)
+        public static BlockMetadata GetBlockMetadata(this CacheContext cacheContext, UInt256 blockHash, bool saveInCache = true)
         {
             BlockMetadata blockMetadata;
-            if (!retriever.TryGetBlockMetadata(blockHash, out blockMetadata, saveInCache))
+            if (!cacheContext.BlockMetadataCache.TryGetValue(blockHash, out blockMetadata, saveInCache))
             {
                 throw new MissingDataException(DataType.BlockMetadata, blockHash);
             }
@@ -43,16 +47,15 @@ namespace BitSharp.Blockchain.ExtensionMethods
             return blockMetadata;
         }
 
-        public static Transaction GetTransaction(this IBlockchainRetriever retriever, UInt256 transactionHash, bool saveInCache = true)
+        public static Transaction GetTransaction(this CacheContext cacheContext, TxKeySearch txKeySearch, bool saveInCache = true)
         {
             Transaction transaction;
-            if (!retriever.TryGetTransaction(transactionHash, out transaction, saveInCache))
+            if (!cacheContext.TransactionCache.TryGetValue(txKeySearch, out transaction, saveInCache))
             {
-                throw new MissingDataException(DataType.Transaction, transactionHash);
+                throw new MissingDataException(DataType.Transaction, txKeySearch.TxHash);
             }
 
             return transaction;
         }
-
     }
 }

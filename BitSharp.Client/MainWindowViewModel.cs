@@ -1,6 +1,9 @@
 ﻿using BitSharp.Blockchain;
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Daemon;
+using BitSharp.Data;
+using BitSharp.Storage;
+using BitSharp.WireProtocol;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -20,7 +23,7 @@ namespace BitSharp.Client
 
         private readonly BlockchainDaemon blockchainDaemon;
 
-        private Blockchain.Blockchain viewBlockchain;
+        private Data.Blockchain viewBlockchain;
 
         private long _winningBlockchainHeight;
         private long _currentBlockchainHeight;
@@ -123,29 +126,48 @@ namespace BitSharp.Client
         {
             using (var cancelToken = new CancellationTokenSource())
             {
-                var blockchain = this.blockchainDaemon.Calculator.CalculateBlockchainFromExisting(this.viewBlockchain, targetBlock, cancelToken.Token);
-                SetViewBlockchain(blockchain);
+                try
+                {
+                    List<MissingDataException> missingData;
+                    var blockchain = this.blockchainDaemon.Calculator.CalculateBlockchainFromExisting(this.viewBlockchain, targetBlock, out missingData, cancelToken.Token);
+                    SetViewBlockchain(blockchain);
+                }
+                catch (MissingDataException)
+                {
+                    // TODO
+                }
             }
         }
 
-        private void SetViewBlockchain(Blockchain.Blockchain blockchain)
+        private void SetViewBlockchain(Data.Blockchain blockchain)
         {
             this.viewBlockchain = blockchain;
 
-            if (blockchain.Height > 0)
+            try
             {
-                // TODO this is abusing rollback a bit just to get the transactions that exist in a target block that's already known
-                // TODO make a better api for get the net output of a block
-                List<TxOutputKey> spendOutputs, receiveOutputs;
-                this.blockchainDaemon.Calculator.RollbackBlockchain(this.viewBlockchain, out spendOutputs, out receiveOutputs);
+                if (blockchain.Height > 0)
+                {
+                    Block block;
+                    if (this.blockchainDaemon.TryGetBlock(this.viewBlockchain.RootBlockHash, out block))
+                    {
+                        // TODO this is abusing rollback a bit just to get the transactions that exist in a target block that's already known
+                        // TODO make a better api for get the net output of a block
+                        List<TxOutputKey> spendOutputs, receiveOutputs;
+                        this.blockchainDaemon.Calculator.RollbackBlockchain(this.viewBlockchain, block, out spendOutputs, out receiveOutputs);
 
-                ViewBlockchainSpendOutputs = spendOutputs;
-                ViewBlockchainReceiveOutputs = receiveOutputs;
+                        ViewBlockchainSpendOutputs = spendOutputs;
+                        ViewBlockchainReceiveOutputs = receiveOutputs;
+                    }
+                }
+                else
+                {
+                    ViewBlockchainSpendOutputs = new List<TxOutputKey>();
+                    ViewBlockchainReceiveOutputs = new List<TxOutputKey>();
+                }
             }
-            else
+            catch (MissingDataException)
             {
-                ViewBlockchainSpendOutputs = new List<TxOutputKey>();
-                ViewBlockchainReceiveOutputs = new List<TxOutputKey>();
+                // TODO
             }
 
             var handler = this.PropertyChanged;
@@ -161,14 +183,14 @@ namespace BitSharp.Client
         {
             get
             {
-                return this.blockchainDaemon.StorageManager.BlockDataCache.MaxCacheMemorySize / 1.MILLION();
+                return this.blockchainDaemon.CacheContext.BlockCache.MaxCacheMemorySize / 1.MILLION();
             }
             set
             {
                 var newValue = value * 1.MILLION();
-                if (newValue != this.blockchainDaemon.StorageManager.BlockDataCache.MaxCacheMemorySize)
+                if (newValue != this.blockchainDaemon.CacheContext.BlockCache.MaxCacheMemorySize)
                 {
-                    this.blockchainDaemon.StorageManager.BlockDataCache.MaxCacheMemorySize = newValue;
+                    this.blockchainDaemon.CacheContext.BlockCache.MaxCacheMemorySize = newValue;
                     var handler = this.PropertyChanged;
                     if (handler != null)
                         handler(this, new PropertyChangedEventArgs("BlockCacheSizeMB"));
@@ -180,14 +202,14 @@ namespace BitSharp.Client
         {
             get
             {
-                return this.blockchainDaemon.StorageManager.BlockHeaderCache.MaxCacheMemorySize / 1.MILLION();
+                return this.blockchainDaemon.CacheContext.BlockHeaderCache.MaxCacheMemorySize / 1.MILLION();
             }
             set
             {
                 var newValue = value * 1.MILLION();
-                if (newValue != this.blockchainDaemon.StorageManager.BlockHeaderCache.MaxCacheMemorySize)
+                if (newValue != this.blockchainDaemon.CacheContext.BlockHeaderCache.MaxCacheMemorySize)
                 {
-                    this.blockchainDaemon.StorageManager.BlockHeaderCache.MaxCacheMemorySize = newValue;
+                    this.blockchainDaemon.CacheContext.BlockHeaderCache.MaxCacheMemorySize = newValue;
                     var handler = this.PropertyChanged;
                     if (handler != null)
                         handler(this, new PropertyChangedEventArgs("HeaderCacheSizeMB"));
@@ -199,14 +221,14 @@ namespace BitSharp.Client
         {
             get
             {
-                return this.blockchainDaemon.StorageManager.BlockMetadataCache.MaxCacheMemorySize / 1.MILLION();
+                return this.blockchainDaemon.CacheContext.BlockMetadataCache.MaxCacheMemorySize / 1.MILLION();
             }
             set
             {
                 var newValue = value * 1.MILLION();
-                if (newValue != this.blockchainDaemon.StorageManager.BlockMetadataCache.MaxCacheMemorySize)
+                if (newValue != this.blockchainDaemon.CacheContext.BlockMetadataCache.MaxCacheMemorySize)
                 {
-                    this.blockchainDaemon.StorageManager.BlockMetadataCache.MaxCacheMemorySize = newValue;
+                    this.blockchainDaemon.CacheContext.BlockMetadataCache.MaxCacheMemorySize = newValue;
                     var handler = this.PropertyChanged;
                     if (handler != null)
                         handler(this, new PropertyChangedEventArgs("MetadataCacheSizeMB"));

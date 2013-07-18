@@ -1,7 +1,9 @@
 ﻿using BitSharp.Blockchain.ExtensionMethods;
 using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
+using BitSharp.Data;
 using BitSharp.Script;
+using BitSharp.Storage;
 using BitSharp.WireProtocol;
 using System;
 using System.Collections.Generic;
@@ -24,43 +26,49 @@ namespace BitSharp.Blockchain
 
         private const UInt64 SATOSHI_PER_BTC = 100 * 1000 * 1000;
 
+        private readonly CacheContext _cacheContext;
         private readonly UInt256 _highestTarget;
         private readonly UInt32 _highestTargetBits;
         private readonly Block _genesisBlock;
         private readonly BlockMetadata _genesisBlockMetadata;
-        private readonly Blockchain _genesisBlockchain;
+        private readonly Data.Blockchain _genesisBlockchain;
         private readonly int _difficultyInternal = 2016;
         private readonly long _difficultyTargetTimespan = 14 * 24 * 60 * 60;
 
-        public MainnetRules()
+        public MainnetRules(CacheContext cacheContext)
         {
+            this._cacheContext = cacheContext;
+
             this._highestTarget = UInt256.Parse("00000000FFFF0000000000000000000000000000000000000000000000000000", NumberStyles.HexNumber);
             this._highestTargetBits = 0x1d00ffff;
 
             this._genesisBlock =
                 new Block
                 (
-                    Header: new BlockHeader
+                    header: new BlockHeader
                     (
-                        Version: 1,
-                        PreviousBlock: 0,
-                        MerkleRoot: UInt256.Parse("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b", NumberStyles.HexNumber),
-                        Time: 1231006505,
-                        Bits: 486604799,
-                        Nonce: 2083236893
+                        version: 1,
+                        previousBlock: 0,
+                        merkleRoot: UInt256.Parse("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b", NumberStyles.HexNumber),
+                        time: 1231006505,
+                        bits: 486604799,
+                        nonce: 2083236893
                     ),
-                    Transactions: ImmutableArray.Create
+                    transactions: ImmutableArray.Create
                     (
                         new Transaction
                         (
-                            Version: 1,
-                            Inputs: ImmutableArray.Create
+                            version: 1,
+                            inputs: ImmutableArray.Create
                             (
-                                new TransactionIn
+                                new TxInput
                                 (
-                                    PreviousTransactionHash: 0,
-                                    PreviousTransactionIndex: 0xFFFFFFFF,
-                                    ScriptSignature: ImmutableArray.Create<byte>
+                                    previousTxOutputKey: new TxOutputKey
+                                    (
+                                        txHash: 0,
+                                        txOutputIndex: 0xFFFFFFFF
+                                    ),
+                                    scriptSignature: ImmutableArray.Create<byte>
                                     (
                                         0x04, 0xFF, 0xFF, 0x00, 0x1D, 0x01, 0x04, 0x45, 0x54, 0x68, 0x65, 0x20, 0x54, 0x69, 0x6D, 0x65,
                                         0x73, 0x20, 0x30, 0x33, 0x2F, 0x4A, 0x61, 0x6E, 0x2F, 0x32, 0x30, 0x30, 0x39, 0x20, 0x43, 0x68,
@@ -68,15 +76,15 @@ namespace BitSharp.Blockchain
                                         0x6B, 0x20, 0x6F, 0x66, 0x20, 0x73, 0x65, 0x63, 0x6F, 0x6E, 0x64, 0x20, 0x62, 0x61, 0x69, 0x6C,
                                         0x6F, 0x75, 0x74, 0x20, 0x66, 0x6F, 0x72, 0x20, 0x62, 0x61, 0x6E, 0x6B, 0x73
                                     ),
-                                    Sequence: 0xFFFFFFFF
+                                    sequence: 0xFFFFFFFF
                                 )
                             ),
-                            Outputs: ImmutableArray.Create
+                            outputs: ImmutableArray.Create
                             (
-                                new TransactionOut
+                                new TxOutput
                                 (
-                                    Value: 50 * SATOSHI_PER_BTC,
-                                    ScriptPublicKey: ImmutableArray.Create<byte>
+                                    value: 50 * SATOSHI_PER_BTC,
+                                    scriptPublicKey: ImmutableArray.Create<byte>
                                     (
                                         0x41, 0x04, 0x67, 0x8A, 0xFD, 0xB0, 0xFE, 0x55, 0x48, 0x27, 0x19, 0x67, 0xF1, 0xA6, 0x71, 0x30,
                                         0xB7, 0x10, 0x5C, 0xD6, 0xA8, 0x28, 0xE0, 0x39, 0x09, 0xA6, 0x79, 0x62, 0xE0, 0xEA, 0x1F, 0x61,
@@ -86,7 +94,7 @@ namespace BitSharp.Blockchain
                                     )
                                 )
                             ),
-                            LockTime: 0
+                            lockTime: 0
                         )
                     )
                 );
@@ -96,19 +104,23 @@ namespace BitSharp.Blockchain
                 (
                     blockHash: this._genesisBlock.Hash,
                     previousBlockHash: this._genesisBlock.Header.PreviousBlock,
-                    work: CalculateWork(this._genesisBlock.Header),
+                    work: this._genesisBlock.Header.CalculateWork(),
                     height: 0,
-                    totalWork: CalculateWork(this._genesisBlock.Header),
+                    totalWork: this._genesisBlock.Header.CalculateWork(),
                     isValid: true
                 );
 
             this._genesisBlockchain =
-                new Blockchain
+                new Data.Blockchain
                 (
                     blockList: ImmutableList.Create(this._genesisBlockMetadata),
                     utxo: ImmutableHashSet.Create<TxOutputKey>() // genesis block coinbase is not included in utxo, it is unspendable
                 );
         }
+
+        public CacheContext CacheContext { get { return this._cacheContext; } }
+
+        public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
 
         public virtual UInt256 HighestTarget { get { return this._highestTarget; } }
 
@@ -118,44 +130,11 @@ namespace BitSharp.Blockchain
 
         public virtual BlockMetadata GenesisBlockMetadata { get { return this._genesisBlockMetadata; } }
 
-        public virtual Blockchain GenesisBlockchain { get { return this._genesisBlockchain; } }
+        public virtual Data.Blockchain GenesisBlockchain { get { return this._genesisBlockchain; } }
 
         public virtual int DifficultyInternal { get { return this._difficultyInternal; } }
 
         public virtual long DifficultyTargetTimespan { get { return this._difficultyTargetTimespan; } }
-
-        //TDOO name...
-        private static readonly BigInteger Max256BitTarget = new BigInteger(1) << 256;
-        public virtual BigInteger CalculateWork(BlockHeader blockHeader)
-        {
-            try
-            {
-                return Max256BitTarget / (BigInteger)BitsToTarget(blockHeader.Bits);
-            }
-            catch (Exception)
-            {
-                Debug.WriteLine("Corrupt block header bits: {0}, block {1}".Format2(blockHeader.Bits.ToString("X"), blockHeader.Hash.ToHexNumberString()));
-                return -1;
-            }
-        }
-
-        public virtual UInt256 BitsToTarget(UInt32 bits)
-        {
-            //TODO
-            if (bits > HighestTargetBits)
-                throw new ArgumentOutOfRangeException("bits");
-
-            // last three bytes store the multiplicand
-            var multiplicand = (UInt256)bits % 0x1000000;
-            if (multiplicand > 0x7fffff)
-                throw new ArgumentOutOfRangeException("bits");
-
-            // first byte stores the value to be used in the power
-            var powerPart = (int)(bits >> 24);
-            var multiplier = UInt256.Pow(2, 8 * (powerPart - 3));
-
-            return multiplicand * multiplier;
-        }
 
         public virtual double TargetToDifficulty(UInt256 target)
         {
@@ -174,33 +153,6 @@ namespace BitSharp.Blockchain
 
             // return the difficulty whole value plus the fractional value
             return (double)result + (remainderDouble / divisorDouble);
-        }
-
-        public virtual UInt32 TargetToBits(UInt256 target)
-        {
-            // to get the powerPart: take the log in base 2, round up to 8 to respect byte boundaries, and then remove 24 to represent 3 bytes of precision
-            var log = Math.Ceiling(UInt256.Log(target, 2) / 8) * 8 - 24;
-            var powerPart = (byte)(log / 8 + 3);
-
-            // determine the multiplier based on the powerPart
-            var multiplier = BigInteger.Pow(2, 8 * (powerPart - 3));
-
-            // to get multiplicand: divide the target by the multiplier
-            //TODO
-            var multiplicandBytes = ((BigInteger)target / (BigInteger)multiplier).ToByteArray();
-            Debug.Assert(multiplicandBytes.Length == 3 || multiplicandBytes.Length == 4);
-
-            // this happens when multipicand would be greater than 0x7fffff
-            // TODO need a better explanation comment
-            if (multiplicandBytes.Last() == 0)
-            {
-                multiplicandBytes = multiplicandBytes.Skip(1).ToArray();
-                powerPart++;
-            }
-
-            // construct the bits representing the powerPart and multiplicand
-            var bits = Bits.ToUInt32(multiplicandBytes.Concat(powerPart).ToArray());
-            return bits;
         }
 
         public virtual UInt256 DifficultyToTarget(double difficulty)
@@ -223,34 +175,34 @@ namespace BitSharp.Blockchain
             return new UInt256(targetBytes);
         }
 
-        public virtual UInt256 GetRequiredNextTarget(Blockchain blockchain, IBlockchainRetriever retriever)
+        public virtual UInt256 GetRequiredNextTarget(Data.Blockchain blockchain)
         {
             try
             {
                 // lookup genesis block header
-                var genesisBlockHeader = retriever.GetBlockHeader(blockchain.BlockList[0].BlockHash);
+                var genesisBlockHeader = this.CacheContext.GetBlockHeader(blockchain.BlockList[0].BlockHash);
 
                 // lookup the latest block on the current blockchain
-                var currentBlockHeader = retriever.GetBlockHeader(blockchain.RootBlockHash);
+                var currentBlockHeader = this.CacheContext.GetBlockHeader(blockchain.RootBlockHash);
 
                 var nextHeight = blockchain.Height + 1;
 
                 // use genesis block difficulty if first adjusment interval has not yet been reached
                 if (nextHeight < DifficultyInternal)
                 {
-                    return BitsToTarget(genesisBlockHeader.Bits);
+                    return genesisBlockHeader.CalculateTarget();
                 }
                 // not on an adjustment interval, reuse current block's target
                 else if (nextHeight % DifficultyInternal != 0)
                 {
-                    return BitsToTarget(currentBlockHeader.Bits);
+                    return currentBlockHeader.CalculateTarget();
                 }
                 // on an adjustment interval, calculate the required next target
                 else
                 {
                     // get the block (difficultyInterval - 1) blocks ago
                     var startBlockMetadata = blockchain.BlockList.Reverse().Skip(DifficultyInternal - 1).First();
-                    var startBlockHeader = retriever.GetBlockHeader(startBlockMetadata.BlockHash);
+                    var startBlockHeader = this.CacheContext.GetBlockHeader(startBlockMetadata.BlockHash);
 
                     var actualTimespan = (long)currentBlockHeader.Time - (long)startBlockHeader.Time;
                     var targetTimespan = DifficultyTargetTimespan;
@@ -262,7 +214,7 @@ namespace BitSharp.Blockchain
                         actualTimespan = targetTimespan * 4;
 
                     // calculate the new target
-                    var target = BitsToTarget(startBlockHeader.Bits);
+                    var target = startBlockHeader.CalculateTarget();
                     target *= actualTimespan;
                     target /= targetTimespan;
 
@@ -281,17 +233,17 @@ namespace BitSharp.Blockchain
             }
         }
 
-        public virtual void ValidateBlock(Block block, Blockchain blockchain, IBlockchainRetriever retriever)
+        public virtual void ValidateBlock(Block block, Data.Blockchain blockchain, ImmutableDictionary<UInt256, Transaction> transactions)
         {
             //TODO
             if (BypassValidation)
                 return;
 
             // calculate the next required target
-            var requiredTarget = GetRequiredNextTarget(blockchain, retriever);
+            var requiredTarget = GetRequiredNextTarget(blockchain);
 
             // validate block's target against the required target
-            var blockTarget = BitsToTarget(block.Header.Bits);
+            var blockTarget = block.Header.CalculateTarget();
             if (blockTarget > requiredTarget)
             {
                 throw new ValidationException("Failing block {0} at height {1}: Block target {2} did not match required target of {3}".Format2(block.Hash.ToHexNumberString(), blockchain.Height, blockTarget.ToHexNumberString(), requiredTarget.ToHexNumberString()));
@@ -328,7 +280,7 @@ namespace BitSharp.Blockchain
                     var tx = block.Transactions[txIndex];
 
                     long unspentValueInner;
-                    ValidateTransaction(blockchain.Height, tx, txIndex, out unspentValueInner, retriever);
+                    ValidateTransaction(blockchain.Height, tx, txIndex, out unspentValueInner, transactions);
 
                     Interlocked.Add(ref unspentValue, unspentValueInner);
                 });
@@ -367,26 +319,28 @@ namespace BitSharp.Blockchain
             // all validation has passed
         }
 
-        public virtual void ValidateTransaction(long blockHeight, Transaction tx, int txIndex, out long unspentValue, IBlockchainRetriever retriever)
+        public virtual void ValidateTransaction(long blockHeight, Transaction tx, int txIndex, out long unspentValue, ImmutableDictionary<UInt256, Transaction> transactions)
         {
             unspentValue = -1;
 
             // lookup all previous outputs
             var prevOutputMissing = false;
-            var previousOutputs = new Dictionary<TxOutputKey, Tuple<TransactionIn, int, TransactionOut>>();
+            var previousOutputs = new Dictionary<TxOutputKey, Tuple<TxInput, int, TxOutput>>();
             for (var inputIndex = 0; inputIndex < tx.Inputs.Length; inputIndex++)
             {
                 var input = tx.Inputs[inputIndex];
 
-                // get the previous transaction output key
-                var prevTxOutputKey = new TxOutputKey(input.PreviousTransactionHash, input.PreviousTransactionIndex.ToIntChecked());
+                // find previous transaction
+                if (!transactions.ContainsKey(input.PreviousTxOutputKey.TxHash))
+                    throw new MissingDataException(DataType.Transaction, input.PreviousTxOutputKey.TxHash);
+                var prevTx = transactions[input.PreviousTxOutputKey.TxHash];
 
                 // find previous transaction output
-                var prevTx = retriever.GetTransaction(prevTxOutputKey.PreviousTransactionHash);
+                if (input.PreviousTxOutputKey.TxOutputIndex >= prevTx.Outputs.Length)
+                    throw new ValidationException();
+                var prevOutput = prevTx.Outputs[input.PreviousTxOutputKey.TxOutputIndex.ToIntChecked()];
 
-                var prevOutput = prevTx.Outputs[prevTxOutputKey.PreviousOutputIndex];
-
-                previousOutputs.Add(prevTxOutputKey, Tuple.Create(input, inputIndex, prevOutput));
+                previousOutputs.Add(input.PreviousTxOutputKey, Tuple.Create(input, inputIndex, prevOutput));
             }
 
             if (prevOutputMissing)
@@ -402,11 +356,8 @@ namespace BitSharp.Blockchain
             {
                 var input = tx.Inputs[inputIndex];
 
-                // get the previous transaction output key
-                var prevTxOutputKey = new TxOutputKey(input.PreviousTransactionHash, input.PreviousTransactionIndex.ToIntChecked());
-
                 // add transactions previous value to unspent amount (used to calculate allowed coinbase reward)
-                var prevOutput = previousOutputs[prevTxOutputKey].Item3;
+                var prevOutput = previousOutputs[input.PreviousTxOutputKey].Item3;
                 txInputValue += prevOutput.Value;
             }
 
