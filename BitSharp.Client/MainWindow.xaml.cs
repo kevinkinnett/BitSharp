@@ -1,12 +1,15 @@
-﻿using BitSharp.Blockchain;
+﻿#define SQLITE
+
+using BitSharp.Common.ExtensionMethods;
+using BitSharp.Blockchain;
 using BitSharp.Daemon;
-using BitSharp.Database;
 using BitSharp.Node;
 using BitSharp.Script;
 using BitSharp.Storage;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -20,6 +23,10 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using BitSharp.WireProtocol;
+using BitSharp.Storage.Firebird;
+using BitSharp.Storage.SqlServer;
+using BitSharp.Storage.SQLite;
 
 namespace BitSharp.Client
 {
@@ -28,12 +35,9 @@ namespace BitSharp.Client
     /// </summary>
     public partial class MainWindow : Window
     {
-        private BlockDataStorage blockDataStorage;
-        private BlockHeaderStorage blockHeaderStorage;
-        private BlockMetadataStorage blockMetadataStorage;
-        private TransactionStorage txStorage;
+        private IStorageContext storageContext;
+        private CacheContext cacheContext;
         private IBlockchainRules rules;
-        private StorageManager storageManager;
         private BlockchainDaemon blockchainDaemon;
         private LocalClient localClient;
         private MainWindowViewModel viewModel;
@@ -42,23 +46,24 @@ namespace BitSharp.Client
         {
             try
             {
+                //File.Delete(@"C:\Users\Paul\AppData\Local\BitSharp\BITSHARP.FDB");
+
                 //TODO
-                MainnetRules.BypassValidation = true;
+                //MainnetRules.BypassValidation = true;
                 MainnetRules.BypassExecuteScript = false;
                 ScriptEngine.BypassVerifySignature = true;
 
-                this.blockDataStorage = new BlockDataStorage();
-                this.blockHeaderStorage = new BlockHeaderStorage();
-                this.blockMetadataStorage = new BlockMetadataStorage();
-                this.txStorage = new TransactionStorage();
+#if SQLITE
+                this.storageContext = new SQLiteStorageContext();
+#elif FIREBIRD
+                this.storageContext = new FirebirdStorageContext();
+#elif SQL_SERVER
+                this.storageContext = new SqlServerStorageContext();
+#endif
 
-                //blockDataStorage.Truncate();
-                //blockMetadataStorage.Truncate();
-                //new KnownAddressStorage().Truncate();
-
-                this.rules = new MainnetRules();
-                this.storageManager = new StorageManager(this.blockDataStorage, this.blockHeaderStorage, this.blockMetadataStorage, this.txStorage);
-                this.blockchainDaemon = new BlockchainDaemon(this.rules, this.storageManager);
+                this.cacheContext = new CacheContext(this.storageContext);
+                this.rules = new MainnetRules(this.cacheContext);
+                this.blockchainDaemon = new BlockchainDaemon(this.rules, this.cacheContext);
                 this.localClient = new LocalClient(this.blockchainDaemon);
 
                 // setup view model
@@ -90,13 +95,13 @@ namespace BitSharp.Client
             base.OnClosed(e);
 
             // shutdown
-            this.localClient.Dispose();
-            this.blockchainDaemon.Dispose();
-            this.storageManager.Dispose();
-            this.blockDataStorage.Dispose();
-            this.blockHeaderStorage.Dispose();
-            this.blockMetadataStorage.Dispose();
-            this.txStorage.Dispose();
+            new IDisposable[]
+            {
+                this.localClient,
+                this.blockchainDaemon,
+                this.cacheContext,
+                this.storageContext
+            }.DisposeList();
         }
 
         private void ViewFirst_Click(object sender, RoutedEventArgs e)
