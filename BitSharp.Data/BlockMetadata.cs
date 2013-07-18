@@ -6,7 +6,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BitSharp.Blockchain
+namespace BitSharp.Data
 {
     public struct BlockMetadata
     {
