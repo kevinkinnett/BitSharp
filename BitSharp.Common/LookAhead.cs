@@ -15,42 +15,31 @@ namespace BitSharp.Common
         public static IEnumerable<TValue> ParallelLookupLookAhead<TKey, TValue>(IList<TKey> keys, Func<TKey, TValue> lookup, CancellationToken cancelToken)
         {
             // setup task completion sources to read results of look ahead
-            var resultEvents = keys.Select(x => new ManualResetEvent(false)).ToList();
+            var resultEvents = new ConcurrentDictionary<int, ManualResetEventSlim>(
+                keys.Select((x, i) =>
+                    new KeyValuePair<int, ManualResetEventSlim>(i, new ManualResetEventSlim(false))));
+
             try
             {
                 using (var resultReadEvent = new AutoResetEvent(false))
                 using (var internalCancelToken = new CancellationTokenSource())
                 {
-                    var results = keys.Select(x => default(TValue)).ToList();
+                    var results = new ConcurrentDictionary<int, TValue>();
                     var resultReadIndex = new[] { -1 };
+                    var targetIndex = new[] { 0 };
+                    var maxThreads = 5;
 
                     var readTimes = new List<DateTime>();
                     readTimes.Add(DateTime.UtcNow);
 
+                    var exceptions = new ConcurrentQueue<Exception>();
+
                     var lookAheadThread = new Thread(() =>
                     {
-                        var maxThreads = 5;
-
-                        // calculate how far to look-ahead based on how quickly the results are being read
-                        Func<long> targetIndex = () =>
-                        {
-                            var firstReadTime = readTimes[0];
-                            var readPerMillisecond = (float)(readTimes.Count / (DateTime.UtcNow - firstReadTime).TotalMilliseconds);
-                            return resultReadIndex[0] + 1 + maxThreads + (int)(readPerMillisecond * 1000); // look ahead 1000 milliseconds
-                        };
-
                         // look-ahead loop
                         Parallel.ForEach(keys, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (key, loopState, indexLocal) =>
                         {
-                            // cooperative loop
-                            if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
-                            {
-                                loopState.Break();
-                                return;
-                            }
-
-                            // make sure look-ahead doesn't go too far ahead, based on calculated index above
-                            while (indexLocal > targetIndex())
+                            try
                             {
                                 // cooperative loop
                                 if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
@@ -59,16 +48,32 @@ namespace BitSharp.Common
                                     return;
                                 }
 
-                                // wait for a result to be read
-                                resultReadEvent.WaitOne(TimeSpan.FromMilliseconds(10));
+                                // make sure look-ahead doesn't go too far ahead, based on calculated index above
+                                while (indexLocal > targetIndex[0])
+                                {
+                                    // cooperative loop
+                                    if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
+                                    {
+                                        loopState.Break();
+                                        return;
+                                    }
+
+                                    // wait for a result to be read
+                                    resultReadEvent.WaitOne(TimeSpan.FromMilliseconds(10));
+                                }
+
+                                // execute the lookup
+                                var result = lookup(key);
+
+                                // store the result and notify
+                                results.TryAdd((int)indexLocal, result);
+                                resultEvents[(int)indexLocal].Set();
                             }
-
-                            // execute the lookup
-                            var result = lookup(key);
-
-                            // store the result and notify
-                            results[(int)indexLocal] = result;
-                            resultEvents[(int)indexLocal].Set();
+                            catch (Exception e)
+                            {
+                                exceptions.Enqueue(e);
+                                loopState.Break();
+                            }
                         });
                     });
 
@@ -76,7 +81,7 @@ namespace BitSharp.Common
                     try
                     {
                         // enumerate the results
-                        for (var i = 0; i < results.Count; i++)
+                        for (var i = 0; i < resultEvents.Count; i++)
                         {
                             // cooperative loop
                             if (cancelToken != null)
@@ -84,11 +89,16 @@ namespace BitSharp.Common
 
                             // unblock loook-ahead and wait for current result to be come available
                             resultReadEvent.Set();
-                            while (!resultEvents[i].WaitOne(TimeSpan.FromMilliseconds(10)))
+                            while (!resultEvents[i].Wait(TimeSpan.FromMilliseconds(10)) && exceptions.Count == 0)
                             {
                                 // cooperative loop
                                 if (cancelToken != null)
                                     cancelToken.ThrowIfCancellationRequested();
+                            }
+
+                            if (exceptions.Count > 0)
+                            {
+                                throw new AggregateException(exceptions.ToArray());
                             }
 
                             // retrieve current result and clear reference
@@ -106,6 +116,11 @@ namespace BitSharp.Common
                             readTimes.Add(DateTime.UtcNow);
                             while (readTimes.Count > 500)
                                 readTimes.RemoveAt(0);
+
+                            // calculate how far to look-ahead based on how quickly the results are being read
+                            var firstReadTime = readTimes[0];
+                            var readPerMillisecond = (float)(readTimes.Count / (DateTime.UtcNow - firstReadTime).TotalMilliseconds);
+                            targetIndex[0] = resultReadIndex[0] + 1 + maxThreads + (int)(readPerMillisecond * 5000); // look ahead 5000 milliseconds
                         }
                     }
                     finally
@@ -119,7 +134,7 @@ namespace BitSharp.Common
             finally
             {
                 // ensure events are disposed
-                resultEvents.DisposeList();
+                resultEvents.Values.DisposeList();
             }
         }
 
@@ -132,6 +147,7 @@ namespace BitSharp.Common
             {
                 var results = new ConcurrentDictionary<int, T>();
                 var resultReadIndex = new[] { -1 };
+                var targetIndex = new[] { 0 };
 
                 var finalCount = -1;
 
@@ -140,14 +156,6 @@ namespace BitSharp.Common
 
                 var lookAheadThread = new Thread(() =>
                 {
-                    // calculate how far to look-ahead based on how quickly the results are being read
-                    Func<long> targetIndex = () =>
-                    {
-                        var firstReadTime = readTimes[0];
-                        var readPerMillisecond = (float)(readTimes.Count / (DateTime.UtcNow - firstReadTime).TotalMilliseconds);
-                        return resultReadIndex[0] + 1 + (int)(readPerMillisecond * 1000); // look ahead 1000 milliseconds
-                    };
-
                     // look-ahead loop
                     var indexLocal = 0;
                     var valuesLocal = values();
@@ -164,7 +172,7 @@ namespace BitSharp.Common
                         resultWriteEvent.Set();
 
                         // make sure look-ahead doesn't go too far ahead, based on calculated index above
-                        while (indexLocal > targetIndex())
+                        while (indexLocal > targetIndex[0])
                         {
                             // cooperative loop
                             if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
@@ -226,6 +234,11 @@ namespace BitSharp.Common
                         readTimes.Add(DateTime.UtcNow);
                         while (readTimes.Count > 500)
                             readTimes.RemoveAt(0);
+
+                        // calculate how far to look-ahead based on how quickly the results are being read
+                        var firstReadTime = readTimes[0];
+                        var readPerMillisecond = (float)(readTimes.Count / (DateTime.UtcNow - firstReadTime).TotalMilliseconds);
+                        targetIndex[0] = resultReadIndex[0] + 1 + (int)(readPerMillisecond * 1000); // look ahead 1000 milliseconds
                     }
                 }
                 finally
