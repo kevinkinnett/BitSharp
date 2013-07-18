@@ -1,5 +1,6 @@
 ﻿using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
+using BitSharp.Data;
 using BitSharp.Script;
 using BitSharp.WireProtocol;
 using Org.BouncyCastle.Asn1;
@@ -119,26 +120,29 @@ namespace BitSharp.Transactions
         {
             var tx = new Transaction
             (
-                Version: 1,
-                Inputs: ImmutableArray.Create
+                version: 1,
+                inputs: ImmutableArray.Create
                 (
-                    new TransactionIn
+                    new TxInput
                     (
-                        PreviousTransactionHash: 0,
-                        PreviousTransactionIndex: 0,
-                        ScriptSignature: ImmutableArray.Create(coinbase),
-                        Sequence: 0
+                        previousTxOutputKey: new TxOutputKey
+                        (
+                            txHash: 0,
+                            txOutputIndex: 0
+                        ),
+                        scriptSignature: ImmutableArray.Create(coinbase),
+                        sequence: 0
                     )
                 ),
-                Outputs: ImmutableArray.Create
+                outputs: ImmutableArray.Create
                 (
-                    new TransactionOut
+                    new TxOutput
                     (
-                        Value: 50L * (100 * 1000 * 1000),
-                        ScriptPublicKey: ImmutableArray.Create(CreatePublicKeyScript(publicKey))
+                        value: 50L * (100 * 1000 * 1000),
+                        scriptPublicKey: ImmutableArray.Create(CreatePublicKeyScript(publicKey))
                     )
                 ),
-                LockTime: 0
+                lockTime: 0
             );
 
             return tx;
@@ -148,33 +152,36 @@ namespace BitSharp.Transactions
         {
             var tx = new Transaction
             (
-                Version: 1,
-                Inputs: ImmutableArray.Create
+                version: 1,
+                inputs: ImmutableArray.Create
                 (
-                    new TransactionIn
+                    new TxInput
                     (
-                        PreviousTransactionHash: prevTx.Hash,
-                        PreviousTransactionIndex: (UInt32)prevInputIndex,
-                        ScriptSignature: ImmutableArray.Create<byte>(),
-                        Sequence: 0
+                        previousTxOutputKey: new TxOutputKey
+                        (
+                            txHash: prevTx.Hash,
+                            txOutputIndex: (UInt32)prevInputIndex
+                        ),
+                        scriptSignature: ImmutableArray.Create<byte>(),
+                        sequence: 0
                     )
                 ),
-                Outputs: ImmutableArray.Create
+                outputs: ImmutableArray.Create
                 (
-                    new TransactionOut
+                    new TxOutput
                     (
-                        Value: value,
-                        ScriptPublicKey: ImmutableArray.Create(CreatePublicKeyScript(toPublicKey))
+                        value: value,
+                        scriptPublicKey: ImmutableArray.Create(CreatePublicKeyScript(toPublicKey))
                     )
                 ),
-                LockTime: 0
+                lockTime: 0
             );
 
             // sign the transaction
             var scriptSignature = ImmutableArray.Create(CreatePrivateKeyScript(tx, 0, hashType, fromPrivateKey, fromPublicKey));
 
             // add the signature script to the transaction
-            tx = tx.With(Inputs: ImmutableArray.Create(tx.Inputs[0].With(ScriptSignature: scriptSignature)));
+            tx = tx.With(Inputs: ImmutableArray.Create(tx.Inputs[0].With(scriptSignature: scriptSignature)));
 
             return tx;
         }

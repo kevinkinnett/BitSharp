@@ -2,9 +2,9 @@
 using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Daemon;
-using BitSharp.Database;
+using BitSharp.Storage.Firebird;
 using BitSharp.Network;
-using BitSharp.Node.ExtendionMethods;
+using BitSharp.Node.ExtensionMethods;
 using BitSharp.Script;
 using BitSharp.Storage;
 using BitSharp.WireProtocol;
@@ -18,6 +18,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using BitSharp.Data;
 
 namespace BitSharp.Node
 {
@@ -35,8 +36,8 @@ namespace BitSharp.Node
 
         private readonly BlockchainDaemon blockchainDaemon;
 
-        private readonly IDataStorage<KnownAddressKey, NetworkAddressWithTime> knownAddressStorage;
-        private readonly StorageCache<KnownAddressKey, NetworkAddressWithTime> knownAddressCache;
+        private readonly IBoundedStorage<KnownAddressKey, NetworkAddressWithTime> knownAddressStorage;
+        private readonly BoundedCache<KnownAddressKey, NetworkAddressWithTime> knownAddressCache;
 
         private Stopwatch messageStopwatch = new Stopwatch();
         private int messageCount;
@@ -57,7 +58,7 @@ namespace BitSharp.Node
             this.shutdownToken = new CancellationTokenSource();
 
             this.knownAddressStorage = new KnownAddressStorage();
-            this.knownAddressCache = new StorageCache<KnownAddressKey, NetworkAddressWithTime>
+            this.knownAddressCache = new BoundedCache<KnownAddressKey, NetworkAddressWithTime>
             (
                 "KnownAddressCache",
                 dataStorage: this.knownAddressStorage,
@@ -282,7 +283,7 @@ namespace BitSharp.Node
 
         private async Task SendGetBlocks(RemoteNode remoteNode)
         {
-            var blockLocatorHashes = CalculateBlockLocatorHashes(this.blockchainDaemon.CurrentBlockchain.BlockList);
+            var blockLocatorHashes = CalculateBlockLocatorHashes(this.blockchainDaemon.WinningBlockchain);
 
             await remoteNode.Sender.SendGetBlocks(blockLocatorHashes, hashStop: 0);
         }
@@ -415,7 +416,7 @@ namespace BitSharp.Node
             {
                 if (
                     invVector.Type == InventoryVector.TYPE_MESSAGE_BLOCK
-                    && !this.blockchainDaemon.StorageManager.BlockDataCache.ContainsKey(invVector.Hash))
+                    && !this.blockchainDaemon.CacheContext.BlockCache.ContainsKey(invVector.Hash))
                 {
                     RequestBlock(invVector.Hash);
                 }
@@ -458,7 +459,7 @@ namespace BitSharp.Node
             this.requestedBlocks.TryRemove(block.Hash, out ignore);
 
             //Debug.WriteLine("Received block {0}".Format2(block.Hash.ToHexNumberString());
-            this.blockchainDaemon.StorageManager.BlockDataCache.CreateValue(block.Hash, block);
+            this.blockchainDaemon.CacheContext.BlockCache.CreateValue(block.Hash, block);
         }
 
         private void OnReceivedAddresses(ImmutableArray<NetworkAddressWithTime> addresses)
@@ -517,7 +518,7 @@ namespace BitSharp.Node
 
                 //TODO shouldn't have to decode again
                 var versionMessage = versionTask.Result;
-                var versionPayload = VersionPayload.FromRawBytes(versionMessage.Payload.ToArray());
+                var versionPayload = WireEncoder.DecodeVersionPayload(versionMessage.Payload.ToArray().ToMemoryStream());
 
                 var remoteAddressWithTime = new NetworkAddressWithTime
                 (
@@ -595,7 +596,7 @@ namespace BitSharp.Node
         }
     }
 
-    namespace ExtendionMethods
+    namespace ExtensionMethods
     {
         internal static class LocalClientExtensionMethods
         {

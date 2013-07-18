@@ -9,9 +9,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
 using BitSharp.WireProtocol;
+using BitSharp.WireProtocol.ExtensionMethods;
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Common;
 using System.Collections.Immutable;
+using BitSharp.Data;
 
 namespace BitSharp.Network
 {
@@ -110,19 +112,9 @@ namespace BitSharp.Network
             else if (bytesReceived < 4)
             {
                 using (var stream = new NetworkStream(this.socket))
+                using (var reader = new BinaryReader(stream))
                 {
-                    for (var i = bytesReceived; i < 4; i++)
-                    {
-                        var read = stream.ReadByte();
-                        if (read >= 0)
-                        {
-                            buffer[i] = (byte)read;
-                        }
-                        else
-                        {
-                            throw new Exception(string.Format("Read wrong number of bytes when listening for magic bytes: {0} bytes read, {1}", i, buffer.ToHexDataString()));
-                        }
-                    }
+                    Buffer.BlockCopy(reader.ReadBytes(4 - bytesReceived), 0, buffer, bytesReceived, 4 - bytesReceived);
                 }
             }
 
@@ -132,8 +124,7 @@ namespace BitSharp.Network
 
             using (var stream = new NetworkStream(this.socket))
             {
-                var wireReader = new WireReader(stream);
-                var message = WireDecodeMessage(magic, wireReader);
+                var message = WireDecodeMessage(magic, stream);
 
                 var handler = this.OnMessage;
                 if (handler != null)
@@ -144,31 +135,36 @@ namespace BitSharp.Network
             }
         }
 
-        private Message WireDecodeMessage(UInt32 magic, WireReader wireReader)
+        private Message WireDecodeMessage(UInt32 magic, Stream stream)
         {
-            var command = wireReader.ReadFixedString(12);
-            var payloadSize = wireReader.Read4Bytes();
-            var payloadChecksum = wireReader.Read4Bytes();
-            var payload = wireReader.ReadRawBytes(payloadSize.ToIntChecked());
-            //TODO figure out RawBytes so it doesn't have to be regenerated for message
+            byte[] payload;
+            Message message;
+            using (var reader = new BinaryReader(stream, Encoding.ASCII, leaveOpen: true))
+            {
+                var command = reader.ReadFixedString(12);
+                var payloadSize = reader.Read4Bytes();
+                var payloadChecksum = reader.Read4Bytes();
 
-            var message = new Message
-            (
-                Magic: magic,
-                Command: command,
-                PayloadSize: payloadSize,
-                PayloadChecksum: payloadChecksum,
-                Payload: payload.ToImmutableArray()
-            );
+                payload = reader.ReadBytes(payloadSize.ToIntChecked());
 
-            if (!Messaging.VerifyPayloadChecksum(message.PayloadChecksum, payload))
-                throw new Exception(string.Format("Checksum failed for {0}", message.Command));
+                if (!Messaging.VerifyPayloadChecksum(payloadChecksum, payload))
+                    throw new Exception(string.Format("Checksum failed for {0}", command));
+
+                message = new Message
+                (
+                    Magic: magic,
+                    Command: command,
+                    PayloadSize: payloadSize,
+                    PayloadChecksum: payloadChecksum,
+                    Payload: payload.ToImmutableArray()
+                );
+            }
 
             switch (message.Command)
             {
                 case "addr":
                     {
-                        var addressPayload = AddressPayload.FromRawBytes(payload);
+                        var addressPayload = WireEncoder.DecodeAddressPayload(payload.ToMemoryStream());
 
                         var handler = this.OnReceivedAddresses;
                         if (handler != null)
@@ -178,13 +174,13 @@ namespace BitSharp.Network
 
                 case "alert":
                     {
-                        var alertPayload = AlertPayload.FromRawBytes(payload);
+                        var alertPayload = WireEncoder.DecodeAlertPayload(payload.ToMemoryStream());
                     }
                     break;
 
                 case "block":
                     {
-                        var block = Block.FromRawBytes(payload);
+                        var block = WireEncoder.DecodeBlock(payload.ToMemoryStream());
 
                         var handler = this.OnBlock;
                         if (handler != null)
@@ -194,7 +190,7 @@ namespace BitSharp.Network
 
                 case "getblocks":
                     {
-                        var getBlocksPayload = GetBlocksPayload.FromRawBytes(payload);
+                        var getBlocksPayload = WireEncoder.DecodeGetBlocksPayload(payload.ToMemoryStream());
 
                         //var handler = this.OnGetBlocks;
                         //if (handler != null)
@@ -204,7 +200,7 @@ namespace BitSharp.Network
 
                 case "inv":
                     {
-                        var invPayload = InventoryPayload.FromRawBytes(payload);
+                        var invPayload = WireEncoder.DecodeInventoryPayload(payload.ToMemoryStream());
 
                         var handler = this.OnInventoryVectors;
                         if (handler != null)
@@ -214,7 +210,7 @@ namespace BitSharp.Network
 
                 case "notfound":
                     {
-                        var invPayload = InventoryPayload.FromRawBytes(payload);
+                        var invPayload = WireEncoder.DecodeInventoryPayload(payload.ToMemoryStream());
 
                         var handler = this.OnNotFound;
                         if (handler != null)
@@ -224,7 +220,7 @@ namespace BitSharp.Network
 
                 case "tx":
                     {
-                        var tx = Transaction.FromRawBytes(payload);
+                        var tx = WireEncoder.DecodeTransaction(payload.ToMemoryStream());
 
                         var handler = this.OnTransaction;
                         if (handler != null)
@@ -234,7 +230,7 @@ namespace BitSharp.Network
 
                 case "version":
                     {
-                        var versionPayload = VersionPayload.FromRawBytes(payload);
+                        var versionPayload = WireEncoder.DecodeVersionPayload(payload.ToMemoryStream());
                         //Debug.WriteLine(string.Format("{0}, {1}", versionPayload.RemoteAddress.ToIPEndPoint(), this.socket.RemoteEndPoint));
 
                         var handler = this.OnVersion;

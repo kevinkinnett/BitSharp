@@ -15,6 +15,7 @@ using BitSharp.Common.Test;
 using BitSharp.BlockHelper;
 using BitSharp.BlockHelper.Test;
 using System.Collections.Immutable;
+using BitSharp.Data;
 
 namespace BitSharp.Test
 {
@@ -125,7 +126,7 @@ namespace BitSharp.Test
             for (var inputIndex = 0; inputIndex < tx.Inputs.Length; inputIndex++)
             {
                 var input = tx.Inputs[inputIndex];
-                var prevOutput = txLookup[input.PreviousTransactionHash].Outputs[input.PreviousTransactionIndex.ToIntChecked()];
+                var prevOutput = txLookup[input.PreviousTxOutputKey.TxHash].Outputs[input.PreviousTxOutputKey.TxOutputIndex.ToIntChecked()];
 
                 var hashType = GetHashTypeFromScriptSig(input.ScriptSignature);
 
@@ -141,7 +142,7 @@ namespace BitSharp.Test
             for (var inputIndex = 0; inputIndex < tx.Inputs.Length; inputIndex++)
             {
                 var input = tx.Inputs[inputIndex];
-                var prevOutput = txLookup[input.PreviousTransactionHash].Outputs[input.PreviousTransactionIndex.ToIntChecked()];
+                var prevOutput = txLookup[input.PreviousTxOutputKey.TxHash].Outputs[input.PreviousTxOutputKey.TxOutputIndex.ToIntChecked()];
 
                 var hashType = GetHashTypeFromScriptSig(input.ScriptSignature);
                 var sig = GetSigFromScriptSig(input.ScriptSignature);
@@ -176,7 +177,7 @@ namespace BitSharp.Test
             for (var inputIndex = 0; inputIndex < tx.Inputs.Length; inputIndex++)
             {
                 var input = tx.Inputs[inputIndex];
-                var prevOutput = txLookup[input.PreviousTransactionHash].Outputs[input.PreviousTransactionIndex.ToIntChecked()];
+                var prevOutput = txLookup[input.PreviousTxOutputKey.TxHash].Outputs[input.PreviousTxOutputKey.TxOutputIndex.ToIntChecked()];
 
                 var script = GetScriptFromInputPrevOutput(input, prevOutput);
 
@@ -211,7 +212,7 @@ namespace BitSharp.Test
             }
         }
 
-        private static ImmutableArray<byte> GetScriptFromInputPrevOutput(TransactionIn input, TransactionOut prevOutput)
+        private static ImmutableArray<byte> GetScriptFromInputPrevOutput(TxInput input, TxOutput prevOutput)
         {
             return input.ScriptSignature.AddRange(prevOutput.ScriptPublicKey);
         }

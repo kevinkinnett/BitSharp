@@ -21,6 +21,7 @@ using System.Collections.Concurrent;
 using BigIntegerBouncy = Org.BouncyCastle.Math.BigInteger;
 using System.Threading;
 using System.Collections.Immutable;
+using BitSharp.Data;
 
 namespace BitSharp.Script
 {
@@ -39,13 +40,13 @@ namespace BitSharp.Script
 
         public bool VerifyScript(UInt256 blockHash, int txIndex, byte[] scriptPubKey, Transaction tx, int inputIndex, byte[] script)
         {
-//            logger.LogTrace(
-//@"
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//Verifying script for block {0}, transaction {1}, input {2}
-//{3}
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-//                , blockHash, txIndex, inputIndex, script.ToArray().ToHexDataString());
+            //            logger.LogTrace(
+            //@"
+            //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            //Verifying script for block {0}, transaction {1}, input {2}
+            //{3}
+            //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+            //                , blockHash, txIndex, inputIndex, script.ToArray().ToHexDataString());
 
             Stack stack, altStack;
             if (
@@ -70,215 +71,216 @@ namespace BitSharp.Script
             stack = new Stack();
             altStack = new Stack();
 
-            var opReader = new WireReader(script.ToStream());
-
-            while (opReader.Position < script.Length)
+            using (var opReader = new BinaryReader(script.ToStream()))
             {
-                var opByte = opReader.Read1Byte();
-                var op = (ScriptOp)Enum.ToObject(typeof(ScriptOp), opByte);
-
-                //logger.LogTrace("Executing {0} with stack count: {1}", OpName(opByte), stack.Count);
-
-                switch (op)
+                while (opReader.BaseStream.Position < script.Length)
                 {
-                    // Constants
-                    case ScriptOp.OP_PUSHDATA1:
-                        {
-                            if (opReader.Position + 1 >= script.Length)
-                                return false;
+                    var opByte = opReader.ReadByte();
+                    var op = (ScriptOp)Enum.ToObject(typeof(ScriptOp), opByte);
 
-                            var length = opReader.Read1Byte();
-                            stack.PushBytes(opReader.ReadRawBytes(length));
-                        }
-                        break;
+                    //logger.LogTrace("Executing {0} with stack count: {1}", OpName(opByte), stack.Count);
 
-                    case ScriptOp.OP_PUSHDATA2:
-                        {
-                            if (opReader.Position + 2 >= script.Length)
-                                return false;
-
-                            var length = opReader.Read2Bytes();
-                            stack.PushBytes(opReader.ReadRawBytes(length));
-                        }
-                        break;
-
-                    case ScriptOp.OP_PUSHDATA4:
-                        {
-                            if (opReader.Position + 4 >= script.Length)
-                                return false;
-
-                            var length = opReader.Read4Bytes();
-                            stack.PushBytes(opReader.ReadRawBytes(length.ToIntChecked()));
-                        }
-                        break;
-
-                    // Flow control
-                    case ScriptOp.OP_NOP:
-                        {
-                        }
-                        break;
-
-                    // Stack
-                    case ScriptOp.OP_DROP:
-                        {
-                            if (stack.Count < 1)
-                                return false;
-
-                            var value = stack.PopBytes();
-
-                            //logger.LogTrace("{0} dropped {1}", OpName(opByte), value);
-                        }
-                        break;
-
-                    case ScriptOp.OP_DUP:
-                        {
-                            if (stack.Count < 1)
-                                return false;
-
-                            var value = stack.PeekBytes();
-                            stack.PushBytes(value);
-
-                            //logger.LogTrace("{0} duplicated {2}", OpName(opByte), value);
-                        }
-                        break;
-
-                    // Splice
-
-                    // Bitwise logic
-                    case ScriptOp.OP_EQUAL:
-                    case ScriptOp.OP_EQUALVERIFY:
-                        {
-                            if (stack.Count < 2)
-                                return false;
-
-                            var value1 = stack.PopBytes();
-                            var value2 = stack.PopBytes();
-
-                            var result = value1.SequenceEqual(value2);
-                            stack.PushBool(result);
-
-//                            logger.LogTrace(
-//@"{0} compared values:
-//value1: {1}
-//value2: {2}
-//result: {3}", OpName(opByte), value1, value2, result);
-
-                            if (op == ScriptOp.OP_EQUALVERIFY)
+                    switch (op)
+                    {
+                        // Constants
+                        case ScriptOp.OP_PUSHDATA1:
                             {
-                                if (result)
-                                    stack.PopBool();
-                                else
+                                if (opReader.BaseStream.Position + 1 >= script.Length)
                                     return false;
+
+                                var length = opReader.ReadByte();
+                                stack.PushBytes(opReader.ReadBytes(length));
                             }
-                        }
-                        break;
+                            break;
 
-                    // Arithmetic
-                    // Note: Arithmetic inputs are limited to signed 32-bit integers, but may overflow their output.
-
-                    // Crypto
-                    case ScriptOp.OP_SHA256:
-                        {
-                            if (stack.Count < 1)
-                                return false;
-
-                            var value = stack.PopBytes().ToArray();
-
-                            var hash = Crypto.SingleSHA256(value);
-                            stack.PushBytes(hash);
-
-//                            logger.LogTrace(
-//@"{0} hashed value:
-//value:  {1}
-//hash:   {2}", OpName(opByte), value, hash);
-                        }
-                        break;
-
-                    case ScriptOp.OP_HASH160:
-                        {
-                            if (stack.Count < 1)
-                                return false;
-
-                            var value = stack.PopBytes().ToArray();
-
-                            var hash = Crypto.SingleRIPEMD160(Crypto.SingleSHA256(value));
-                            stack.PushBytes(hash);
-
-//                            logger.LogTrace(
-//@"{0} hashed value:
-//value:  {1}
-//hash:   {2}", OpName(opByte), value, hash);
-                        }
-                        break;
-
-                    case ScriptOp.OP_CHECKSIG:
-                    case ScriptOp.OP_CHECKSIGVERIFY:
-                        {
-                            if (stack.Count < 2)
-                                return false;
-
-                            var pubKey = stack.PopBytes().ToArray();
-                            var sig = stack.PopBytes().ToArray();
-
-                            var startTime = DateTime.UtcNow;
-
-                            byte hashType; byte[] txSignature, txSignatureHash; BigIntegerBouncy x, y, r, s;
-                            var result = VerifySignature(scriptPubKey, tx, sig, pubKey, inputIndex, out hashType, out txSignature, out txSignatureHash, out x, out y, out r, out s);
-                            stack.PushBool(result);
-
-                            var finishTime = DateTime.UtcNow;
-//                            logger.LogTrace(
-//@"{0} executed in {13} ms:
-//tx:                 {1}
-//inputIndex:         {2}
-//pubKey:             {3}
-//sig:                {4}
-//hashType:           {5}
-//txSignature:        {6}
-//txSignatureHash:    {7}
-//x:                  {8}
-//y:                  {9}
-//r:                  {10}
-//s:                  {11}
-//result:             {12}", OpName(opByte), tx.ToRawBytes(), inputIndex, pubKey, sig, hashType, txSignature, txSignatureHash, x, y, r, s, result, (finishTime - startTime).TotalMilliseconds.ToString("0"));
-
-                            if (op == ScriptOp.OP_CHECKSIGVERIFY)
+                        case ScriptOp.OP_PUSHDATA2:
                             {
-                                if (result)
-                                    stack.PopBool();
-                                else
+                                if (opReader.BaseStream.Position + 2 >= script.Length)
                                     return false;
+
+                                var length = opReader.Read2Bytes();
+                                stack.PushBytes(opReader.ReadBytes(length));
                             }
-                        }
-                        break;
+                            break;
 
-                    // Pseudo-words
-                    // These words are used internally for assisting with transaction matching. They are invalid if used in actual scripts.
+                        case ScriptOp.OP_PUSHDATA4:
+                            {
+                                if (opReader.BaseStream.Position + 4 >= script.Length)
+                                    return false;
 
-                    // Reserved words
-                    // Any opcode not assigned is also reserved. Using an unassigned opcode makes the transaction invalid.
+                                var length = opReader.Read4Bytes();
+                                stack.PushBytes(opReader.ReadBytes(length.ToIntChecked()));
+                            }
+                            break;
 
-                    default:
-                        //OP_PUSHBYTES1-75
-                        if (opByte >= (int)ScriptOp.OP_PUSHBYTES1 && opByte <= (int)ScriptOp.OP_PUSHBYTES75)
-                        {
-                            stack.PushBytes(opReader.ReadRawBytes(opByte));
-                            //logger.LogTrace("{0} loaded {1} bytes onto the stack: {2}", OpName(opByte), opByte, stack.PeekBytes());
-                        }
-                        // Unknown op
-                        else
-                        {
-                            var message = string.Format("Invalid operation in tx {0} input {1}: {2} {3}", tx.Hash.ToHexNumberString(), inputIndex, new[] { opByte }.ToHexNumberString(), OpName(opByte));
-                            Debug.WriteLine(message);
-                            throw new Exception(message);
-                        }
-                        break;
+                        // Flow control
+                        case ScriptOp.OP_NOP:
+                            {
+                            }
+                            break;
+
+                        // Stack
+                        case ScriptOp.OP_DROP:
+                            {
+                                if (stack.Count < 1)
+                                    return false;
+
+                                var value = stack.PopBytes();
+
+                                //logger.LogTrace("{0} dropped {1}", OpName(opByte), value);
+                            }
+                            break;
+
+                        case ScriptOp.OP_DUP:
+                            {
+                                if (stack.Count < 1)
+                                    return false;
+
+                                var value = stack.PeekBytes();
+                                stack.PushBytes(value);
+
+                                //logger.LogTrace("{0} duplicated {2}", OpName(opByte), value);
+                            }
+                            break;
+
+                        // Splice
+
+                        // Bitwise logic
+                        case ScriptOp.OP_EQUAL:
+                        case ScriptOp.OP_EQUALVERIFY:
+                            {
+                                if (stack.Count < 2)
+                                    return false;
+
+                                var value1 = stack.PopBytes();
+                                var value2 = stack.PopBytes();
+
+                                var result = value1.SequenceEqual(value2);
+                                stack.PushBool(result);
+
+                                //                            logger.LogTrace(
+                                //@"{0} compared values:
+                                //value1: {1}
+                                //value2: {2}
+                                //result: {3}", OpName(opByte), value1, value2, result);
+
+                                if (op == ScriptOp.OP_EQUALVERIFY)
+                                {
+                                    if (result)
+                                        stack.PopBool();
+                                    else
+                                        return false;
+                                }
+                            }
+                            break;
+
+                        // Arithmetic
+                        // Note: Arithmetic inputs are limited to signed 32-bit integers, but may overflow their output.
+
+                        // Crypto
+                        case ScriptOp.OP_SHA256:
+                            {
+                                if (stack.Count < 1)
+                                    return false;
+
+                                var value = stack.PopBytes().ToArray();
+
+                                var hash = Crypto.SingleSHA256(value);
+                                stack.PushBytes(hash);
+
+                                //                            logger.LogTrace(
+                                //@"{0} hashed value:
+                                //value:  {1}
+                                //hash:   {2}", OpName(opByte), value, hash);
+                            }
+                            break;
+
+                        case ScriptOp.OP_HASH160:
+                            {
+                                if (stack.Count < 1)
+                                    return false;
+
+                                var value = stack.PopBytes().ToArray();
+
+                                var hash = Crypto.SingleRIPEMD160(Crypto.SingleSHA256(value));
+                                stack.PushBytes(hash);
+
+                                //                            logger.LogTrace(
+                                //@"{0} hashed value:
+                                //value:  {1}
+                                //hash:   {2}", OpName(opByte), value, hash);
+                            }
+                            break;
+
+                        case ScriptOp.OP_CHECKSIG:
+                        case ScriptOp.OP_CHECKSIGVERIFY:
+                            {
+                                if (stack.Count < 2)
+                                    return false;
+
+                                var pubKey = stack.PopBytes().ToArray();
+                                var sig = stack.PopBytes().ToArray();
+
+                                var startTime = DateTime.UtcNow;
+
+                                byte hashType; byte[] txSignature, txSignatureHash; BigIntegerBouncy x, y, r, s;
+                                var result = VerifySignature(scriptPubKey, tx, sig, pubKey, inputIndex, out hashType, out txSignature, out txSignatureHash, out x, out y, out r, out s);
+                                stack.PushBool(result);
+
+                                var finishTime = DateTime.UtcNow;
+                                //                            logger.LogTrace(
+                                //@"{0} executed in {13} ms:
+                                //tx:                 {1}
+                                //inputIndex:         {2}
+                                //pubKey:             {3}
+                                //sig:                {4}
+                                //hashType:           {5}
+                                //txSignature:        {6}
+                                //txSignatureHash:    {7}
+                                //x:                  {8}
+                                //y:                  {9}
+                                //r:                  {10}
+                                //s:                  {11}
+                                //result:             {12}", OpName(opByte), tx.ToRawBytes(), inputIndex, pubKey, sig, hashType, txSignature, txSignatureHash, x, y, r, s, result, (finishTime - startTime).TotalMilliseconds.ToString("0"));
+
+                                if (op == ScriptOp.OP_CHECKSIGVERIFY)
+                                {
+                                    if (result)
+                                        stack.PopBool();
+                                    else
+                                        return false;
+                                }
+                            }
+                            break;
+
+                        // Pseudo-words
+                        // These words are used internally for assisting with transaction matching. They are invalid if used in actual scripts.
+
+                        // Reserved words
+                        // Any opcode not assigned is also reserved. Using an unassigned opcode makes the transaction invalid.
+
+                        default:
+                            //OP_PUSHBYTES1-75
+                            if (opByte >= (int)ScriptOp.OP_PUSHBYTES1 && opByte <= (int)ScriptOp.OP_PUSHBYTES75)
+                            {
+                                stack.PushBytes(opReader.ReadBytes(opByte));
+                                //logger.LogTrace("{0} loaded {1} bytes onto the stack: {2}", OpName(opByte), opByte, stack.PeekBytes());
+                            }
+                            // Unknown op
+                            else
+                            {
+                                var message = string.Format("Invalid operation in tx {0} input {1}: {2} {3}", tx.Hash.ToHexNumberString(), inputIndex, new[] { opByte }.ToHexNumberString(), OpName(opByte));
+                                Debug.WriteLine(message);
+                                throw new Exception(message);
+                            }
+                            break;
+                    }
+
+                    //logger.LogTrace(new string('-', 80));
                 }
-
-                //logger.LogTrace(new string('-', 80));
             }
 
-            //TODO verify no if/else blocks, left over
+            // TODO verify no if/else blocks left over
 
             // TODO not entirely sure what default return should be
             return true;
@@ -356,11 +358,11 @@ namespace BitSharp.Script
 
             // Blank out other inputs' signatures
             var empty = ImmutableArray.Create<byte>();
-            var newInputs = new TransactionIn[tx.Inputs.Length];
+            var newInputs = new TxInput[tx.Inputs.Length];
             for (var i = 0; i < tx.Inputs.Length; i++)
             {
                 var oldInput = tx.Inputs[i];
-                var newInput = oldInput.With(ScriptSignature: i == inputIndex ? scriptPubKey : empty);
+                var newInput = oldInput.With(scriptSignature: i == inputIndex ? scriptPubKey : empty);
                 newInputs[i] = newInput;
             }
 
@@ -399,12 +401,13 @@ namespace BitSharp.Script
 
             // return wire-encoded simplified transaction with the 4-byte hashType tacked onto the end
             var stream = new MemoryStream();
-            var writer = new WireWriter(stream);
+            using (var writer = new BinaryWriter(stream))
+            {
+                WireEncoder.EncodeTransaction(stream, tx);
+                writer.Write4Bytes(hashType);
 
-            Transaction.WriteRawBytes(writer, tx.Version, newInputs.ToImmutableArray(), tx.Outputs, tx.LockTime);
-            writer.Write4Bytes(hashType);
-
-            return stream.ToArray();
+                return stream.ToArray();
+            }
         }
 
         private string OpName(byte op)

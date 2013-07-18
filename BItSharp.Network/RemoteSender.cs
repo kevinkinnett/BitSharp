@@ -11,6 +11,7 @@ using BitSharp.WireProtocol;
 using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
 using System.Collections.Immutable;
+using System.IO;
 
 namespace BitSharp.Network
 {
@@ -51,7 +52,7 @@ namespace BitSharp.Network
         public async Task SendGetData(ImmutableArray<InventoryVector> invVectors)
         {
             var getDataPayload = Messaging.ConstructInventoryPayload(invVectors);
-            var getDataMessage = Messaging.ConstructMessage("getdata", getDataPayload.ToRawBytes().ToImmutableArray());
+            var getDataMessage = Messaging.ConstructMessage("getdata", getDataPayload, WireEncoder.EncodeInventoryPayload);
 
             await SendMessageAsync(getDataMessage);
         }
@@ -59,7 +60,7 @@ namespace BitSharp.Network
         public async Task SendGetBlocks(ImmutableArray<UInt256> blockLocatorHashes, UInt256 hashStop)
         {
             var getBlocksPayload = Messaging.ConstructGetBlocksPayload(blockLocatorHashes, hashStop);
-            var getBlocksMessage = Messaging.ConstructMessage("getblocks", getBlocksPayload.ToRawBytes().ToImmutableArray());
+            var getBlocksMessage = Messaging.ConstructMessage("getblocks", getBlocksPayload, WireEncoder.EncodeGetBlocksPayload);
 
             await SendMessageAsync(getBlocksMessage);
         }
@@ -67,7 +68,7 @@ namespace BitSharp.Network
         public async Task SendVersion(IPEndPoint localEndPoint, IPEndPoint remoteEndPoint, UInt64 nodeId, UInt32 startBlockHeight)
         {
             var versionPayload = Messaging.ConstructVersionPayload(localEndPoint, remoteEndPoint, nodeId, startBlockHeight);
-            var versionMessage = Messaging.ConstructMessage("version", versionPayload.ToRawBytes().ToImmutableArray());
+            var versionMessage = Messaging.ConstructMessage("version", versionPayload, WireEncoder.EncodeVersionPayload);
 
             await SendMessageAsync(versionMessage);
         }
@@ -93,7 +94,10 @@ namespace BitSharp.Network
                         var stopwatch = new Stopwatch();
                         stopwatch.Start();
 
-                        var messageBytes = message.ToRawBytes();
+                        var byteStream = new MemoryStream();
+                        WireEncoder.EncodeMessage(byteStream, message);
+
+                        var messageBytes = byteStream.ToArray();
                         await stream.WriteAsync(messageBytes, 0, messageBytes.Length);
 
                         stopwatch.Stop();
