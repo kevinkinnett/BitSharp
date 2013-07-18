@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:BitSharp.Client"
         DataContext="{Binding ViewModel}"
-        Title="BitSharp 0.0.0" Height="612.83" Width="758">
+        Title="BitSharp 0.0.0" Height="612.83" Width="769">
     <Grid>
         <Label Content="Current Height:" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,10,0,0"/>
         <Label Content="{Binding CurrentBlockchainHeight}" HorizontalAlignment="Left" Margin="106,10,0,0" VerticalAlignment="Top"/>
