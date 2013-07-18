@@ -23,12 +23,6 @@ namespace BitSharp.WireProtocol
             this.Port = Port;
         }
 
-        //TODO expensive property
-        public byte[] ToRawBytes()
-        {
-            return ToRawBytes(Services, IPv6Address, Port);
-        }
-
         public NetworkAddress With(UInt64? Services = null, ImmutableArray<byte>? IPv6Address = null, UInt16? Port = null)
         {
             return new NetworkAddress
@@ -37,38 +31,6 @@ namespace BitSharp.WireProtocol
                 IPv6Address ?? this.IPv6Address,
                 Port ?? this.Port
             );
-        }
-
-        public static NetworkAddress FromRawBytes(byte[] bytes)
-        {
-            return ReadRawBytes(new WireReader(bytes.ToStream()));
-        }
-
-        internal static NetworkAddress ReadRawBytes(WireReader reader)
-        {
-            return new NetworkAddress
-            (
-                Services: reader.Read8Bytes(),
-                IPv6Address: reader.ReadRawBytes(16).ToImmutableArray(),
-                Port: reader.Read2BytesBE()
-            );
-        }
-
-        internal static byte[] ToRawBytes(UInt64 Services, ImmutableArray<byte> IPv6Address, UInt16 Port)
-        {
-            var stream = new MemoryStream();
-            var writer = new WireWriter(stream);
-
-            WriteRawBytes(writer, Services, IPv6Address, Port);
-
-            return stream.ToArray();
-        }
-
-        internal static void WriteRawBytes(WireWriter writer, UInt64 Services, ImmutableArray<byte> IPv6Address, UInt16 Port)
-        {
-            writer.Write8Bytes(Services);
-            writer.WriteRawBytes(16, IPv6Address.ToArray());
-            writer.Write2BytesBE(Port);
         }
     }
 }

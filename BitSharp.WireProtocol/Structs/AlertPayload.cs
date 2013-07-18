@@ -18,12 +18,6 @@ namespace BitSharp.WireProtocol
             this.Signature = Signature;
         }
 
-        //TODO expensive property
-        public byte[] ToRawBytes()
-        {
-            return ToRawBytes(Payload, Signature);
-        }
-
         public AlertPayload With(string Payload = null, string Signature = null)
         {
             return new AlertPayload
@@ -31,36 +25,6 @@ namespace BitSharp.WireProtocol
                 Payload ?? this.Payload,
                 Signature ?? this.Signature
             );
-        }
-
-        public static AlertPayload FromRawBytes(byte[] bytes)
-        {
-            return ReadRawBytes(new WireReader(bytes.ToStream()));
-        }
-
-        internal static AlertPayload ReadRawBytes(WireReader reader)
-        {
-            return new AlertPayload
-            (
-                Payload: reader.ReadVarString(),
-                Signature: reader.ReadVarString()
-            );
-        }
-
-        internal static byte[] ToRawBytes(string Payload, string Signature)
-        {
-            var stream = new MemoryStream();
-            var writer = new WireWriter(stream);
-
-            WriteRawBytes(writer, Payload, Signature);
-
-            return stream.ToArray();
-        }
-
-        internal static void WriteRawBytes(WireWriter writer, string Payload, string Signature)
-        {
-            writer.WriteVarString(Payload);
-            writer.WriteVarString(Signature);
         }
     }
 }
