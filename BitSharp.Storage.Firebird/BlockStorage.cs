@@ -16,8 +16,12 @@ using BitSharp.Data;
 
 namespace BitSharp.Storage.Firebird
 {
-    public class BlockDataStorage : SqlDataStorage, IBlockDataStorage
+    public class BlockStorage : SqlDataStorage, IBlockStorage
     {
+        public BlockStorage(FirebirdStorageContext storageContext)
+            : base(storageContext)
+        { }
+
         public IEnumerable<UInt256> ReadAllKeys()
         {
             using (var conn = this.OpenConnection())
@@ -181,6 +185,58 @@ namespace BitSharp.Storage.Firebird
                     DELETE FROM BlockData";
 
                 cmd.ExecuteNonQuery();
+            }
+        }
+
+        public IEnumerable<KeyValuePair<UInt256, BlockHeader>> ReadAllBlockHeaders()
+        {
+            using (var conn = this.OpenConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    SELECT BlockHash, SUBSTR(RawBytes, 1, 80)
+                    FROM BlockData";
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        var blockHash = reader.GetUInt256(0);
+                        var rawBytes = reader.GetBytes(1);
+
+                        yield return new KeyValuePair<UInt256, BlockHeader>(blockHash, StorageEncoder.DecodeBlockHeader(rawBytes.ToMemoryStream(), blockHash));
+                    }
+                }
+            }
+        }
+
+        public bool TryReadBlockHeader(UInt256 blockHash, out BlockHeader blockHeader)
+        {
+            using (var conn = this.OpenConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    SELECT SUBSTRING(RawBytes FROM 1 FOR 80)
+                    FROM BlockData
+                    WHERE BlockHash = @blockHash";
+
+                cmd.Parameters.SetValue("@blockHash", FbDbType.Char, FbCharset.Octets, 32).Value = blockHash.ToDbByteArray();
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        var rawBytes = reader.GetBytes(0);
+
+                        blockHeader = StorageEncoder.DecodeBlockHeader(rawBytes.ToMemoryStream(), blockHash);
+                        return true;
+                    }
+                    else
+                    {
+                        blockHeader = default(BlockHeader);
+                        return false;
+                    }
+                }
             }
         }
 
