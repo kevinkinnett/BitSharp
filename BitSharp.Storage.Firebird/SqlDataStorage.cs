@@ -22,13 +22,17 @@ namespace BitSharp.Storage.Firebird
     {
         private readonly string dbPath;
         private readonly string connString;
+        private readonly FirebirdStorageContext _storageContext;
 
-        public SqlDataStorage()
+        public SqlDataStorage(FirebirdStorageContext storageContext)
         {
             var dbFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BitSharp");
             this.dbPath = Path.Combine(dbFolderPath, "BitSharp.fdb");
             this.connString = @"ServerType=1; DataSource=localhost; Database={0}; Pooling=true; MaxPoolSize=100; User=SYSDBA; Password=NA;".Format2(this.dbPath);
+            this._storageContext = storageContext;
         }
+
+        public FirebirdStorageContext StorageContext { get { return this._storageContext; } }
 
         public void Dispose()
         {
@@ -69,7 +73,6 @@ namespace BitSharp.Storage.Firebird
 
                     var assembly = Assembly.GetExecutingAssembly();
                     using (var conn = new FbConnection(connString))
-                    using (var cmd = conn.CreateCommand())
                     using (var stream = assembly.GetManifestResourceStream("BitSharp.Storage.Firebird.Sql.CreateDatabase.sql"))
                     using (var reader = new StreamReader(stream))
                     {
@@ -77,7 +80,7 @@ namespace BitSharp.Storage.Firebird
 
                         var script = new FbScript(reader.ReadToEnd());
                         script.Parse();
-                        
+
                         new FbBatchExecution(conn, script).Execute();
                     }
                 }

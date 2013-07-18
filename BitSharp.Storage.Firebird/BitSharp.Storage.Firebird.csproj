@@ -88,13 +88,13 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
-    <Compile Include="BlockHeaderStorage.cs" />
     <Compile Include="BlockchainStorage.cs" />
+    <Compile Include="FirebirdStorageContext.cs" />
     <Compile Include="TxKeyStorage.cs" />
     <Compile Include="KnownAddressStorage.cs" />
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="SqlDataStorage.cs" />
-    <Compile Include="BlockDataStorage.cs" />
+    <Compile Include="BlockStorage.cs" />
     <Compile Include="BlockMetadataStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

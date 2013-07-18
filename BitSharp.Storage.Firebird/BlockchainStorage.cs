@@ -23,13 +23,21 @@ using FirebirdSql.Data.Isql;
 
 namespace BitSharp.Storage.Firebird
 {
-    public class BlockchainStorage : SqlDataStorage, IBlockchainStorage
+    public class BlockchainStorage : IBlockchainStorage
     {
         private readonly string dbFolderPath;
+        private readonly FirebirdStorageContext _storageContext;
 
-        public BlockchainStorage()
+        public BlockchainStorage(FirebirdStorageContext storageContext)
         {
             this.dbFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"BitSharp");
+            this._storageContext = storageContext;
+        }
+
+        public FirebirdStorageContext StorageContext { get { return this._storageContext; } }
+
+        public void Dispose()
+        {
         }
 
         public IEnumerable<Tuple<BlockchainKey, BlockchainMetadata>> ListBlockchains()
@@ -61,7 +69,7 @@ namespace BitSharp.Storage.Firebird
                                     var rootBlockHash = reader.GetUInt256(1);
                                     var totalWork = reader.GetBigInteger(2);
 
-                                    results.Add(Tuple.Create(new BlockchainKey(file, guid, rootBlockHash), new BlockchainMetadata(guid, rootBlockHash, totalWork)));
+                                    results.Add(Tuple.Create(new BlockchainKey(guid, rootBlockHash), new BlockchainMetadata(guid, rootBlockHash, totalWork)));
                                 }
                             }
                         }
@@ -84,7 +92,7 @@ namespace BitSharp.Storage.Firebird
             var blockListBuilder = ImmutableList.CreateBuilder<BlockMetadata>();
             var utxoBuilder = ImmutableHashSet.CreateBuilder<TxOutputKey>();
 
-            var connString = @"ServerType=1; DataSource=localhost; Database={0}; Pooling=false; User=SYSDBA; Password=NA;".Format2(blockchainKey.FilePath);
+            var connString = @"ServerType=1; DataSource=localhost; Database=Blockchain_{0}.fdb; Pooling=false; User=SYSDBA; Password=NA;".Format2(blockchainKey.Guid);
             using (var conn = new FbConnection(connString))
             {
                 conn.Open();
@@ -92,7 +100,7 @@ namespace BitSharp.Storage.Firebird
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = @"
-                        SELECT BlockHash, PreviousBlockHash, Work, Height, TotalWork, IsValid
+                        SELECT BlockHash, PreviousBlockHash, ""Work"", Height, TotalWork, IsValid
                         FROM BlockMetadata
                         WHERE Guid = @guid AND RootBlockHash = @rootBlockHash
                         ORDER BY Height ASC";
@@ -147,7 +155,7 @@ namespace BitSharp.Storage.Firebird
 
                                     outputs[i] = new TxOutputKey(prevTxHash, prevTxOutputIndex);
                                 }
-                                
+
                                 utxoBuilder.UnionWith(outputs);
                             }
                         }
@@ -162,7 +170,7 @@ namespace BitSharp.Storage.Firebird
         {
             var guid = Guid.NewGuid();
             var dbPath = CreateDatabase(guid);
-            var blockchainKey = new BlockchainKey(dbPath, guid, blockchain.RootBlockHash);
+            var blockchainKey = new BlockchainKey(guid, blockchain.RootBlockHash);
 
             var connString = @"ServerType=1; DataSource=localhost; Database={0}; Pooling=false; User=SYSDBA; Password=NA;".Format2(dbPath);
             using (var conn = new FbConnection(connString))
@@ -193,7 +201,7 @@ namespace BitSharp.Storage.Firebird
                         cmd.Transaction = trans;
 
                         cmd.CommandText = @"
-                            INSERT INTO BlockMetadata (Guid, RootBlockHash, BlockHash, PreviousBlockHash, Work, Height, TotalWork, IsValid)
+                            INSERT INTO BlockMetadata (Guid, RootBlockHash, BlockHash, PreviousBlockHash, ""Work"", Height, TotalWork, IsValid)
                             VALUES (@guid, @rootBlockHash, @blockHash, @previousBlockHash, @work, @height, @totalWork, @isValid)";
 
                         cmd.Parameters.SetValue("@guid", FbDbType.Char, FbCharset.Octets, 16).Value = blockchainKey.Guid.ToByteArray();
@@ -314,12 +322,12 @@ namespace BitSharp.Storage.Firebird
                     removedCount++;
 
                     //TODO delete individual blockchain from database, and then the whole file if nothing else is left
-                    File.Delete(tuple.Item1.FilePath);
+                    File.Delete("Blockchain_{0}.fdb".Format2(tuple.Item1.Guid));
                 }
             }
 
             // find any files that are named like a blockchain but not included in the list above, these are invalid and can be cleaned up
-            var validFiles = new HashSet<string>(blockchains.Select(x => x.Item1.FilePath));
+            var validFiles = new HashSet<string>(blockchains.Select(x => "Blockchain_{0}.fdb".Format2(x.Item1.Guid)));
             foreach (var file in Directory.EnumerateFiles(this.dbFolderPath, "Blockchain_*.fdb"))
             {
                 if (!validFiles.Contains(file))
@@ -355,7 +363,6 @@ namespace BitSharp.Storage.Firebird
                     using (var conn = new FbConnection(connString))
                     using (var stream = assembly.GetManifestResourceStream("BitSharp.Storage.Firebird.Sql.CreateBlockchainDatabase.sql"))
                     using (var reader = new StreamReader(stream))
-                    using (var cmd = conn.CreateCommand())
                     {
                         conn.Open();
 

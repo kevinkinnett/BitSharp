@@ -44,8 +44,12 @@ namespace BitSharp.Storage.Firebird
         }
     }
 
-    public class KnownAddressStorage : SqlDataStorage, IDataStorage<KnownAddressKey, NetworkAddressWithTime>
+    public class KnownAddressStorage : SqlDataStorage, IBoundedStorage<KnownAddressKey, NetworkAddressWithTime>
     {
+        public KnownAddressStorage()
+            : base(storageContext: null)
+        { }
+
         public IEnumerable<KnownAddressKey> ReadAllKeys()
         {
             using (var conn = this.OpenConnection())

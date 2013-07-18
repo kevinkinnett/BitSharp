@@ -22,6 +22,10 @@ namespace BitSharp.Storage.Firebird
 {
     public class TxKeyStorage : SqlDataStorage, ITxKeyStorage
     {
+        public TxKeyStorage(FirebirdStorageContext storageContext)
+            : base(storageContext)
+        { }
+
         public bool TryReadValue(TxKeySearch txKeySearch, out TxKey txKey)
         {
             using (var conn = this.OpenConnection())
@@ -33,9 +37,6 @@ namespace BitSharp.Storage.Firebird
                     WHERE TransactionHash = @txHash";
 
                 cmd.Parameters.SetValue("@txHash", FbDbType.Char, FbCharset.Octets, 32).Value = txKeySearch.TxHash.ToDbByteArray();
-
-                //var txHash = UInt256.Parse("30f886d2e1906b6c050d7b9312c5dd9a5fa9ef7c2210f53bf40cfacf75c2a7d7", NumberStyles.HexNumber);
-                //cmd.Parameters.SetValue("@txHash", FbDbType.Char, FbCharset.Octets, 32).Value = txHash.ToDbByteArray();
 
                 using (var reader = cmd.ExecuteReader())
                 {
