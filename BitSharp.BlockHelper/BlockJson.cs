@@ -1,4 +1,5 @@
 ﻿using BitSharp.Common;
+using BitSharp.Data;
 using BitSharp.Script;
 using BitSharp.WireProtocol;
 using System;
@@ -19,16 +20,16 @@ namespace BitSharp.BlockHelper
             var block = Json.Decode(blockJson);
             return new Block
             (
-                Header: new BlockHeader
+                header: new BlockHeader
                 (
-                    Version: Convert.ToUInt32(block.ver),
-                    PreviousBlock: UInt256.Parse(block.prev_block, NumberStyles.HexNumber),
-                    MerkleRoot: UInt256.Parse(block.mrkl_root, NumberStyles.HexNumber),
-                    Time: Convert.ToUInt32(block.time),
-                    Bits: Convert.ToUInt32(block.bits),
-                    Nonce: Convert.ToUInt32(block.nonce)
+                    version: Convert.ToUInt32(block.ver),
+                    previousBlock: UInt256.Parse(block.prev_block, NumberStyles.HexNumber),
+                    merkleRoot: UInt256.Parse(block.mrkl_root, NumberStyles.HexNumber),
+                    time: Convert.ToUInt32(block.time),
+                    bits: Convert.ToUInt32(block.bits),
+                    nonce: Convert.ToUInt32(block.nonce)
                 ),
-                Transactions: ReadTransactions(block.tx)
+                transactions: ReadTransactions(block.tx)
             );
         }
 
@@ -44,46 +45,49 @@ namespace BitSharp.BlockHelper
         {
             return new Transaction
             (
-                Version: Convert.ToUInt32(transaction.ver),
-                Inputs: ReadInputs(transaction.@in),
-                Outputs: ReadOutputs(transaction.@out),
-                LockTime: Convert.ToUInt32(transaction.lock_time)
+                version: Convert.ToUInt32(transaction.ver),
+                inputs: ReadInputs(transaction.@in),
+                outputs: ReadOutputs(transaction.@out),
+                lockTime: Convert.ToUInt32(transaction.lock_time)
             );
         }
 
-        public static ImmutableArray<TransactionIn> ReadInputs(dynamic inputs)
+        public static ImmutableArray<TxInput> ReadInputs(dynamic inputs)
         {
             return
                 Enumerable.Range(0, (int)inputs.Length)
-                .Select(i => (TransactionIn)ReadInput(inputs[i]))
+                .Select(i => (TxInput)ReadInput(inputs[i]))
                 .ToImmutableArray();
         }
 
-        public static ImmutableArray<TransactionOut> ReadOutputs(dynamic outputs)
+        public static ImmutableArray<TxOutput> ReadOutputs(dynamic outputs)
         {
             return
                 Enumerable.Range(0, (int)outputs.Length)
-                .Select(i => (TransactionOut)ReadOutput(outputs[i]))
+                .Select(i => (TxOutput)ReadOutput(outputs[i]))
                 .ToImmutableArray();
         }
 
-        public static TransactionIn ReadInput(dynamic input)
+        public static TxInput ReadInput(dynamic input)
         {
-            return new TransactionIn
+            return new TxInput
             (
-                PreviousTransactionHash: UInt256.Parse(input.prev_out.hash, NumberStyles.HexNumber),
-                PreviousTransactionIndex: Convert.ToUInt32(input.prev_out.n),
-                ScriptSignature: input.scriptSig != null ? ReadScript(input.scriptSig) : ReadCoinbase(input.coinbase),
-                Sequence: input.sequence != null ? Convert.ToUInt32(input.sequence) : 0xFFFFFFFF
+                previousTxOutputKey: new TxOutputKey
+                (
+                    txHash: UInt256.Parse(input.prev_out.hash, NumberStyles.HexNumber),
+                    txOutputIndex: Convert.ToUInt32(input.prev_out.n)
+                ),
+                scriptSignature: input.scriptSig != null ? ReadScript(input.scriptSig) : ReadCoinbase(input.coinbase),
+                sequence: input.sequence != null ? Convert.ToUInt32(input.sequence) : 0xFFFFFFFF
             );
         }
 
-        public static TransactionOut ReadOutput(dynamic output)
+        public static TxOutput ReadOutput(dynamic output)
         {
-            return new TransactionOut
+            return new TxOutput
             (
-                Value: Convert.ToUInt64(((string)output.value).Replace(".", "")), //TODO cleaner decimal replace
-                ScriptPublicKey: ReadScript(output.scriptPubKey)
+                value: Convert.ToUInt64(((string)output.value).Replace(".", "")), //TODO cleaner decimal replace
+                scriptPublicKey: ReadScript(output.scriptPubKey)
             );
         }
 
