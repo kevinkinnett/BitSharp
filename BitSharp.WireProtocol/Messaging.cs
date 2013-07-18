@@ -8,6 +8,7 @@ using System.Diagnostics;
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Common;
 using System.Collections.Immutable;
+using System.IO;
 
 namespace BitSharp.WireProtocol
 {
@@ -52,10 +53,6 @@ namespace BitSharp.WireProtocol
 
         public static Message ConstructMessage(string command, ImmutableArray<byte> payload)
         {
-            Debug.Assert(command.Length <= 12);
-            //if (payload == null)
-            //    payload = ImmutableArray<byte>.Empty();
-
             var message = new Message
             (
                 Magic: Messaging.Magic,
@@ -63,6 +60,24 @@ namespace BitSharp.WireProtocol
                 PayloadSize: (UInt32)payload.Length,
                 PayloadChecksum: CalculatePayloadChecksum(payload.ToArray()),
                 Payload: payload
+            );
+
+            return message;
+        }
+
+        public static Message ConstructMessage<T>(string command, T payload, Action<Stream, T> payloadEncoder)
+        {
+            var stream = new MemoryStream();
+            payloadEncoder(stream, payload);
+            var payloadBytes = stream.ToArray();
+
+            var message = new Message
+            (
+                Magic: Messaging.Magic,
+                Command: command,
+                PayloadSize: (UInt32)payloadBytes.Length,
+                PayloadChecksum: CalculatePayloadChecksum(payloadBytes),
+                Payload: payloadBytes.ToImmutableArray()
             );
 
             return message;
