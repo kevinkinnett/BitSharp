@@ -11,7 +11,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BitSharp.Database.ExtensionMethods
+namespace BitSharp.Storage.SQLite.ExtensionMethods
 {
     internal static class ExtensionMethods
     {
@@ -108,15 +108,9 @@ namespace BitSharp.Database.ExtensionMethods
             return buffer;
         }
 
-#if SQLITE
         public static SQLiteParameter SetValue(this DbParameterCollection parameters, string parameterName, DbType dbType)
         {
             var param = new SQLiteParameter { ParameterName = parameterName, DbType = dbType };
-#elif SQL_SERVER
-        public static SqlParameter SetValue(this DbParameterCollection parameters, string parameterName, DbType dbType)
-        {
-            var param = new SqlParameter { ParameterName = parameterName, DbType = dbType };
-#endif
             if (parameters.Contains(parameterName))
                 parameters.RemoveAt(parameterName);
 
@@ -124,15 +118,9 @@ namespace BitSharp.Database.ExtensionMethods
             return param;
         }
 
-#if SQLITE
         public static SQLiteParameter SetValue(this DbParameterCollection parameters, string parameterName, DbType dbType, int size)
         {
             var param = new SQLiteParameter { ParameterName = parameterName, DbType = dbType, Size = size };
-#elif SQL_SERVER
-        public static SqlParameter SetValue(this DbParameterCollection parameters, string parameterName, DbType dbType, int size)
-        {
-            var param = new SqlParameter { ParameterName = parameterName, DbType = dbType, Size = size };
-#endif
             if (parameters.Contains(parameterName))
                 parameters.RemoveAt(parameterName);
 
