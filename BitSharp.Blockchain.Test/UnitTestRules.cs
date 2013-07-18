@@ -1,4 +1,6 @@
 ﻿using BitSharp.Common;
+using BitSharp.Data;
+using BitSharp.Storage;
 using BitSharp.WireProtocol;
 using System;
 using System.Collections.Generic;
@@ -16,15 +18,13 @@ namespace BitSharp.Blockchain.Test
         private readonly UInt32 _highestTargetBits;
         private Block _genesisBlock;
         private BlockMetadata _genesisBlockMetadata;
-        private Blockchain _genesisBlockchain;
+        private Data.Blockchain _genesisBlockchain;
 
-        public UnitTestRules()
+        public UnitTestRules(CacheContext cacheContext)
+            : base(cacheContext)
         {
             this._highestTarget = UInt256.Parse("00F0000000000000000000000000000000000000000000000000000000000000", NumberStyles.HexNumber);
-            this._highestTargetBits = TargetToBits(this._highestTarget);
-
-            //TODO
-            MainnetRules.BypassValidation = true;
+            this._highestTargetBits = DataCalculator.TargetToBits(this._highestTarget);
         }
 
         public void SetGenesisBlock(Block genesisBlock)
@@ -36,14 +36,14 @@ namespace BitSharp.Blockchain.Test
                 (
                     blockHash: this._genesisBlock.Hash,
                     previousBlockHash: this._genesisBlock.Header.PreviousBlock,
-                    work: CalculateWork(this._genesisBlock.Header),
+                    work: this._genesisBlock.Header.CalculateWork(),
                     height: 0,
-                    totalWork: CalculateWork(this._genesisBlock.Header),
+                    totalWork: this._genesisBlock.Header.CalculateWork(),
                     isValid: true
                 );
 
             this._genesisBlockchain =
-                new Blockchain
+                new Data.Blockchain
                 (
                     blockList: ImmutableList.Create(this._genesisBlockMetadata),
                     utxo: ImmutableHashSet.Create<TxOutputKey>() // genesis block coinbase is not included in utxo, it is unspendable
@@ -58,6 +58,6 @@ namespace BitSharp.Blockchain.Test
 
         public override BlockMetadata GenesisBlockMetadata { get { return this._genesisBlockMetadata; } }
 
-        public override Blockchain GenesisBlockchain { get { return this._genesisBlockchain; } }
+        public override Data.Blockchain GenesisBlockchain { get { return this._genesisBlockchain; } }
     }
 }

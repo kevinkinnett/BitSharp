@@ -27,7 +27,7 @@ namespace BitSharp.Blockchain.Test
         {
             var blockchain = new MemoryBlockchain();
 
-            var block = blockchain.MineAndAddEmptyBlock(blockchain.GenesisBlock);
+            var block = blockchain.MineAndAddEmptyBlock(blockchain.GenesisBlockMetadata).Item1;
 
             Assert.AreEqual(1, blockchain.CurrentBlockchain.Height);
             Assert.AreEqual(block.Hash, blockchain.CurrentBlockchain.RootBlockHash);
@@ -40,15 +40,15 @@ namespace BitSharp.Blockchain.Test
 
             var count = 1.THOUSAND();
 
-            var blockHash = blockchain.GenesisBlock.Hash;
+            var blockMetadata = blockchain.GenesisBlockMetadata;
             for (var i = 0; i < count; i++)
             {
                 Debug.WriteLine("TestLongBlockchain mining block {0:#,##0}".Format2(i));
-                blockHash = blockchain.MineAndAddEmptyBlock(blockHash).Hash;
+                blockMetadata = blockchain.MineAndAddEmptyBlock(blockMetadata).Item2;
             }
 
             Assert.AreEqual(count, blockchain.CurrentBlockchain.Height);
-            Assert.AreEqual(blockHash, blockchain.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(blockMetadata.BlockHash, blockchain.CurrentBlockchain.RootBlockHash);
         }
 
         [TestMethod]
@@ -62,31 +62,31 @@ namespace BitSharp.Blockchain.Test
             var toPublicKey = toKeyPair.Item2;
 
             // add some simple blocks
-            var block1 = blockchain.MineAndAddEmptyBlock(blockchain.GenesisBlock);
-            var block2 = blockchain.MineAndAddEmptyBlock(block1);
+            var block1 = blockchain.MineAndAddEmptyBlock(blockchain.GenesisBlockMetadata);
+            var block2 = blockchain.MineAndAddEmptyBlock(block1.Item2);
 
             // check
             Assert.AreEqual(2, blockchain.CurrentBlockchain.Height);
-            Assert.AreEqual(block2.Hash, blockchain.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(block2.Item1.Hash, blockchain.CurrentBlockchain.RootBlockHash);
             Assert.AreEqual(2, blockchain.CurrentBlockchain.Utxo.Count);
 
             // attempt to spend block 2's coinbase in block 3
-            var block3 = blockchain.CreateEmptyBlock(block2);
-            var spendTx = TransactionManager.CreateSpendTransaction(block2.Transactions[0], 0, (byte)ScriptHashType.SIGHASH_ALL, 50 * SATOSHI_PER_BTC, blockchain.CoinbasePrivateKey, blockchain.CoinbasePublicKey, toPublicKey);
-            block3 = block3.WithAddedTransactions(spendTx);
-            block3 = blockchain.MineAndAddBlock(block3);
+            var block3Block = blockchain.CreateEmptyBlock(block2.Item2);
+            var spendTx = TransactionManager.CreateSpendTransaction(block2.Item1.Transactions[0], 0, (byte)ScriptHashType.SIGHASH_ALL, 50 * SATOSHI_PER_BTC, blockchain.CoinbasePrivateKey, blockchain.CoinbasePublicKey, toPublicKey);
+            block3Block = block3Block.WithAddedTransactions(spendTx);
+            var block3 = blockchain.MineAndAddBlock(block3Block, block2.Item2);
 
             // check
             Assert.AreEqual(3, blockchain.CurrentBlockchain.Height);
-            Assert.AreEqual(block3.Hash, blockchain.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(block3.Item1.Hash, blockchain.CurrentBlockchain.RootBlockHash);
             Assert.AreEqual(3, blockchain.CurrentBlockchain.Utxo.Count);
 
             // add a simple block
-            var block4 = blockchain.MineAndAddEmptyBlock(block3);
+            var block4 = blockchain.MineAndAddEmptyBlock(block3.Item2);
 
             // check
             Assert.AreEqual(4, blockchain.CurrentBlockchain.Height);
-            Assert.AreEqual(block4.Hash, blockchain.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(block4.Item1.Hash, blockchain.CurrentBlockchain.RootBlockHash);
             Assert.AreEqual(4, blockchain.CurrentBlockchain.Utxo.Count);
         }
 
@@ -106,42 +106,42 @@ namespace BitSharp.Blockchain.Test
             var toPublicKeyBad = toKeyPair.Item2;
 
             // add some simple blocks
-            var block1 = blockchain.MineAndAddEmptyBlock(blockchain.GenesisBlock);
-            var block2 = blockchain.MineAndAddEmptyBlock(block1);
+            var block1 = blockchain.MineAndAddEmptyBlock(blockchain.GenesisBlockMetadata);
+            var block2 = blockchain.MineAndAddEmptyBlock(block1.Item2);
 
             // check
             Assert.AreEqual(2, blockchain.CurrentBlockchain.Height);
-            Assert.AreEqual(block2.Hash, blockchain.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(block2.Item1.Hash, blockchain.CurrentBlockchain.RootBlockHash);
             Assert.AreEqual(2, blockchain.CurrentBlockchain.Utxo.Count);
 
             // spend block 2's coinbase in block 3
-            var block3 = blockchain.CreateEmptyBlock(block2);
-            var spendTx = TransactionManager.CreateSpendTransaction(block2.Transactions[0], 0, (byte)ScriptHashType.SIGHASH_ALL, 50 * SATOSHI_PER_BTC, blockchain.CoinbasePrivateKey, blockchain.CoinbasePublicKey, toPublicKey);
-            block3 = block3.WithAddedTransactions(spendTx);
-            block3 = blockchain.MineAndAddBlock(block3);
+            var block3Block = blockchain.CreateEmptyBlock(block2.Item2);
+            var spendTx = TransactionManager.CreateSpendTransaction(block2.Item1.Transactions[0], 0, (byte)ScriptHashType.SIGHASH_ALL, 50 * SATOSHI_PER_BTC, blockchain.CoinbasePrivateKey, blockchain.CoinbasePublicKey, toPublicKey);
+            block3Block = block3Block.WithAddedTransactions(spendTx);
+            var block3 = blockchain.MineAndAddBlock(block3Block, block2.Item2);
 
             // check
             Assert.AreEqual(3, blockchain.CurrentBlockchain.Height);
-            Assert.AreEqual(block3.Hash, blockchain.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(block3.Item1.Hash, blockchain.CurrentBlockchain.RootBlockHash);
             Assert.AreEqual(3, blockchain.CurrentBlockchain.Utxo.Count);
 
             // attempt to spend block 2's coinbase again in block 4
-            var block4Bad = blockchain.CreateEmptyBlock(block3);
-            var doubleSpendTx = TransactionManager.CreateSpendTransaction(block2.Transactions[0], 0, (byte)ScriptHashType.SIGHASH_ALL, 50 * SATOSHI_PER_BTC, blockchain.CoinbasePrivateKey, blockchain.CoinbasePublicKey, toPublicKeyBad);
-            block4Bad = block4Bad.WithAddedTransactions(doubleSpendTx);
-            block4Bad = blockchain.MineAndAddBlock(block4Bad);
+            var block4BadBlock = blockchain.CreateEmptyBlock(block3.Item2);
+            var doubleSpendTx = TransactionManager.CreateSpendTransaction(block2.Item1.Transactions[0], 0, (byte)ScriptHashType.SIGHASH_ALL, 50 * SATOSHI_PER_BTC, blockchain.CoinbasePrivateKey, blockchain.CoinbasePublicKey, toPublicKeyBad);
+            block4BadBlock = block4BadBlock.WithAddedTransactions(doubleSpendTx);
+            var block4Bad = blockchain.MineAndAddBlock(block4BadBlock, block3.Item2);
 
             // check that bad block wasn't added
             Assert.AreEqual(3, blockchain.CurrentBlockchain.Height);
-            Assert.AreEqual(block3.Hash, blockchain.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(block3.Item1.Hash, blockchain.CurrentBlockchain.RootBlockHash);
             Assert.AreEqual(3, blockchain.CurrentBlockchain.Utxo.Count);
 
             // add a simple block
-            var block4 = blockchain.MineAndAddEmptyBlock(block3);
+            var block4 = blockchain.MineAndAddEmptyBlock(block3.Item2);
 
             // check
             Assert.AreEqual(4, blockchain.CurrentBlockchain.Height);
-            Assert.AreEqual(block4.Hash, blockchain.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(block4.Item1.Hash, blockchain.CurrentBlockchain.RootBlockHash);
             Assert.AreEqual(4, blockchain.CurrentBlockchain.Utxo.Count);
         }
 
@@ -154,58 +154,58 @@ namespace BitSharp.Blockchain.Test
             var blockchain1 = new MemoryBlockchain();
 
             // add some simple blocks
-            var block1 = blockchain1.MineAndAddEmptyBlock(blockchain1.GenesisBlock);
-            var block2 = blockchain1.MineAndAddEmptyBlock(block1);
+            var block1 = blockchain1.MineAndAddEmptyBlock(blockchain1.GenesisBlockMetadata);
+            var block2 = blockchain1.MineAndAddEmptyBlock(block1.Item2);
 
             // introduce a split
-            var block3a = blockchain1.MineAndAddEmptyBlock(block2);
-            var block3b = blockchain1.MineAndAddEmptyBlock(block2);
+            var block3a = blockchain1.MineAndAddEmptyBlock(block2.Item2);
+            var block3b = blockchain1.MineAndAddEmptyBlock(block2.Item2);
 
             // check that 3a is current as it was introduced first
             // TODO this must be based on difficulty in some way
             Assert.AreEqual(3, blockchain1.CurrentBlockchain.Height);
-            Assert.AreEqual(block3a.Hash, blockchain1.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(block3a.Item1.Hash, blockchain1.CurrentBlockchain.RootBlockHash);
             //TODO Assert.AreEqual(3, blockchain1.CurrentBlockchain.Utxo.Count);
 
             // continue split
-            var block4a = blockchain1.MineAndAddEmptyBlock(block3a);
-            var block4b = blockchain1.MineAndAddEmptyBlock(block3b);
+            var block4a = blockchain1.MineAndAddEmptyBlock(block3a.Item2);
+            var block4b = blockchain1.MineAndAddEmptyBlock(block3b.Item2);
 
             // check
             Assert.AreEqual(4, blockchain1.CurrentBlockchain.Height);
-            Assert.AreEqual(block4a.Hash, blockchain1.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(block4a.Item1.Hash, blockchain1.CurrentBlockchain.RootBlockHash);
             //TODO Assert.AreEqual(4, blockchain1.CurrentBlockchain.Utxo.Count);
 
             // resolve split, with other chain winning
-            var block5b = blockchain1.MineAndAddEmptyBlock(block4b);
+            var block5b = blockchain1.MineAndAddEmptyBlock(block4b.Item2);
 
             // check that blockchain reorged to the winning chain
             Assert.AreEqual(5, blockchain1.CurrentBlockchain.Height);
-            Assert.AreEqual(block5b.Hash, blockchain1.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(block5b.Item1.Hash, blockchain1.CurrentBlockchain.RootBlockHash);
             //TODO Assert.AreEqual(5, blockchain1.CurrentBlockchain.Utxo.Count);
 
             // continue on winning fork
-            var block6b = blockchain1.MineAndAddEmptyBlock(block5b);
+            var block6b = blockchain1.MineAndAddEmptyBlock(block5b.Item2);
 
             // check that blockchain reorged to the winning chain
             Assert.AreEqual(6, blockchain1.CurrentBlockchain.Height);
-            Assert.AreEqual(block6b.Hash, blockchain1.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(block6b.Item1.Hash, blockchain1.CurrentBlockchain.RootBlockHash);
             //TODO Assert.AreEqual(5, blockchain1.CurrentBlockchain.Utxo.Count);
 
             // create a second blockchain, reusing the genesis from the first
             var blockchain2 = new MemoryBlockchain(blockchain1.GenesisBlock);
 
             // add only the winning blocks to the second blockchain
-            blockchain2.AddBlock(block1);
-            blockchain2.AddBlock(block2);
-            blockchain2.AddBlock(block3b);
-            blockchain2.AddBlock(block4b);
-            blockchain2.AddBlock(block5b);
-            blockchain2.AddBlock(block6b);
+            blockchain2.AddBlock(block1.Item1, blockchain2.GenesisBlockMetadata);
+            blockchain2.AddBlock(block2.Item1, block1.Item2);
+            blockchain2.AddBlock(block3b.Item1, block2.Item2);
+            blockchain2.AddBlock(block4b.Item1, block3b.Item2);
+            blockchain2.AddBlock(block5b.Item1, block4b.Item2);
+            blockchain2.AddBlock(block6b.Item1, block5b.Item2);
 
             // check second blockchain
             Assert.AreEqual(6, blockchain2.CurrentBlockchain.Height);
-            Assert.AreEqual(block6b.Hash, blockchain2.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(block6b.Item1.Hash, blockchain2.CurrentBlockchain.RootBlockHash);
             //TODO Assert.AreEqual(5, blockchain2.CurrentBlockchain.Utxo.Count);
 
             // verify that re-organized blockchain matches winning-only blockchain

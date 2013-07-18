@@ -1,6 +1,8 @@
 ﻿using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
+using BitSharp.Data;
 using BitSharp.Storage;
+using BitSharp.Storage.Test;
 using BitSharp.Transactions;
 using BitSharp.WireProtocol;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -15,24 +17,23 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Blockchain.Test
 {
-    public class MemoryBlockchain : IBlockchainRetriever
+    public class MemoryBlockchain
     {
         private const UInt64 SATOSHI_PER_BTC = 100 * 1000 * 1000;
 
         private readonly CancellationToken shutdownToken;
         private readonly Random random;
 
-        private readonly MemoryBlockDataStorage memoryBlockDataStorage;
-        private readonly MemoryBlockHeaderStorage memoryBlockHeaderStorage;
-        private readonly MemoryBlockMetadataStorage memoryBlockMetadataStorage;
-        private readonly MemoryTransactionStorage memoryTransactionStorage;
+        private readonly MemoryStorageContext _storageContext;
+        private readonly CacheContext _cacheContext;
 
         private readonly Block _genesisBlock;
+        private readonly BlockMetadata _genesisBlockMetadata;
 
         private readonly UnitTestRules rules;
         private readonly BlockchainCalculator calculator;
 
-        private Blockchain _currentBlockchain;
+        private Data.Blockchain _currentBlockchain;
 
         private readonly ECPrivateKeyParameters _coinbasePrivateKey;
         private readonly ECPublicKeyParameters _coinbasePublicKey;
@@ -47,15 +48,15 @@ namespace BitSharp.Blockchain.Test
             this._coinbasePrivateKey = keyPair.Item1;
             this._coinbasePublicKey = keyPair.Item2;
 
-            // initialize unit test rules and blockchain calculator
-            this.rules = new UnitTestRules();
-            this.calculator = new BlockchainCalculator(this.rules, this, this.shutdownToken);
-
             // initialize unit test storage
-            this.memoryBlockDataStorage = new MemoryBlockDataStorage();
-            this.memoryBlockHeaderStorage = new MemoryBlockHeaderStorage(this.memoryBlockDataStorage);
-            this.memoryBlockMetadataStorage = new MemoryBlockMetadataStorage(this.memoryBlockDataStorage, this.rules);
-            this.memoryTransactionStorage = new MemoryTransactionStorage();
+            this._storageContext = new MemoryStorageContext();
+            this._cacheContext = new CacheContext(this._storageContext);
+
+            // initialize unit test rules
+            this.rules = new UnitTestRules(this._cacheContext);
+
+            // initialize blockchain calculator
+            this.calculator = new BlockchainCalculator(this.rules, this._cacheContext, this.shutdownToken);
 
             // create and mine the genesis block
             this._genesisBlock = genesisBlock ?? MineEmptyBlock(0);
@@ -63,12 +64,18 @@ namespace BitSharp.Blockchain.Test
             // update genesis blockchain and add to storage
             this.rules.SetGenesisBlock(this._genesisBlock);
             this._currentBlockchain = this.rules.GenesisBlockchain;
-            AddBlock(this._genesisBlock);
+            AddBlock(this._genesisBlock, this._genesisBlockMetadata);
         }
+
+        public CacheContext CacheContext { get { return this._cacheContext; } }
+
+        public MemoryStorageContext StorageContext { get { return this._storageContext; } }
 
         public Block GenesisBlock { get { return this._genesisBlock; } }
 
-        public Blockchain CurrentBlockchain { get { return this._currentBlockchain; } }
+        public BlockMetadata GenesisBlockMetadata { get { return this._genesisBlockMetadata; } }
+
+        public Data.Blockchain CurrentBlockchain { get { return this._currentBlockchain; } }
 
         public ECPrivateKeyParameters CoinbasePrivateKey { get { return this._coinbasePrivateKey; } }
 
@@ -78,26 +85,29 @@ namespace BitSharp.Blockchain.Test
         {
             var coinbaseTx = new Transaction
             (
-                Version: 0,
-                Inputs: ImmutableArray.Create
+                version: 0,
+                inputs: ImmutableArray.Create
                 (
-                    new TransactionIn
+                    new TxInput
                     (
-                        PreviousTransactionHash: 0,
-                        PreviousTransactionIndex: 0,
-                        ScriptSignature: ImmutableArray.Create(random.NextBytes(100)),
-                        Sequence: 0
+                        previousTxOutputKey: new TxOutputKey
+                        (
+                            txHash: 0,
+                            txOutputIndex: 0
+                        ),
+                        scriptSignature: ImmutableArray.Create(random.NextBytes(100)),
+                        sequence: 0
                     )
                 ),
-                Outputs: ImmutableArray.Create
+                outputs: ImmutableArray.Create
                 (
-                    new TransactionOut
+                    new TxOutput
                     (
-                        Value: 50 * SATOSHI_PER_BTC,
-                        ScriptPublicKey: ImmutableArray.Create(TransactionManager.CreatePublicKeyScript(_coinbasePublicKey))
+                        value: 50 * SATOSHI_PER_BTC,
+                        scriptPublicKey: ImmutableArray.Create(TransactionManager.CreatePublicKeyScript(_coinbasePublicKey))
                     )
                 ),
-                LockTime: 0
+                lockTime: 0
             );
 
             //Debug.WriteLine("Coinbase Tx Created: {0}".Format2(coinbaseTx.Hash.ToHexNumberString()));
@@ -107,24 +117,24 @@ namespace BitSharp.Blockchain.Test
 
             var block = new Block
             (
-                Header: new BlockHeader
+                header: new BlockHeader
                 (
-                    Version: 0,
-                    PreviousBlock: previousBlockHash,
-                    MerkleRoot: merkleRoot,
-                    Time: 0,
-                    Bits: this.rules.HighestTargetBits,
-                    Nonce: 0
+                    version: 0,
+                    previousBlock: previousBlockHash,
+                    merkleRoot: merkleRoot,
+                    time: 0,
+                    bits: this.rules.HighestTargetBits,
+                    nonce: 0
                 ),
-                Transactions: transactions
+                transactions: transactions
             );
 
             return block;
         }
 
-        public Block CreateEmptyBlock(Block previousBlock)
+        public Block CreateEmptyBlock(BlockMetadata previousBlockMetadata)
         {
-            return CreateEmptyBlock(previousBlock.Hash);
+            return CreateEmptyBlock(previousBlockMetadata.BlockHash);
         }
 
         public Block MineBlock(Block block)
@@ -148,21 +158,14 @@ namespace BitSharp.Blockchain.Test
             return MineEmptyBlock(previousBlock.Hash);
         }
 
-        public Block MineAndAddEmptyBlock(UInt256 previousBlockHash)
+        public Tuple<Block, BlockMetadata> MineAndAddEmptyBlock(BlockMetadata previousBlockMetadata)
         {
-            var block = MineEmptyBlock(previousBlockHash);
+            var block = MineEmptyBlock(previousBlockMetadata.BlockHash);
 
-            AddBlock(block);
-
-            return block;
+            return AddBlock(block, previousBlockMetadata);
         }
 
-        public Block MineAndAddEmptyBlock(Block previousBlock)
-        {
-            return MineAndAddEmptyBlock(previousBlock.Hash);
-        }
-
-        public Block MineAndAddBlock(Block block)
+        public Tuple<Block, BlockMetadata> MineAndAddBlock(Block block, BlockMetadata? previousBlockMetadata)
         {
             var minedHeader = Miner.MineBlockHeader(block.Header, this.rules.HighestTarget);
             if (minedHeader == null)
@@ -170,39 +173,30 @@ namespace BitSharp.Blockchain.Test
 
             var minedBlock = block.With(Header: minedHeader);
 
-            AddBlock(minedBlock);
-
-            return minedBlock;
+            return AddBlock(minedBlock, previousBlockMetadata);
         }
 
-        public void AddBlock(Block block)
+        public Tuple<Block, BlockMetadata> AddBlock(Block block, BlockMetadata? previousBlockMetadata)
         {
-            this.memoryBlockDataStorage.TryWriteValues(
-                new KeyValuePair<UInt256, WriteValue<Block>>[]{
-                    new KeyValuePair<UInt256, WriteValue<Block>>(block.Hash, new WriteValue<Block>( block, IsCreate:true))
-                });
+            var blockMetadata = new BlockMetadata
+            (
+                block.Hash,
+                block.Header.PreviousBlock,
+                block.Header.CalculateWork(),
+                previousBlockMetadata != null ? previousBlockMetadata.Value.Height.Value + 1 : 0,
+                previousBlockMetadata != null ? previousBlockMetadata.Value.TotalWork.Value + block.Header.CalculateWork() : block.Header.CalculateWork(),
+                isValid: null
+            );
+
+            this.StorageContext.BlockStorage.TryWriteValue(
+                new KeyValuePair<UInt256, WriteValue<Block>>(block.Hash, new WriteValue<Block>(block, IsCreate: true)));
+
+            this.StorageContext.BlockMetadataStorage.TryWriteValue(
+                new KeyValuePair<UInt256, WriteValue<BlockMetadata>>(block.Hash, new WriteValue<BlockMetadata>(blockMetadata, IsCreate: true)));
 
             ChooseNewWinner();
-        }
 
-        public bool TryGetBlock(UInt256 blockHash, out Block block, bool saveInCache = true)
-        {
-            return this.memoryBlockDataStorage.TryReadValue(blockHash, out block);
-        }
-
-        public bool TryGetBlockHeader(UInt256 blockHash, out BlockHeader blockHeader, bool saveInCache = true)
-        {
-            return this.memoryBlockHeaderStorage.TryReadValue(blockHash, out blockHeader);
-        }
-
-        public bool TryGetBlockMetadata(UInt256 blockHash, out BlockMetadata blockMetadata, bool saveInCache = true)
-        {
-            return this.memoryBlockMetadataStorage.TryReadValue(blockHash, out blockMetadata);
-        }
-
-        public bool TryGetTransaction(UInt256 transactionHash, out Transaction transaction, bool saveInCache = true)
-        {
-            return this.memoryTransactionStorage.TryReadValue(transactionHash, out transaction);
+            return Tuple.Create(block, blockMetadata);
         }
 
         public long BlockCacheMemorySize
@@ -227,7 +221,7 @@ namespace BitSharp.Blockchain.Test
             //TODO when there is a tie this method is not deterministic, causing TestSimpleBlockchainSplit to fail
 
             var candidates =
-                this.memoryBlockMetadataStorage.FindWinningChainedBlocks(new Dictionary<UInt256, BlockMetadata>())
+                this.StorageContext.BlockMetadataStorage.FindWinningChainedBlocks(new Dictionary<UInt256, BlockMetadata>())
                 .ToDictionary(x => x.BlockHash, x => x);
 
             while (candidates.Count > 0)
@@ -240,7 +234,8 @@ namespace BitSharp.Blockchain.Test
                     // try to use the blockchain
                     using (var cancelToken = new CancellationTokenSource())
                     {
-                        this._currentBlockchain = this.calculator.CalculateBlockchainFromExisting(this._currentBlockchain, newWinner, cancelToken.Token);
+                        List<MissingDataException> missingData;
+                        this._currentBlockchain = this.calculator.CalculateBlockchainFromExisting(this._currentBlockchain, newWinner, out missingData, cancelToken.Token);
                     }
 
                     // success, exit
