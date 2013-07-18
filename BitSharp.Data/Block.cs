@@ -67,44 +67,4 @@ namespace BitSharp.Data
             return block.SizeEstimate;
         }
     }
-
-    //TODO move these elsewhere
-    public static class BlockExtensions
-    {
-        public static UInt256 CalculateMerkleRoot(this ImmutableArray<Transaction> transactions)
-        {
-            ImmutableArray<ImmutableArray<byte>> merkleTree;
-            return CalculateMerkleRoot(transactions, out merkleTree);
-        }
-
-        public static UInt256 CalculateMerkleRoot(this ImmutableArray<Transaction> transactions, out ImmutableArray<ImmutableArray<byte>> merkleTree)
-        {
-            var workingMerkleTree = new List<ImmutableArray<byte>>();
-
-            var hashes = transactions.Select(tx => tx.Hash.ToByteArray().ToImmutableArray()).ToList();
-
-            workingMerkleTree.AddRange(hashes);
-            while (hashes.Count > 1)
-            {
-                workingMerkleTree.AddRange(hashes);
-
-                // ensure row is even length
-                if (hashes.Count % 2 != 0)
-                    hashes.Add(hashes.Last());
-
-                // pair up hashes in row ({1, 2, 3, 4} into {{1, 2}, {3, 4}}) and then hash the pairs
-                // the result is the next row, which will be half the size of the current row
-                hashes =
-                    Enumerable.Range(0, hashes.Count / 2)
-                    .Select(i => hashes[i * 2].AddRange(hashes[i * 2 + 1]))
-                    //.AsParallel().AsOrdered().WithExecutionMode(ParallelExecutionMode.ForceParallelism).WithDegreeOfParallelism(10)
-                    .Select(pair => Crypto.DoubleSHA256(pair.ToArray()).ToImmutableArray())
-                    .ToList();
-            }
-            Debug.Assert(hashes.Count == 1);
-
-            merkleTree = workingMerkleTree.ToImmutableArray();
-            return new UInt256(hashes[0].ToArray());
-        }
-    }
 }

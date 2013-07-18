@@ -37,7 +37,7 @@ namespace BitSharp.Data
             sizeEstimate = (long)(sizeEstimate * 1.5);
             this._sizeEstimate = sizeEstimate;
 
-            this._hash = hash ?? CalculateHash(version, inputs, outputs, lockTime);
+            this._hash = hash ?? DataCalculator.CalculateTransactionHash(version, inputs, outputs, lockTime);
 
             this.notDefault = true;
         }
@@ -55,33 +55,6 @@ namespace BitSharp.Data
         public UInt256 Hash { get { return this._hash; } }
 
         public long SizeEstimate { get { return this._sizeEstimate; } }
-
-        //TODO expensive property
-        public static UInt256 CalculateHash(UInt32 Version, ImmutableArray<TxInput> Inputs, ImmutableArray<TxOutput> Outputs, UInt32 LockTime)
-        {
-            var stream = new MemoryStream();
-            using (var writer = new BinaryWriter(stream))
-            {
-                writer.Write4Bytes(Version);
-                writer.WriteVarInt((UInt64)Inputs.Length);
-                foreach (var input in Inputs)
-                {
-                    writer.Write32Bytes(input.PreviousTxOutputKey.TxHash);
-                    writer.Write4Bytes(input.PreviousTxOutputKey.TxOutputIndex);
-                    writer.WriteVarBytes(input.ScriptSignature.ToArray());
-                    writer.Write4Bytes(input.Sequence);
-                }
-                writer.WriteVarInt((UInt64)Outputs.Length);
-                foreach (var output in Outputs)
-                {
-                    writer.Write8Bytes(output.Value);
-                    writer.WriteVarBytes(output.ScriptPublicKey.ToArray());
-                }
-                writer.Write4Bytes(LockTime);
-
-                return new UInt256(Crypto.DoubleSHA256(stream.ToArray()));
-            }
-        }
 
         public static long SizeEstimator(Transaction tx)
         {
