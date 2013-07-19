@@ -1075,20 +1075,20 @@
   <HelpKINode Title="ExclusiveOr operator" Url="html/79da1186-be97-a9f8-2baa-33190b997d26.htm" />
   <HelpKINode Title="ExtensionMethods class">
     <HelpKINode Title="ExtensionMethods Class" Url="html/e6b53947-6954-b193-80d2-5b0d453f58bb.htm" />
-    <HelpKINode Title="ExtensionMethods Class" Url="html/c326a379-b7d7-1758-4f23-9a28832ab58d.htm" />
     <HelpKINode Title="ExtensionMethods Class" Url="html/338eb1dc-6aa7-b596-807b-013e7ef8be6f.htm" />
-    <HelpKINode Title="ExtensionMethods Members" Url="html/e55716ac-a6e6-99fa-1559-d59bc4b92dc1.htm" />
+    <HelpKINode Title="ExtensionMethods Class" Url="html/c326a379-b7d7-1758-4f23-9a28832ab58d.htm" />
     <HelpKINode Title="ExtensionMethods Members" Url="html/6eb79c48-7bf1-477a-4e42-77327a7a89a5.htm" />
     <HelpKINode Title="ExtensionMethods Members" Url="html/34cd6330-f949-96bf-d0d6-7c84987d6ef3.htm" />
-    <HelpKINode Title="about ExtensionMethods class" Url="html/338eb1dc-6aa7-b596-807b-013e7ef8be6f.htm" />
+    <HelpKINode Title="ExtensionMethods Members" Url="html/e55716ac-a6e6-99fa-1559-d59bc4b92dc1.htm" />
     <HelpKINode Title="about ExtensionMethods class" Url="html/e6b53947-6954-b193-80d2-5b0d453f58bb.htm" />
     <HelpKINode Title="about ExtensionMethods class" Url="html/c326a379-b7d7-1758-4f23-9a28832ab58d.htm" />
-    <HelpKINode Title="all members" Url="html/34cd6330-f949-96bf-d0d6-7c84987d6ef3.htm" />
+    <HelpKINode Title="about ExtensionMethods class" Url="html/338eb1dc-6aa7-b596-807b-013e7ef8be6f.htm" />
     <HelpKINode Title="all members" Url="html/6eb79c48-7bf1-477a-4e42-77327a7a89a5.htm" />
+    <HelpKINode Title="all members" Url="html/34cd6330-f949-96bf-d0d6-7c84987d6ef3.htm" />
     <HelpKINode Title="all members" Url="html/e55716ac-a6e6-99fa-1559-d59bc4b92dc1.htm" />
-    <HelpKINode Title="methods" Url="html/69926dcf-057f-9fb0-09e3-22f60bee7a51.htm" />
     <HelpKINode Title="methods" Url="html/5d2f33fa-b368-039a-00ce-324d5f6e5535.htm" />
     <HelpKINode Title="methods" Url="html/3dd87934-b83d-fa1c-5aeb-6309b486be42.htm" />
+    <HelpKINode Title="methods" Url="html/69926dcf-057f-9fb0-09e3-22f60bee7a51.htm" />
   </HelpKINode>
   <HelpKINode Title="ExtensionMethods.BILLION method" Url="html/a4d4fb2e-ec44-25df-a158-c568bb786b17.htm" />
   <HelpKINode Title="ExtensionMethods.Concat method" Url="html/1dac838e-9efb-b121-5cf1-465effb4696f.htm" />
@@ -1915,16 +1915,16 @@
   <HelpKINode Title="ReadBlockchain method" Url="html/25819113-3a66-e4aa-3222-4414fbdb56a0.htm" />
   <HelpKINode Title="ReadBool method" Url="html/fd7e8b6a-5be7-1599-e1f8-71c206a616ee.htm" />
   <HelpKINode Title="ReaderExtensionMethods class">
-    <HelpKINode Title="ReaderExtensionMethods Class" Url="html/58ade576-5aad-5aec-80e1-f87af70abe67.htm" />
     <HelpKINode Title="ReaderExtensionMethods Class" Url="html/c282b2db-b606-e757-ea66-73c387bf5ae8.htm" />
+    <HelpKINode Title="ReaderExtensionMethods Class" Url="html/58ade576-5aad-5aec-80e1-f87af70abe67.htm" />
     <HelpKINode Title="ReaderExtensionMethods Members" Url="html/1cf6222f-45bd-4dee-8f3f-93d63dc06224.htm" />
     <HelpKINode Title="ReaderExtensionMethods Members" Url="html/ed47e445-477f-3cf6-82c2-70f5c7aa47e2.htm" />
     <HelpKINode Title="about ReaderExtensionMethods class" Url="html/c282b2db-b606-e757-ea66-73c387bf5ae8.htm" />
     <HelpKINode Title="about ReaderExtensionMethods class" Url="html/58ade576-5aad-5aec-80e1-f87af70abe67.htm" />
     <HelpKINode Title="all members" Url="html/1cf6222f-45bd-4dee-8f3f-93d63dc06224.htm" />
     <HelpKINode Title="all members" Url="html/ed47e445-477f-3cf6-82c2-70f5c7aa47e2.htm" />
-    <HelpKINode Title="methods" Url="html/ceb8d052-8387-f68c-8d39-57c47f29a42d.htm" />
     <HelpKINode Title="methods" Url="html/35465f49-68a7-63af-9bef-a7a8c7e8c64b.htm" />
+    <HelpKINode Title="methods" Url="html/ceb8d052-8387-f68c-8d39-57c47f29a42d.htm" />
   </HelpKINode>
   <HelpKINode Title="ReaderExtensionMethods.DecodeList(Of T) method" Url="html/02f7b738-9878-f792-625a-a1b4ec37b914.htm" />
   <HelpKINode Title="ReaderExtensionMethods.DecodeList&lt;T&gt; method" Url="html/02f7b738-9878-f792-625a-a1b4ec37b914.htm" />
@@ -2750,21 +2750,21 @@
   <HelpKINode Title="WriteOp method" Url="html/a61df4db-262b-3ca3-8c59-e48584da96bf.htm" />
   <HelpKINode Title="WritePushData method" Url="html/38cdb99b-c716-7204-5e21-cc412b8508d6.htm" />
   <HelpKINode Title="WriterExtensionMethods class">
-    <HelpKINode Title="WriterExtensionMethods Class" Url="html/0e9be163-bcb1-6c58-dbc5-700b99b59480.htm" />
-    <HelpKINode Title="WriterExtensionMethods Class" Url="html/156d4298-e284-92d1-b6d9-acffd6a1eb63.htm" />
     <HelpKINode Title="WriterExtensionMethods Class" Url="html/c50953c9-124f-b228-67dc-8b6b4cfb35f9.htm" />
-    <HelpKINode Title="WriterExtensionMethods Members" Url="html/b10a4b1f-c85b-7fde-05ba-af89cfb0af8a.htm" />
-    <HelpKINode Title="WriterExtensionMethods Members" Url="html/8cd4d7f3-0d16-eaf1-e62d-c761d77d3704.htm" />
+    <HelpKINode Title="WriterExtensionMethods Class" Url="html/156d4298-e284-92d1-b6d9-acffd6a1eb63.htm" />
+    <HelpKINode Title="WriterExtensionMethods Class" Url="html/0e9be163-bcb1-6c58-dbc5-700b99b59480.htm" />
     <HelpKINode Title="WriterExtensionMethods Members" Url="html/9e52b254-8d9b-c3dd-d3e7-f616140a5307.htm" />
-    <HelpKINode Title="about WriterExtensionMethods class" Url="html/0e9be163-bcb1-6c58-dbc5-700b99b59480.htm" />
+    <HelpKINode Title="WriterExtensionMethods Members" Url="html/8cd4d7f3-0d16-eaf1-e62d-c761d77d3704.htm" />
+    <HelpKINode Title="WriterExtensionMethods Members" Url="html/b10a4b1f-c85b-7fde-05ba-af89cfb0af8a.htm" />
     <HelpKINode Title="about WriterExtensionMethods class" Url="html/156d4298-e284-92d1-b6d9-acffd6a1eb63.htm" />
     <HelpKINode Title="about WriterExtensionMethods class" Url="html/c50953c9-124f-b228-67dc-8b6b4cfb35f9.htm" />
+    <HelpKINode Title="about WriterExtensionMethods class" Url="html/0e9be163-bcb1-6c58-dbc5-700b99b59480.htm" />
     <HelpKINode Title="all members" Url="html/b10a4b1f-c85b-7fde-05ba-af89cfb0af8a.htm" />
     <HelpKINode Title="all members" Url="html/8cd4d7f3-0d16-eaf1-e62d-c761d77d3704.htm" />
     <HelpKINode Title="all members" Url="html/9e52b254-8d9b-c3dd-d3e7-f616140a5307.htm" />
+    <HelpKINode Title="methods" Url="html/6889abc9-1bdb-04e6-a8b4-c65ce014b631.htm" />
     <HelpKINode Title="methods" Url="html/560f7b80-1267-d231-aae8-f8f6649e134d.htm" />
     <HelpKINode Title="methods" Url="html/22fc61cd-272e-e1f9-bf5a-ac289ebc8aee.htm" />
-    <HelpKINode Title="methods" Url="html/6889abc9-1bdb-04e6-a8b4-c65ce014b631.htm" />
   </HelpKINode>
   <HelpKINode Title="WriterExtensionMethods.EncodeList(Of T) method" Url="html/b22f3a91-2c15-0ca7-1115-1f7a3c570f39.htm" />
   <HelpKINode Title="WriterExtensionMethods.EncodeList&lt;T&gt; method" Url="html/b22f3a91-2c15-0ca7-1115-1f7a3c570f39.htm" />
@@ -2779,12 +2779,12 @@
   <HelpKINode Title="WriterExtensionMethods.WriteFixedString method" Url="html/673e3185-8f63-2c3d-da60-afab79b2e01c.htm" />
   <HelpKINode Title="WriterExtensionMethods.WriteUInt32LE method" Url="html/22ee16d4-cfea-7186-cec2-faf36f0e02a0.htm" />
   <HelpKINode Title="WriterExtensionMethods.WriteVarBytes method">
-    <HelpKINode Title="WriterExtensionMethods.WriteVarBytes Method " Url="html/9f68a5d2-3f76-f1f0-72fc-4c015323b67c.htm" />
     <HelpKINode Title="WriterExtensionMethods.WriteVarBytes Method " Url="html/2d99556b-8e62-febc-f1aa-2279343cc01d.htm" />
+    <HelpKINode Title="WriterExtensionMethods.WriteVarBytes Method " Url="html/9f68a5d2-3f76-f1f0-72fc-4c015323b67c.htm" />
   </HelpKINode>
   <HelpKINode Title="WriterExtensionMethods.WriteVarInt method">
-    <HelpKINode Title="WriterExtensionMethods.WriteVarInt Method " Url="html/a3973eaf-a116-f1f4-bbba-c1daa2dfdeb2.htm" />
     <HelpKINode Title="WriterExtensionMethods.WriteVarInt Method " Url="html/dc293895-b0fc-5f92-67b9-5d0056709138.htm" />
+    <HelpKINode Title="WriterExtensionMethods.WriteVarInt Method " Url="html/a3973eaf-a116-f1f4-bbba-c1daa2dfdeb2.htm" />
   </HelpKINode>
   <HelpKINode Title="WriterExtensionMethods.WriteVarString method" Url="html/82e37621-8ec2-90aa-8e88-8c98e0572b77.htm" />
   <HelpKINode Title="WriteUInt32LE method" Url="html/22ee16d4-cfea-7186-cec2-faf36f0e02a0.htm" />
