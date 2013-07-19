@@ -459,12 +459,12 @@ namespace BitSharp.Daemon
                     isChanged = true;
                     updatedMetadata = new BlockMetadata
                     (
-                            blockHash: updatedMetadata.BlockHash,
-                            previousBlockHash: updatedMetadata.PreviousBlockHash,
-                            work: updatedMetadata.Work,
-                            height: prevBlockMetadata.Height + 1,
-                            totalWork: prevBlockMetadata.TotalWork + updatedMetadata.Work,
-                            isValid: null
+                        blockHash: updatedMetadata.BlockHash,
+                        previousBlockHash: updatedMetadata.PreviousBlockHash,
+                        work: updatedMetadata.Work,
+                        height: prevBlockMetadata.Height + 1,
+                        totalWork: prevBlockMetadata.TotalWork + updatedMetadata.Work,
+                        isValid: null
                     );
                 }
                 else
@@ -559,6 +559,9 @@ namespace BitSharp.Daemon
 
                             if (chainCount % 1.THOUSAND() == 0)
                             {
+                                // notify winner worker after chaining blocks
+                                this.winnerWorker.NotifyWork();
+                                
                                 // notify the blockchain worker after chaining blocks
                                 this.blockchainWorker.NotifyWork();
                             }
@@ -897,6 +900,9 @@ namespace BitSharp.Daemon
         {
             this._winningBlock = winningBlock;
             this._winningBlockchain = winningBlockchain;
+
+            // notify the blockchain worker after updating winning block
+            this.blockchainWorker.NotifyWork();
 
             var handler = this.OnWinningBlockChanged;
             if (handler != null)
