@@ -58,7 +58,7 @@ namespace BitSharp.Storage.SqlServer.ExtensionMethods
         public static bool? GetBooleanNullable(this DbDataReader reader, int i)
         {
             if (!reader.IsDBNull(i))
-                return reader.GetInt32(i) != 0;
+                return reader.GetBoolean(i);
             else
                 return null;
         }
