@@ -114,6 +114,7 @@ namespace BitSharp.Blockchain
                 new Data.Blockchain
                 (
                     blockList: ImmutableList.Create(this._genesisBlockMetadata),
+                    blockListHashes: ImmutableHashSet.Create(this._genesisBlock.Hash),
                     utxo: ImmutableHashSet.Create<TxOutputKey>() // genesis block coinbase is not included in utxo, it is unspendable
                 );
         }
@@ -185,24 +186,23 @@ namespace BitSharp.Blockchain
                 // lookup the latest block on the current blockchain
                 var currentBlockHeader = this.CacheContext.GetBlockHeader(blockchain.RootBlockHash);
 
-                var nextHeight = blockchain.Height + 1;
-
                 // use genesis block difficulty if first adjusment interval has not yet been reached
-                if (nextHeight < DifficultyInternal)
+                if (blockchain.Height < DifficultyInternal)
                 {
                     return genesisBlockHeader.CalculateTarget();
                 }
                 // not on an adjustment interval, reuse current block's target
-                else if (nextHeight % DifficultyInternal != 0)
+                else if (blockchain.Height % DifficultyInternal != 0)
                 {
                     return currentBlockHeader.CalculateTarget();
                 }
                 // on an adjustment interval, calculate the required next target
                 else
                 {
-                    // get the block (difficultyInterval - 1) blocks ago
-                    var startBlockMetadata = blockchain.BlockList.Reverse().Skip(DifficultyInternal - 1).First();
+                    // get the block difficultyInterval blocks ago
+                    var startBlockMetadata = blockchain.BlockList.Reverse().Skip(DifficultyInternal).First();
                     var startBlockHeader = this.CacheContext.GetBlockHeader(startBlockMetadata.BlockHash);
+                    Debug.Assert(startBlockMetadata.Height == blockchain.Height - DifficultyInternal);
 
                     var actualTimespan = (long)currentBlockHeader.Time - (long)startBlockHeader.Time;
                     var targetTimespan = DifficultyTargetTimespan;

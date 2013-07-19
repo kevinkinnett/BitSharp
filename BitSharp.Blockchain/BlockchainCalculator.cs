@@ -210,6 +210,7 @@ namespace BitSharp.Blockchain
             var newBlockchain = new Data.Blockchain
             (
                 blockList: currentBlockchain.BlockList,
+                blockListHashes: currentBlockchain.BlockListHashes,
                 utxo: currentBlockchain.Utxo
             );
 
@@ -223,11 +224,6 @@ namespace BitSharp.Blockchain
 
                 try
                 {
-                    //Debug.WriteLine(index);
-                    //if (index == 19)
-                    //    Debugger.Break();
-                    index++;
-
                     // get block and metadata for next link in blockchain
                     var nextBlock = tuple.Item1;
                     var nextBlockMetadata = tuple.Item2;
@@ -244,6 +240,7 @@ namespace BitSharp.Blockchain
                         new Data.Blockchain
                         (
                             blockList: newBlockchain.BlockList.Add(nextBlockMetadata),
+                            blockListHashes: newBlockchain.BlockListHashes.Add(nextBlockMetadata.BlockHash),
                             utxo: newUtxo
                         );
 
@@ -324,6 +321,7 @@ namespace BitSharp.Blockchain
             return new Data.Blockchain
             (
                 blockList: blockchain.BlockList.RemoveAt(blockchain.BlockCount - 1),
+                blockListHashes: blockchain.BlockListHashes.Remove(blockchain.RootBlockHash),
                 utxo: newUtxo
             );
         }
@@ -661,24 +659,15 @@ namespace BitSharp.Blockchain
                     var transactionsBuilder = ImmutableDictionary.CreateBuilder<UInt256, Transaction>();
                     if (blockchainHashes != null)
                     {
-                        // pre-cache previous transaction outputs
-                        for (var txIndex = 1; txIndex < block.Transactions.Length; txIndex++)
+                        var inputTxHashList = block.Transactions.Skip(1).SelectMany(x => x.Inputs).Select(x => x.PreviousTxOutputKey.TxHash).Distinct();
+
+                        // pre-cache input transactions
+                        foreach (var inputTxHash in inputTxHashList)
                         {
-                            var tx = block.Transactions[txIndex];
-
-                            for (var inputIndex = 0; inputIndex < tx.Inputs.Length; inputIndex++)
+                            Transaction inputTx;
+                            if (this.CacheContext.TransactionCache.TryGetValue(new TxKeySearch(inputTxHash, blockchainHashes), out inputTx, saveInCache: false))
                             {
-                                var input = tx.Inputs[inputIndex];
-
-                                if (!transactionsBuilder.ContainsKey(input.PreviousTxOutputKey.TxHash))
-                                {
-                                    //TODO
-                                    Transaction prevTx;
-                                    if (this.CacheContext.TransactionCache.TryGetValue(new TxKeySearch(input.PreviousTxOutputKey.TxHash, blockchainHashes), out prevTx, saveInCache: false))
-                                    {
-                                        transactionsBuilder.Add(input.PreviousTxOutputKey.TxHash, prevTx);
-                                    }
-                                }
+                                transactionsBuilder.Add(inputTxHash, inputTx);
                             }
                         }
                     }

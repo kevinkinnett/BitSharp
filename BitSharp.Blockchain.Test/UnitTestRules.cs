@@ -46,6 +46,7 @@ namespace BitSharp.Blockchain.Test
                 new Data.Blockchain
                 (
                     blockList: ImmutableList.Create(this._genesisBlockMetadata),
+                    blockListHashes: ImmutableHashSet.Create(this._genesisBlock.Hash),
                     utxo: ImmutableHashSet.Create<TxOutputKey>() // genesis block coinbase is not included in utxo, it is unspendable
                 );
         }

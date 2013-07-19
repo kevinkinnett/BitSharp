@@ -14,14 +14,14 @@ namespace BitSharp.Data
     {
         //TODO use block hash instead of block metadata
         private readonly ImmutableList<BlockMetadata> _blockList;
-        private readonly ImmutableHashSet<UInt256> _blockchainHashes;
+        private readonly ImmutableHashSet<UInt256> _blockListHashes;
         private readonly ImmutableHashSet<TxOutputKey> _utxo;
         private readonly bool notDefault;
 
-        public Blockchain(ImmutableList<BlockMetadata> blockList, ImmutableHashSet<TxOutputKey> utxo)
+        public Blockchain(ImmutableList<BlockMetadata> blockList, ImmutableHashSet<UInt256> blockListHashes, ImmutableHashSet<TxOutputKey> utxo)
         {
             this._blockList = blockList;
-            this._blockchainHashes = blockList.Select(x => x.BlockHash).ToImmutableHashSet();
+            this._blockListHashes = blockListHashes;
             this._utxo = utxo;
 
             this.notDefault = true;
@@ -31,7 +31,7 @@ namespace BitSharp.Data
 
         public ImmutableList<BlockMetadata> BlockList { get { return this._blockList; } }
 
-        public ImmutableHashSet<UInt256> BlockchainHashes { get { return this._blockchainHashes; } }
+        public ImmutableHashSet<UInt256> BlockListHashes { get { return this._blockListHashes; } }
 
         public ImmutableHashSet<TxOutputKey> Utxo { get { return this._utxo; } }
 

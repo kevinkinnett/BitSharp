@@ -161,7 +161,7 @@ namespace BitSharp.Storage.Firebird
                 }
             }
 
-            return new Data.Blockchain(blockListBuilder.ToImmutable(), utxoBuilder.ToImmutable());
+            return new Data.Blockchain(blockListBuilder.ToImmutable(), blockListBuilder.Select(x => x.BlockHash).ToImmutableHashSet(), utxoBuilder.ToImmutable());
         }
 
         public BlockchainKey WriteBlockchain(Data.Blockchain blockchain)
