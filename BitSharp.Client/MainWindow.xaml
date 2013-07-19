@@ -14,8 +14,8 @@
         <ListView HorizontalAlignment="Left" Height="122" VerticalAlignment="Top" Width="730" Margin="10,134,0,0" ItemsSource="{Binding ViewBlockchainSpendOutputs}">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Prev Tx Hash" Width="450" DisplayMemberBinding="{Binding PreviousTransactionHash}"/>
-                    <GridViewColumn Header="Prev Tx Output Index" DisplayMemberBinding="{Binding PreviousOutputIndex}"/>
+                    <GridViewColumn Header="Prev Tx Hash" Width="450" DisplayMemberBinding="{Binding TxHash}"/>
+                    <GridViewColumn Header="Prev Tx Output Index" DisplayMemberBinding="{Binding TxOutputIndex}"/>
                 </GridView>
             </ListView.View>
         </ListView>
@@ -28,8 +28,8 @@
         <ListView HorizontalAlignment="Left" Height="122" VerticalAlignment="Top" Width="730" Margin="10,292,0,0" ItemsSource="{Binding ViewBlockchainReceiveOutputs}">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Tx Hash" Width="450" DisplayMemberBinding="{Binding PreviousTransactionHash}"/>
-                    <GridViewColumn Header="Tx Output Index" DisplayMemberBinding="{Binding PreviousOutputIndex}"/>
+                    <GridViewColumn Header="Tx Hash" Width="450" DisplayMemberBinding="{Binding TxHash}"/>
+                    <GridViewColumn Header="Tx Output Index" DisplayMemberBinding="{Binding TxOutputIndex}"/>
                 </GridView>
             </ListView.View>
         </ListView>
