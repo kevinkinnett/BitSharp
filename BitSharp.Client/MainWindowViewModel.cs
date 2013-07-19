@@ -3,6 +3,7 @@ using BitSharp.Common.ExtensionMethods;
 using BitSharp.Daemon;
 using BitSharp.Data;
 using BitSharp.Storage;
+using BitSharp.Storage.ExtensionMethods;
 using BitSharp.WireProtocol;
 using System;
 using System.Collections.Generic;
@@ -136,6 +137,11 @@ namespace BitSharp.Client
                 {
                     // TODO
                 }
+                catch (AggregateException e)
+                {
+                    if (!e.IsMissingDataOnly())
+                        throw;
+                }
             }
         }
 
@@ -168,6 +174,11 @@ namespace BitSharp.Client
             catch (MissingDataException)
             {
                 // TODO
+            }
+            catch (AggregateException e)
+            {
+                if (!e.IsMissingDataOnly())
+                    throw;
             }
 
             var handler = this.PropertyChanged;

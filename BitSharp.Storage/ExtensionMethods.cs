@@ -23,5 +23,10 @@ namespace BitSharp.Storage.ExtensionMethods
         {
             return ImmutableList.Create<T>(list.ToArray());
         }
+
+        public static bool IsMissingDataOnly(this AggregateException e)
+        {
+            return e.InnerExceptions.All(x => x is MissingDataException);
+        }
     }
 }
