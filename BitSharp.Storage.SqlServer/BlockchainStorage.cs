@@ -146,8 +146,6 @@ namespace BitSharp.Storage.SqlServer
                                 {
                                     var prevTxHash = chunkReader.Read32Bytes();
                                     var prevTxOutputIndex = chunkReader.Read4Bytes();
-                                    var prevTxBlockHash = chunkReader.Read32Bytes();
-                                    var prevTxIndex = chunkReader.Read4Bytes();
 
                                     outputs[i] = new TxOutputKey(prevTxHash, prevTxOutputIndex);
                                 }
@@ -206,7 +204,7 @@ namespace BitSharp.Storage.SqlServer
                         cmd.Parameters.Add(new SqlParameter { ParameterName = "@work", SqlDbType = SqlDbType.Binary, Size = 64 });
                         cmd.Parameters.Add(new SqlParameter { ParameterName = "@height", SqlDbType = SqlDbType.BigInt });
                         cmd.Parameters.Add(new SqlParameter { ParameterName = "@totalWork", SqlDbType = SqlDbType.Binary, Size = 64 });
-                        cmd.Parameters.Add(new SqlParameter { ParameterName = "@isValid", SqlDbType = SqlDbType.Int });
+                        cmd.Parameters.Add(new SqlParameter { ParameterName = "@isValid", SqlDbType = SqlDbType.Bit });
 
                         foreach (var blockMetadata in blockchain.BlockList)
                         {
@@ -236,6 +234,7 @@ namespace BitSharp.Storage.SqlServer
 
                         var chunkSize = 100000;
                         var currentOffset = 0;
+                        var chunkBytes = new byte[4 + (36 * chunkSize)];
 
                         using (var utxoEnumerator = blockchain.Utxo.GetEnumerator())
                         {
@@ -244,8 +243,6 @@ namespace BitSharp.Storage.SqlServer
                             {
                                 var chunkLength = Math.Min(chunkSize, blockchain.Utxo.Count - currentOffset);
 
-                                // varint is up to 9 bytes and txoutputkey is 36 bytes
-                                var chunkBytes = new byte[9 + (72 * chunkSize)];
                                 var chunkStream = new MemoryStream(chunkBytes);
                                 using (var chunkWriter = new BinaryWriter(chunkStream))
                                 {
