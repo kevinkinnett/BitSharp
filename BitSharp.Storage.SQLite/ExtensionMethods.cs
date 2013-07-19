@@ -87,11 +87,6 @@ namespace BitSharp.Storage.SQLite.ExtensionMethods
             return Bits.GetBytesBE(value);
         }
 
-        public static byte[] ToDbByteArray(this UInt128 value)
-        {
-            return value.ToByteArray().Reverse().ToArray();
-        }
-
         public static byte[] ToDbByteArray(this UInt256 value)
         {
             return value.ToByteArray().Reverse().ToArray();

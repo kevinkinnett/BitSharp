@@ -55,11 +55,6 @@ namespace BitSharp.Common.ExtensionMethods
             return ToHexNumberString(value.ToArray());
         }
 
-        public static string ToHexNumberString(this UInt128 value)
-        {
-            return ToHexNumberString(value.ToByteArray());
-        }
-
         public static string ToHexNumberString(this UInt256 value)
         {
             return ToHexNumberString(value.ToByteArray());
@@ -88,11 +83,6 @@ namespace BitSharp.Common.ExtensionMethods
         public static string ToHexDataString(this IEnumerable<byte> value)
         {
             return ToHexDataString(value.ToArray());
-        }
-
-        public static string ToHexDataString(this UInt128 value)
-        {
-            return ToHexDataString(value.ToByteArray());
         }
 
         public static string ToHexDataString(this UInt256 value)

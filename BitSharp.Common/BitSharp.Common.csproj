@@ -73,10 +73,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ByteArrayStream.cs" />
     <Compile Include="Bits.cs" />
     <Compile Include="ConcurrentSet.cs" />
-    <Compile Include="ImmutableDictionaryCustom.cs" />
     <Compile Include="Crypto.cs" />
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="LookAhead.cs" />
@@ -84,8 +82,6 @@
     <Compile Include="MethodTimer.cs" />
     <Compile Include="ReaderExtensionMethods.cs" />
     <Compile Include="ThrottledNotifyEvent.cs" />
-    <Compile Include="UInt.cs" />
-    <Compile Include="UInt128.cs" />
     <Compile Include="UInt256.cs" />
     <Compile Include="Worker.cs" />
     <Compile Include="WriterExtensionMethods.cs" />

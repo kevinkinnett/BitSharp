@@ -71,7 +71,7 @@ namespace BitSharp.Script
             stack = new Stack();
             altStack = new Stack();
 
-            using (var opReader = new BinaryReader(script.ToStream()))
+            using (var opReader = new BinaryReader(script.ToMemoryStream()))
             {
                 while (opReader.BaseStream.Position < script.Length)
                 {

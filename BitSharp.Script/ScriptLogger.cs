@@ -77,10 +77,6 @@ namespace BitSharp.Script
                     {
                         args[i] = ((BigInteger)args[i]).ToHexNumberString();
                     }
-                    else if (args[i] is UInt128)
-                    {
-                        args[i] = ((UInt128)args[i]).ToHexNumberString();
-                    }
                     else if (args[i] is UInt256)
                     {
                         args[i] = ((UInt256)args[i]).ToHexNumberString();

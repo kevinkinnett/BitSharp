@@ -86,7 +86,7 @@
     <Compile Include="ExtensionMethodTests.cs" />
     <Compile Include="TestBase.cs" />
     <Compile Include="TestData.cs" />
-    <Compile Include="UIntTest.cs" />
+    <Compile Include="UInt256Test.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
