@@ -7,29 +7,30 @@
     <ProjectGuid>{258114CA-F64E-4D9A-8671-E609F90B11AF}</ProjectGuid>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <OutputPath>bin\x64\Debug\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup>
-	<dotCover>$(MSBuildProgramFiles32)\JetBrains\dotCover\v2.2\Bin\dotCover.exe</dotCover>
+	<dotCover>$(MSBuildProgramFiles32)\JetBrains\dotCover\v2.5\Bin\dotCover.exe</dotCover>
 	<vstest>$(DevEnvDir)\CommonExtensions\Microsoft\TestWindow\vstest.console.exe</vstest>
 	<vstestPlatform Condition="'$(Platform)' == 'AnyCPU'">x86</vstestPlatform>
 	<vstestPlatform Condition="'$(Platform)' == 'x64'">x64</vstestPlatform>
   </PropertyGroup>
   
   <ItemGroup>
-	<!--
 	<TestProject Include="BitSharp.Blockchain" />
 	<TestProject Include="BitSharp.BlockHelper" />
 	<TestProject Include="BitSharp.Client" />
-	-->
 	<TestProject Include="BitSharp.Common" />
-	<!--
 	<TestProject Include="BitSharp.Daemon" />
 	<TestProject Include="BitSharp.Data" />
 	<TestProject Include="BitSharp.Network" />
@@ -39,7 +40,6 @@
 	<TestProject Include="BitSharp.Transactions" />
 	<TestProject Include="BitSharp.Wallet" />
 	<TestProject Include="BitSharp.WireProtocol" />
-	-->
   </ItemGroup>
   
   <Target Name="Rebuild">
@@ -48,9 +48,9 @@
   <Target Name="Build" Condition="Exists('$(dotCover)') And Exists('$(vstest)')">
 	<RemoveDir Directories="obj;report" />
 	
-	<Exec Command="%22$(dotCover)%22 cover /TargetExecutable=%22$(vstest)%22 /TargetArguments=%22$(SolutionDir)%(TestProject.Identity).Test\$(OutputPath)%(TestProject.Identity).Test.dll /InIsolation /Platform:$(vstestPlatform)%22 /TargetWorkingDir=%22$(SolutionDir)%(TestProject.Identity).Test\$(OutputPath).%22 /Output=obj\%(TestProject.Identity).Test.xml /Filters=+:%(TestProject.Identity)" IgnoreExitCode="True" />
+	<Exec Command="%22$(dotCover)%22 cover /TargetExecutable=%22$(vstest)%22 /TargetArguments=%22$(SolutionDir)%(TestProject.Identity).Test\$(OutputPath)%(TestProject.Identity).Test.dll /InIsolation /Platform:$(vstestPlatform)%22 /TargetWorkingDir=%22$(SolutionDir)%(TestProject.Identity).Test\$(OutputPath).%22 /Output=obj\%(TestProject.Identity).Test.txt /Filters=+:%(TestProject.Identity)" IgnoreExitCode="True" />
 	
-	<Exec Command="&quot;$(dotCover)&quot; merge /Source=obj\@(TestProject, '.Test.xml;obj\').Test.xml /Output=obj\Merged.Test.xml" />
-	<Exec Command="&quot;$(dotCover)&quot; report /Source=obj\Merged.Test.xml /Output=report\report.html /ReportType=HTML" />
+	<Exec Command="&quot;$(dotCover)&quot; merge /Source=obj\@(TestProject, '.Test.txt;obj\').Test.txt /Output=obj\Merged.Test.txt" />
+	<Exec Command="&quot;$(dotCover)&quot; report /Source=obj\Merged.Test.txt /Output=report\report.html /ReportType=HTML" />
   </Target>
 </Project>
