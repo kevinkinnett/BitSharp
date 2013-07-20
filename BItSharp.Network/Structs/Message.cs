@@ -1,5 +1,5 @@
 ﻿using BitSharp.Common;
-using BitSharp.WireProtocol.ExtensionMethods;
+using BitSharp.Network.ExtensionMethods;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +8,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Collections.Immutable;
 
-namespace BitSharp.WireProtocol
+namespace BitSharp.Network
 {
     public struct Message
     {

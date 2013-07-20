@@ -15,7 +15,22 @@ namespace BitSharp.Data
 {
     public static class DataCalculator
     {
+        public static UInt256 CalculateBlockHash(BlockHeader blockHeader)
+        {
+            return new UInt256(Crypto.DoubleSHA256(EncodeBlockHeader(blockHeader)));
+        }
+
         public static UInt256 CalculateBlockHash(UInt32 Version, UInt256 PreviousBlock, UInt256 MerkleRoot, UInt32 Time, UInt32 Bits, UInt32 Nonce)
+        {
+            return new UInt256(Crypto.DoubleSHA256(EncodeBlockHeader(Version, PreviousBlock, MerkleRoot, Time, Bits, Nonce)));
+        }
+
+        public static byte[] EncodeBlockHeader(BlockHeader blockHeader)
+        {
+            return EncodeBlockHeader(blockHeader.Version, blockHeader.PreviousBlock, blockHeader.MerkleRoot, blockHeader.Time, blockHeader.Bits, blockHeader.Nonce);
+        }
+
+        public static byte[] EncodeBlockHeader(UInt32 Version, UInt256 PreviousBlock, UInt256 MerkleRoot, UInt32 Time, UInt32 Bits, UInt32 Nonce)
         {
             var stream = new MemoryStream();
             using (var writer = new BinaryWriter(stream))
@@ -27,12 +42,26 @@ namespace BitSharp.Data
                 writer.Write4Bytes(Bits);
                 writer.Write4Bytes(Nonce);
 
-                return new UInt256(Crypto.DoubleSHA256(stream.ToArray()));
+                return stream.ToArray();
             }
         }
 
-        //TODO expensive property
+        public static UInt256 CalculateTransactionHash(Transaction tx)
+        {
+            return new UInt256(Crypto.DoubleSHA256(EncodeTransaction(tx)));
+        }
+
         public static UInt256 CalculateTransactionHash(UInt32 Version, ImmutableArray<TxInput> Inputs, ImmutableArray<TxOutput> Outputs, UInt32 LockTime)
+        {
+            return new UInt256(Crypto.DoubleSHA256(EncodeTransaction(Version, Inputs, Outputs, LockTime)));
+        }
+
+        public static byte[] EncodeTransaction(Transaction tx)
+        {
+            return EncodeTransaction(tx.Version, tx.Inputs, tx.Outputs, tx.LockTime);
+        }
+
+        public static byte[] EncodeTransaction(UInt32 Version, ImmutableArray<TxInput> Inputs, ImmutableArray<TxOutput> Outputs, UInt32 LockTime)
         {
             var stream = new MemoryStream();
             using (var writer = new BinaryWriter(stream))
@@ -54,7 +83,7 @@ namespace BitSharp.Data
                 }
                 writer.Write4Bytes(LockTime);
 
-                return new UInt256(Crypto.DoubleSHA256(stream.ToArray()));
+                return stream.ToArray();
             }
         }
 

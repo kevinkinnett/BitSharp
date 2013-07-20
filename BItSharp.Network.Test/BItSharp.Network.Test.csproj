@@ -84,9 +84,25 @@
   <ItemGroup>
     <Compile Include="NetworkTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="WireEncoderTest.cs" />
+    <Compile Include="WireEncoderTest.Data.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BitSharp.Common\BitSharp.Common.csproj">
+      <Project>{b8d21dec-5370-4194-9e6d-2f620804a892}</Project>
+      <Name>BitSharp.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Data\BitSharp.Data.csproj">
+      <Project>{3099c2ee-055d-4856-9d86-f9f495f9c761}</Project>
+      <Name>BitSharp.Data</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Network\BitSharp.Network.csproj">
+      <Project>{4d92a9b1-577f-4d24-9153-088ced047b68}</Project>
+      <Name>BitSharp.Network</Name>
+    </ProjectReference>
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">

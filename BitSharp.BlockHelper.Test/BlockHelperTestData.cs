@@ -3,7 +3,6 @@ using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Common.Test;
 using BitSharp.Data;
-using BitSharp.WireProtocol;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;

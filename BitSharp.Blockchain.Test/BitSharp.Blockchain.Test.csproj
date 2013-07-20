@@ -120,10 +120,6 @@
       <Project>{d05dfc3e-dbf2-4ae9-9e6e-229b6cafa36f}</Project>
       <Name>BitSharp.Transactions</Name>
     </ProjectReference>
-    <ProjectReference Include="..\BitSharp.WireProtocol\BitSharp.WireProtocol.csproj">
-      <Project>{8d4572de-dd74-4a1c-81f4-7d87ae587861}</Project>
-      <Name>BitSharp.WireProtocol</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

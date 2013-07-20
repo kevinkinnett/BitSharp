@@ -2,7 +2,7 @@
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Storage;
 using BitSharp.Storage.SQLite.ExtensionMethods;
-using BitSharp.WireProtocol;
+using BitSharp.Network;
 using System;
 using System.Collections.Generic;
 using System.Data;

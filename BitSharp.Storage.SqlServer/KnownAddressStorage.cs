@@ -2,7 +2,7 @@
 using BitSharp.Storage.SqlServer;
 using BitSharp.Storage.SqlServer.ExtensionMethods;
 using BitSharp.Storage;
-using BitSharp.WireProtocol;
+using BitSharp.Network;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;

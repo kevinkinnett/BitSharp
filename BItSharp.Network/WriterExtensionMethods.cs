@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BitSharp.WireProtocol.ExtensionMethods
+namespace BitSharp.Network.ExtensionMethods
 {
     public static class WriterExtensionMethods
     {

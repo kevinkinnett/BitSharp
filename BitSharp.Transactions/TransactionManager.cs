@@ -2,7 +2,6 @@
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Data;
 using BitSharp.Script;
-using BitSharp.WireProtocol;
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.Sec;
 using Org.BouncyCastle.Crypto.Generators;

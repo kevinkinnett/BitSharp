@@ -4,7 +4,6 @@ using BitSharp.Data;
 using BitSharp.Storage;
 using BitSharp.Storage.Test;
 using BitSharp.Transactions;
-using BitSharp.WireProtocol;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.BouncyCastle.Crypto.Parameters;
 using System;

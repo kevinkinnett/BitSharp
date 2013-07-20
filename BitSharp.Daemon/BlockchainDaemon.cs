@@ -5,7 +5,6 @@ using BitSharp.Storage.Firebird;
 using BitSharp.Script;
 using BitSharp.Storage;
 using BitSharp.Storage.ExtensionMethods;
-using BitSharp.WireProtocol;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

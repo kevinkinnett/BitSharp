@@ -4,7 +4,6 @@ using BitSharp.Common.ExtensionMethods;
 using BitSharp.Script;
 using BitSharp.Storage;
 using BitSharp.Transactions;
-using BitSharp.WireProtocol;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.BouncyCastle.Crypto.Parameters;
 using System;

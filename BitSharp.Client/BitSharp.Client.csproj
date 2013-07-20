@@ -181,10 +181,6 @@
       <Project>{aead1d24-ccb8-4934-b882-b33bce87ac27}</Project>
       <Name>BitSharp.Wallet</Name>
     </ProjectReference>
-    <ProjectReference Include="..\BitSharp.WireProtocol\BitSharp.WireProtocol.csproj">
-      <Project>{8d4572de-dd74-4a1c-81f4-7d87ae587861}</Project>
-      <Name>BitSharp.WireProtocol</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Firebird_x64 Include="Firebird.x64\**\*" />

@@ -9,7 +9,6 @@ using Org.BouncyCastle.Math;
 using BitSharp;
 using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
-using BitSharp.WireProtocol;
 using BitSharp.Script;
 using BitSharp.Common.Test;
 using BitSharp.BlockHelper;

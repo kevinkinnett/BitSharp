@@ -85,10 +85,23 @@
   </Choose>
   <ItemGroup>
     <Compile Include="Bootstrap.cs" />
+    <Compile Include="Messaging.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ReaderExtensionMethods.cs" />
     <Compile Include="RemoteNode.cs" />
     <Compile Include="RemoteReceiver.cs" />
     <Compile Include="RemoteSender.cs" />
+    <Compile Include="Structs\AddressPayload.cs" />
+    <Compile Include="Structs\AlertPayload.cs" />
+    <Compile Include="Structs\GetBlocksPayload.cs" />
+    <Compile Include="Structs\InventoryPayload.cs" />
+    <Compile Include="Structs\InventoryVector.cs" />
+    <Compile Include="Structs\Message.cs" />
+    <Compile Include="Structs\NetworkAddress.cs" />
+    <Compile Include="Structs\NetworkAddressWithTime.cs" />
+    <Compile Include="Structs\VersionPayload.cs" />
+    <Compile Include="WireEncoder.cs" />
+    <Compile Include="WriterExtensionMethods.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BitSharp.Common\BitSharp.Common.csproj">
@@ -98,10 +111,6 @@
     <ProjectReference Include="..\BitSharp.Data\BitSharp.Data.csproj">
       <Project>{3099c2ee-055d-4856-9d86-f9f495f9c761}</Project>
       <Name>BitSharp.Data</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\BitSharp.WireProtocol\BitSharp.WireProtocol.csproj">
-      <Project>{8d4572de-dd74-4a1c-81f4-7d87ae587861}</Project>
-      <Name>BitSharp.WireProtocol</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

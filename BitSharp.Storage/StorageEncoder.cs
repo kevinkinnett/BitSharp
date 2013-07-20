@@ -1,7 +1,6 @@
 ﻿using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Data;
-using BitSharp.WireProtocol.ExtensionMethods;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -22,7 +21,7 @@ namespace BitSharp.Storage
                 return new Block
                 (
                     header: DecodeBlockHeader(stream, blockHash),
-                    transactions: reader.DecodeList<Transaction>(() => DecodeTransaction(stream))
+                    transactions: DecodeList(reader, () => DecodeTransaction(stream))
                 );
             }
         }
@@ -32,7 +31,7 @@ namespace BitSharp.Storage
             using (var writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: true))
             {
                 EncodeBlockHeader(stream, block.Header);
-                writer.EncodeList(block.Transactions, tx => EncodeTransaction(stream, tx));
+                EncodeList(writer, block.Transactions, tx => EncodeTransaction(stream, tx));
             }
         }
 
@@ -87,8 +86,8 @@ namespace BitSharp.Storage
                 return new Transaction
                 (
                     version: reader.Read4Bytes(),
-                    inputs: reader.DecodeList(() => DecodeTxInput(stream)),
-                    outputs: reader.DecodeList(() => DecodeTxOutput(stream)),
+                    inputs: DecodeList(reader, () => DecodeTxInput(stream)),
+                    outputs: DecodeList(reader, () => DecodeTxOutput(stream)),
                     lockTime: reader.Read4Bytes(),
                     hash: txHash
                 );
@@ -100,8 +99,8 @@ namespace BitSharp.Storage
             using (var writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: true))
             {
                 writer.Write4Bytes(tx.Version);
-                writer.EncodeList(tx.Inputs, input => EncodeTxInput(stream, input));
-                writer.EncodeList(tx.Outputs, output => EncodeTxOutput(stream, output));
+                EncodeList(writer, tx.Inputs, input => EncodeTxInput(stream, input));
+                EncodeList(writer, tx.Outputs, output => EncodeTxOutput(stream, output));
                 writer.Write4Bytes(tx.LockTime);
             }
         }
@@ -122,9 +121,9 @@ namespace BitSharp.Storage
                     previousTxOutputKey: new TxOutputKey
                     (
                         txHash: reader.Read32Bytes(),
-                        txOutputIndex:reader.Read4Bytes()
+                        txOutputIndex: reader.Read4Bytes()
                     ),
-                    scriptSignature: reader.ReadVarBytes().ToImmutableArray(),
+                    scriptSignature: DecodeVarBytes(reader).ToImmutableArray(),
                     sequence: reader.Read4Bytes()
                 );
             }
@@ -136,7 +135,7 @@ namespace BitSharp.Storage
             {
                 writer.Write32Bytes(txInput.PreviousTxOutputKey.TxHash);
                 writer.Write4Bytes(txInput.PreviousTxOutputKey.TxOutputIndex);
-                writer.WriteVarBytes(txInput.ScriptSignature.ToArray());
+                EncodeVarBytes(writer, txInput.ScriptSignature.ToArray());
                 writer.Write4Bytes(txInput.Sequence);
             }
         }
@@ -155,7 +154,7 @@ namespace BitSharp.Storage
                 return new TxOutput
                 (
                     value: reader.Read8Bytes(),
-                    scriptPublicKey: reader.ReadVarBytes().ToImmutableArray()
+                    scriptPublicKey: DecodeVarBytes(reader).ToImmutableArray()
                 );
             }
         }
@@ -165,7 +164,7 @@ namespace BitSharp.Storage
             using (var writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: true))
             {
                 writer.Write8Bytes(txOutput.Value);
-                writer.WriteVarBytes(txOutput.ScriptPublicKey.ToArray());
+                EncodeVarBytes(writer, txOutput.ScriptPublicKey.ToArray());
             }
         }
 
@@ -174,6 +173,41 @@ namespace BitSharp.Storage
             var stream = new MemoryStream();
             EncodeTxOutput(stream, txOutput);
             return stream.ToArray();
+        }
+
+        public static byte[] DecodeVarBytes(BinaryReader reader)
+        {
+            var length = reader.ReadInt32();
+            return reader.ReadBytes(length);
+        }
+
+        public static void EncodeVarBytes(BinaryWriter writer, byte[] bytes)
+        {
+            writer.WriteInt32(bytes.Length);
+            writer.WriteBytes(bytes);
+        }
+
+        public static ImmutableArray<T> DecodeList<T>(BinaryReader reader, Func<T> decode)
+        {
+            var length = reader.ReadInt32();
+
+            var list = new T[length];
+            for (var i = 0; i < length; i++)
+            {
+                list[i] = decode();
+            }
+
+            return list.ToImmutableArray();
+        }
+
+        public static void EncodeList<T>(BinaryWriter writer, ImmutableArray<T> list, Action<T> encode)
+        {
+            writer.WriteInt32(list.Length);
+
+            for (var i = 0; i < list.Length; i++)
+            {
+                encode(list[i]);
+            }
         }
     }
 }

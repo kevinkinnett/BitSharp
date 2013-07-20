@@ -1,12 +1,12 @@
 ﻿using System;
 using BitSharp.Common;
-using BitSharp.WireProtocol.ExtensionMethods;
+using BitSharp.Network.ExtensionMethods;
 using System.Linq;
 using System.IO;
 using System.Diagnostics;
 using System.Collections.Immutable;
 
-namespace BitSharp.WireProtocol
+namespace BitSharp.Network
 {
     public struct VersionPayload
     {

@@ -1,7 +1,7 @@
 ﻿using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Data;
-using BitSharp.WireProtocol.ExtensionMethods;
+using BitSharp.Network.ExtensionMethods;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -11,7 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BitSharp.WireProtocol
+namespace BitSharp.Network
 {
     /// <summary>
     /// WireEncoder is responsible for encoding and decoding data according to the P2P protocol.

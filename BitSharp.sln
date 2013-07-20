@@ -5,10 +5,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Node", "BitSharp.N
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Node.Test", "BitSharp.Node.Test\BitSharp.Node.Test.csproj", "{14F4EA11-179A-4438-9F62-2589805A854C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.WireProtocol", "BitSharp.WireProtocol\BitSharp.WireProtocol.csproj", "{8D4572DE-DD74-4A1C-81F4-7D87AE587861}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.WireProtocol.Test", "BitSharp.WireProtocol.Test\BitSharp.WireProtocol.Test.csproj", "{108C9831-5626-4EA3-8EDC-FD0B0D96E5BB}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Common", "BitSharp.Common\BitSharp.Common.csproj", "{B8D21DEC-5370-4194-9E6D-2F620804A892}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Common.Test", "BitSharp.Common.Test\BitSharp.Common.Test.csproj", "{299D32ED-61A5-4C8D-8AE1-8F502CFA6B99}"
@@ -100,22 +96,6 @@ Global
 		{14F4EA11-179A-4438-9F62-2589805A854C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{14F4EA11-179A-4438-9F62-2589805A854C}.Release|x64.ActiveCfg = Release|x64
 		{14F4EA11-179A-4438-9F62-2589805A854C}.Release|x64.Build.0 = Release|x64
-		{8D4572DE-DD74-4A1C-81F4-7D87AE587861}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8D4572DE-DD74-4A1C-81F4-7D87AE587861}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8D4572DE-DD74-4A1C-81F4-7D87AE587861}.Debug|x64.ActiveCfg = Debug|x64
-		{8D4572DE-DD74-4A1C-81F4-7D87AE587861}.Debug|x64.Build.0 = Debug|x64
-		{8D4572DE-DD74-4A1C-81F4-7D87AE587861}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8D4572DE-DD74-4A1C-81F4-7D87AE587861}.Release|Any CPU.Build.0 = Release|Any CPU
-		{8D4572DE-DD74-4A1C-81F4-7D87AE587861}.Release|x64.ActiveCfg = Release|x64
-		{8D4572DE-DD74-4A1C-81F4-7D87AE587861}.Release|x64.Build.0 = Release|x64
-		{108C9831-5626-4EA3-8EDC-FD0B0D96E5BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{108C9831-5626-4EA3-8EDC-FD0B0D96E5BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{108C9831-5626-4EA3-8EDC-FD0B0D96E5BB}.Debug|x64.ActiveCfg = Debug|x64
-		{108C9831-5626-4EA3-8EDC-FD0B0D96E5BB}.Debug|x64.Build.0 = Debug|x64
-		{108C9831-5626-4EA3-8EDC-FD0B0D96E5BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{108C9831-5626-4EA3-8EDC-FD0B0D96E5BB}.Release|Any CPU.Build.0 = Release|Any CPU
-		{108C9831-5626-4EA3-8EDC-FD0B0D96E5BB}.Release|x64.ActiveCfg = Release|x64
-		{108C9831-5626-4EA3-8EDC-FD0B0D96E5BB}.Release|x64.Build.0 = Release|x64
 		{B8D21DEC-5370-4194-9E6D-2F620804A892}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B8D21DEC-5370-4194-9E6D-2F620804A892}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B8D21DEC-5370-4194-9E6D-2F620804A892}.Debug|x64.ActiveCfg = Debug|x64

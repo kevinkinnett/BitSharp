@@ -1,6 +1,5 @@
 ﻿using BitSharp.Common;
 using BitSharp.Data;
-using BitSharp.WireProtocol;
 using System;
 using System.Collections.Generic;
 using System.Linq;

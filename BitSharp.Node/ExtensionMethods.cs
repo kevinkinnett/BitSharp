@@ -1,4 +1,4 @@
-﻿using BitSharp.WireProtocol;
+﻿using BitSharp.Network;
 using System;
 using System.Collections.Generic;
 using System.Linq;

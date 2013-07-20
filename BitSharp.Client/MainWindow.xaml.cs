@@ -23,7 +23,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using BitSharp.WireProtocol;
+using BitSharp.Network;
 using BitSharp.Storage.Firebird;
 using BitSharp.Storage.SqlServer;
 using BitSharp.Storage.SQLite;

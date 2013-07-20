@@ -8,7 +8,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using BitSharp.WireProtocol;
+using BitSharp.Network;
 using System.Data.SqlClient;
 using System.Data.Common;
 using BitSharp.Blockchain;

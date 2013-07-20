@@ -1,7 +1,6 @@
 ﻿using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Blockchain.ExtensionMethods;
-using BitSharp.WireProtocol;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -733,7 +732,7 @@ namespace BitSharp.Blockchain
 
         private UInt256 CalculateHash(BlockHeader blockHeader)
         {
-            return new UInt256(Crypto.DoubleSHA256(WireEncoder.EncodeBlockHeader(blockHeader)));
+            return new UInt256(Crypto.DoubleSHA256(DataCalculator.EncodeBlockHeader(blockHeader)));
         }
     }
 }

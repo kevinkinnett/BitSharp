@@ -3,7 +3,7 @@ using BitSharp.Common.ExtensionMethods;
 using BitSharp.Storage.Firebird;
 using BitSharp.Storage.Firebird.ExtensionMethods;
 using BitSharp.Storage;
-using BitSharp.WireProtocol;
+using BitSharp.Network;
 using FirebirdSql.Data.FirebirdClient;
 using System;
 using System.Collections.Generic;

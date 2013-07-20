@@ -13,8 +13,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-using BitSharp.WireProtocol;
-using BitSharp.WireProtocol.ExtensionMethods;
 using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
 using System.Collections.Concurrent;
@@ -392,7 +390,7 @@ namespace BitSharp.Script
             //    //TODO
             //    Debug.Assert(false);
             //}
-            
+
             // create simplified transaction
             var newTx = tx.With(Inputs: newInputs.ToImmutableArray());
 
@@ -400,7 +398,7 @@ namespace BitSharp.Script
             var stream = new MemoryStream();
             using (var writer = new BinaryWriter(stream))
             {
-                WireEncoder.EncodeTransaction(stream, newTx);
+                writer.WriteBytes(DataCalculator.EncodeTransaction(newTx));
                 writer.Write4Bytes(hashType);
 
                 return stream.ToArray();

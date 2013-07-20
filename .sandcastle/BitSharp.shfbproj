@@ -38,7 +38,7 @@
 <DocumentationSource sourceFile="..\BitSharp.Storage\BitSharp.Storage.csproj" />
 <DocumentationSource sourceFile="..\BitSharp.Transactions\BitSharp.Transactions.csproj" />
 <DocumentationSource sourceFile="..\BitSharp.Wallet\BitSharp.Wallet.csproj" />
-<DocumentationSource sourceFile="..\BitSharp.WireProtocol\BitSharp.WireProtocol.csproj" /></DocumentationSources>
+<DocumentationSource sourceFile="..\BitSharp.Network\BitSharp.Network.csproj" /></DocumentationSources>
     <SyntaxFilters>Standard</SyntaxFilters>
     <SdkLinkTarget>Blank</SdkLinkTarget>
     <RootNamespaceContainer>False</RootNamespaceContainer>

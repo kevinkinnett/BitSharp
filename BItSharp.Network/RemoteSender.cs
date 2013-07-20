@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net;
-using BitSharp.WireProtocol;
+using BitSharp.Network;
 using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
 using System.Collections.Immutable;

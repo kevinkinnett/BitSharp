@@ -39,6 +39,11 @@ namespace BitSharp.Common.ExtensionMethods
             writer.Write(value);
         }
 
+        public static void WriteInt32(this BinaryWriter writer, Int32 value)
+        {
+            writer.Write(value);
+        }
+
         public static void Write8Bytes(this BinaryWriter writer, UInt64 value)
         {
             writer.Write(value);

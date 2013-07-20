@@ -4,7 +4,6 @@ using BitSharp.Common.ExtensionMethods;
 using BitSharp.Data;
 using BitSharp.Script;
 using BitSharp.Storage;
-using BitSharp.WireProtocol;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;

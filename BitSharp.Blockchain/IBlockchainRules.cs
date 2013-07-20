@@ -1,7 +1,6 @@
 ﻿using BitSharp.Common;
 using BitSharp.Data;
 using BitSharp.Storage;
-using BitSharp.WireProtocol;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;

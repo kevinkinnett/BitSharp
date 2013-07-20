@@ -1,5 +1,5 @@
 ﻿using BitSharp.Common;
-using BitSharp.WireProtocol.ExtensionMethods;
+using BitSharp.Network.ExtensionMethods;
 using System;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -7,7 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 
-namespace BitSharp.WireProtocol
+namespace BitSharp.Network
 {
     public struct NetworkAddressWithTime
     {

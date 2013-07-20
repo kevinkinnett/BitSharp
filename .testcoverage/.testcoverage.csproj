@@ -39,7 +39,6 @@
 	<TestProject Include="BitSharp.Storage" />
 	<TestProject Include="BitSharp.Transactions" />
 	<TestProject Include="BitSharp.Wallet" />
-	<TestProject Include="BitSharp.WireProtocol" />
   </ItemGroup>
   
   <Target Name="Rebuild">

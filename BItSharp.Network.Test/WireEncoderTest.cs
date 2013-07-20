@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BitSharp.WireProtocol.Test
+namespace BitSharp.Network.Test
 {
     [TestClass]
     public partial class WireEncoderTest

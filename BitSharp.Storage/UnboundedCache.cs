@@ -1,6 +1,5 @@
 ﻿using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
-using BitSharp.WireProtocol;
 using BitSharp.Storage.ExtensionMethods;
 using System;
 using System.Collections.Concurrent;

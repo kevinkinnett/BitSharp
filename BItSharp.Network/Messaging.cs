@@ -10,7 +10,7 @@ using BitSharp.Common;
 using System.Collections.Immutable;
 using System.IO;
 
-namespace BitSharp.WireProtocol
+namespace BitSharp.Network
 {
     public static class Messaging
     {

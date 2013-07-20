@@ -7,7 +7,7 @@ using BitSharp.Network;
 using BitSharp.Node.ExtensionMethods;
 using BitSharp.Script;
 using BitSharp.Storage;
-using BitSharp.WireProtocol;
+using BitSharp.Network;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

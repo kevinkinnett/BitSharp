@@ -116,13 +116,13 @@
       <Project>{3099c2ee-055d-4856-9d86-f9f495f9c761}</Project>
       <Name>BitSharp.Data</Name>
     </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Network\BitSharp.Network.csproj">
+      <Project>{4d92a9b1-577f-4d24-9153-088ced047b68}</Project>
+      <Name>BitSharp.Network</Name>
+    </ProjectReference>
     <ProjectReference Include="..\BitSharp.Storage\BitSharp.Storage.csproj">
       <Project>{1955dd75-ab8a-46df-9060-5b0af06338f2}</Project>
       <Name>BitSharp.Storage</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\BitSharp.WireProtocol\BitSharp.WireProtocol.csproj">
-      <Project>{8d4572de-dd74-4a1c-81f4-7d87ae587861}</Project>
-      <Name>BitSharp.WireProtocol</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

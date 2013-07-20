@@ -7,7 +7,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using BitSharp.Common.ExtensionMethods;
-using BitSharp.WireProtocol;
 using BitSharp.Common;
 using BitSharp.Data;
 using System.IO;
@@ -32,9 +31,7 @@ namespace BitSharp.Blockchain
 
         public static BlockHeader? MineBlockHeader(BlockHeader blockHeader, UInt256 hashTarget)
         {
-            var blockHeaderStream = new MemoryStream();
-            WireEncoder.EncodeBlockHeader(blockHeaderStream, blockHeader);
-            var blockHeaderBytes = blockHeaderStream.ToArray();
+            var blockHeaderBytes = DataCalculator.EncodeBlockHeader(blockHeader);
             
             var hashTargetBytes = hashTarget.ToByteArray();
 

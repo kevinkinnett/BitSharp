@@ -1,12 +1,12 @@
 ﻿using BitSharp.Common;
-using BitSharp.WireProtocol.ExtensionMethods;
+using BitSharp.Network.ExtensionMethods;
 using System;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
-namespace BitSharp.WireProtocol
+namespace BitSharp.Network
 {
     public struct InventoryVector
     {
