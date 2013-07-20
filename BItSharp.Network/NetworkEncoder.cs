@@ -14,9 +14,9 @@ using System.Threading.Tasks;
 namespace BitSharp.Network
 {
     /// <summary>
-    /// WireEncoder is responsible for encoding and decoding data according to the P2P protocol.
+    /// NetworkEncoder is responsible for encoding and decoding data according to the P2P protocol.
     /// </summary>
-    public class WireEncoder
+    public class NetworkEncoder
     {
         public static Block DecodeBlock(Stream stream, UInt256? blockHash = null)
         {

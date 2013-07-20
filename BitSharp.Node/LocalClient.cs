@@ -518,7 +518,7 @@ namespace BitSharp.Node
 
                 //TODO shouldn't have to decode again
                 var versionMessage = versionTask.Result;
-                var versionPayload = WireEncoder.DecodeVersionPayload(versionMessage.Payload.ToArray().ToMemoryStream());
+                var versionPayload = NetworkEncoder.DecodeVersionPayload(versionMessage.Payload.ToArray().ToMemoryStream());
 
                 var remoteAddressWithTime = new NetworkAddressWithTime
                 (

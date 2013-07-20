@@ -100,7 +100,7 @@
     <Compile Include="Structs\NetworkAddress.cs" />
     <Compile Include="Structs\NetworkAddressWithTime.cs" />
     <Compile Include="Structs\VersionPayload.cs" />
-    <Compile Include="WireEncoder.cs" />
+    <Compile Include="NetworkEncoder.cs" />
     <Compile Include="WriterExtensionMethods.cs" />
   </ItemGroup>
   <ItemGroup>

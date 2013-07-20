@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Network.Test
 {
-    public partial class WireEncoderTest
+    public partial class NetworkEncoderTest
     {
         public static readonly NetworkAddress NETWORK_ADDRESS_1 = new NetworkAddress
         (

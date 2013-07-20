@@ -164,7 +164,7 @@ namespace BitSharp.Network
             {
                 case "addr":
                     {
-                        var addressPayload = WireEncoder.DecodeAddressPayload(payload.ToMemoryStream());
+                        var addressPayload = NetworkEncoder.DecodeAddressPayload(payload.ToMemoryStream());
 
                         var handler = this.OnReceivedAddresses;
                         if (handler != null)
@@ -174,13 +174,13 @@ namespace BitSharp.Network
 
                 case "alert":
                     {
-                        var alertPayload = WireEncoder.DecodeAlertPayload(payload.ToMemoryStream());
+                        var alertPayload = NetworkEncoder.DecodeAlertPayload(payload.ToMemoryStream());
                     }
                     break;
 
                 case "block":
                     {
-                        var block = WireEncoder.DecodeBlock(payload.ToMemoryStream());
+                        var block = NetworkEncoder.DecodeBlock(payload.ToMemoryStream());
 
                         var handler = this.OnBlock;
                         if (handler != null)
@@ -190,7 +190,7 @@ namespace BitSharp.Network
 
                 case "getblocks":
                     {
-                        var getBlocksPayload = WireEncoder.DecodeGetBlocksPayload(payload.ToMemoryStream());
+                        var getBlocksPayload = NetworkEncoder.DecodeGetBlocksPayload(payload.ToMemoryStream());
 
                         //var handler = this.OnGetBlocks;
                         //if (handler != null)
@@ -200,7 +200,7 @@ namespace BitSharp.Network
 
                 case "inv":
                     {
-                        var invPayload = WireEncoder.DecodeInventoryPayload(payload.ToMemoryStream());
+                        var invPayload = NetworkEncoder.DecodeInventoryPayload(payload.ToMemoryStream());
 
                         var handler = this.OnInventoryVectors;
                         if (handler != null)
@@ -210,7 +210,7 @@ namespace BitSharp.Network
 
                 case "notfound":
                     {
-                        var invPayload = WireEncoder.DecodeInventoryPayload(payload.ToMemoryStream());
+                        var invPayload = NetworkEncoder.DecodeInventoryPayload(payload.ToMemoryStream());
 
                         var handler = this.OnNotFound;
                         if (handler != null)
@@ -220,7 +220,7 @@ namespace BitSharp.Network
 
                 case "tx":
                     {
-                        var tx = WireEncoder.DecodeTransaction(payload.ToMemoryStream());
+                        var tx = NetworkEncoder.DecodeTransaction(payload.ToMemoryStream());
 
                         var handler = this.OnTransaction;
                         if (handler != null)
@@ -230,7 +230,7 @@ namespace BitSharp.Network
 
                 case "version":
                     {
-                        var versionPayload = WireEncoder.DecodeVersionPayload(payload.ToMemoryStream());
+                        var versionPayload = NetworkEncoder.DecodeVersionPayload(payload.ToMemoryStream());
                         //Debug.WriteLine(string.Format("{0}, {1}", versionPayload.RemoteAddress.ToIPEndPoint(), this.socket.RemoteEndPoint));
 
                         var handler = this.OnVersion;
