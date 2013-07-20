@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{258114CA-F64E-4D9A-8671-E609F90B11AF}</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+  </PropertyGroup>
+
+  <PropertyGroup>
+	<dotCover>$(MSBuildProgramFiles32)\JetBrains\dotCover\v2.2\Bin\dotCover.exe</dotCover>
+	<vstest>$(DevEnvDir)\CommonExtensions\Microsoft\TestWindow\vstest.console.exe</vstest>
+	<vstestPlatform Condition="'$(Platform)' == 'AnyCPU'">x86</vstestPlatform>
+	<vstestPlatform Condition="'$(Platform)' == 'x64'">x64</vstestPlatform>
+  </PropertyGroup>
+  
+  <ItemGroup>
+	<!--
+	<TestProject Include="BitSharp.Blockchain" />
+	<TestProject Include="BitSharp.BlockHelper" />
+	<TestProject Include="BitSharp.Client" />
+	-->
+	<TestProject Include="BitSharp.Common" />
+	<!--
+	<TestProject Include="BitSharp.Daemon" />
+	<TestProject Include="BitSharp.Data" />
+	<TestProject Include="BitSharp.Network" />
+	<TestProject Include="BitSharp.Node" />
+	<TestProject Include="BitSharp.Script" />
+	<TestProject Include="BitSharp.Storage" />
+	<TestProject Include="BitSharp.Transactions" />
+	<TestProject Include="BitSharp.Wallet" />
+	<TestProject Include="BitSharp.WireProtocol" />
+	-->
+  </ItemGroup>
+  
+  <Target Name="Rebuild">
+	<CallTarget Targets="Build" />
+  </Target>
+  <Target Name="Build" Condition="Exists('$(dotCover)') And Exists('$(vstest)')">
+	<RemoveDir Directories="obj;report" />
+	
+	<Exec Command="%22$(dotCover)%22 cover /TargetExecutable=%22$(vstest)%22 /TargetArguments=%22$(SolutionDir)%(TestProject.Identity).Test\$(OutputPath)%(TestProject.Identity).Test.dll /InIsolation /Platform:$(vstestPlatform)%22 /TargetWorkingDir=%22$(SolutionDir)%(TestProject.Identity).Test\$(OutputPath).%22 /Output=obj\%(TestProject.Identity).Test.xml /Filters=+:%(TestProject.Identity)" IgnoreExitCode="True" />
+	
+	<Exec Command="&quot;$(dotCover)&quot; merge /Source=obj\@(TestProject, '.Test.xml;obj\').Test.xml /Output=obj\Merged.Test.xml" />
+	<Exec Command="&quot;$(dotCover)&quot; report /Source=obj\Merged.Test.xml /Output=report\report.html /ReportType=HTML" />
+  </Target>
+</Project>
