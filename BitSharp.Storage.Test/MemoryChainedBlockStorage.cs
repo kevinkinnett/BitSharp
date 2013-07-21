@@ -15,30 +15,5 @@ namespace BitSharp.Storage.Test
         public MemoryChainedBlockStorage(MemoryStorageContext storageContext)
             : base(storageContext)
         { }
-
-        public IEnumerable<UInt256> FindMissingBlocks()
-        {
-            throw new NotImplementedException();
-        }
-
-        public IEnumerable<ChainedBlock> FindLeafChained()
-        {
-            return this.Storage.Values.Where(x => !this.Storage.Values.Any(y => y.PreviousBlockHash == x.BlockHash));
-        }
-
-        public IEnumerable<ChainedBlock> FindChainedByPreviousBlockHash(UInt256 previousBlockHash)
-        {
-            throw new NotImplementedException();
-        }
-
-        public IEnumerable<ChainedBlock> FindChainedWhereProceedingUnchainedExists()
-        {
-            throw new NotImplementedException();
-        }
-
-        public IEnumerable<BlockHeader> FindUnchainedWherePreviousBlockExists()
-        {
-            throw new NotImplementedException();
-        }
     }
 }

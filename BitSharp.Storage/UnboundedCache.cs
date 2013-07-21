@@ -18,8 +18,8 @@ namespace BitSharp.Storage
     public class UnboundedCache<TKey, TValue> : IDisposable
     {
         public event Action<TKey> OnAddition;
-        public event Action<TKey> OnModification;
-        public event Action<TKey> OnRetrieved;
+        public event Action<TKey, TValue> OnModification;
+        public event Action<TKey, TValue> OnRetrieved;
         public event Action<TKey> OnMissing;
         public event Action OnClear;
 
@@ -64,7 +64,7 @@ namespace BitSharp.Storage
 
             this.storageWorker = new Worker("{0}.StorageWorker".Format2(name), StorageWorker, true, TimeSpan.FromMilliseconds(25), TimeSpan.FromSeconds(60));
             this.storageBlockEvent = new ManualResetEventSlim(true);
-            
+
             this.cacheWorker = new Worker("{0}.CacheWorker".Format2(name), CacheWorker, true, TimeSpan.FromMilliseconds(25), TimeSpan.FromSeconds(5));
             this.cacheBlockEvent = new ManualResetEventSlim(true);
 
@@ -109,12 +109,8 @@ namespace BitSharp.Storage
         public bool TryGetValue(TKey key, out TValue value, bool saveInCache = true)
         {
             // check in flush-pending list first
-            WriteValue<TValue> pendingValue;
-            if (this.flushPending.TryGetValue(key, out pendingValue))
-            {
-                value = pendingValue.Value;
+            if (TryGetPendingValue(key, out value))
                 return true;
-            }
 
             // look in the cache next, it will be added here before being removed from pending
             this.memoryCacheLock.EnterReadLock();
@@ -145,7 +141,7 @@ namespace BitSharp.Storage
                 // fire missing event
                 var handler1 = this.OnRetrieved;
                 if (handler1 != null)
-                    handler1(key);
+                    handler1(key, storedValue);
 
                 value = storedValue;
                 return true;
@@ -169,6 +165,21 @@ namespace BitSharp.Storage
         public void UpdateValue(TKey key, TValue value)
         {
             CreateOrUpdateValue(key, value, isCreate: false);
+        }
+
+        protected bool TryGetPendingValue(TKey key, out TValue value)
+        {
+            WriteValue<TValue> pendingValue;
+            if (this.flushPending.TryGetValue(key, out pendingValue))
+            {
+                value = pendingValue.Value;
+                return true;
+            }
+            else
+            {
+                value = default(TValue);
+                return false;
+            }
         }
 
         protected void RaiseOnAddition(TKey key)
@@ -261,9 +272,18 @@ namespace BitSharp.Storage
             // fire addition or modification event
             if (wasChanged)
             {
-                var handler = isCreate ? this.OnAddition : this.OnModification;
-                if (handler != null)
-                    handler(key);
+                if (isCreate)
+                {
+                    var handler = this.OnAddition;
+                    if (handler != null)
+                        handler(key);
+                }
+                else
+                {
+                    var handler = this.OnModification;
+                    if (handler != null)
+                        handler(key, value);
+                }
             }
         }
 
@@ -416,9 +436,9 @@ namespace BitSharp.Storage
                         }
                     }
 
-                    // after flush, decache values so they can be reread from storage on next access
-                    foreach (var key in flushPendingLocal.Keys)
-                        DecacheValue(key);
+                    // after flush, cache the stored values
+                    foreach (var keyPair in flushPendingLocal)
+                        CacheValue(keyPair.Key, keyPair.Value.Value);
                 }
 
                 // update pending size based on changes made

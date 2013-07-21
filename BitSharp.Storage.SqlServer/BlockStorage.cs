@@ -261,53 +261,6 @@ namespace BitSharp.Storage.SqlServer
             }
         }
 
-        public IEnumerable<UInt256> FindMissingPreviousBlocks()
-        {
-            using (var conn = this.OpenConnection())
-            using (var cmd = conn.CreateCommand())
-            {
-                cmd.CommandText = @"
-                    SELECT Next.BlockHash
-                    FROM Blocks Next
-                    WHERE NOT EXISTS(SELECT * FROM Blocks Previous WHERE Previous.BlockHash = Next.PreviousBlockHash)";
-
-                using (var reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        var blockHash = reader.GetUInt256(0);
-
-                        yield return blockHash;
-                    }
-                }
-            }
-        }
-
-        public IEnumerable<BlockHeader> FindByPreviousBlockHash(UInt256 previousBlockHash)
-        {
-            using (var conn = this.OpenConnection())
-            using (var cmd = conn.CreateCommand())
-            {
-                cmd.CommandText = @"
-                    SELECT BlockHash, SUBSTRING(RawBytes, 1, 80)
-                    FROM Blocks
-                    WHERE PreviousBlockHash = @previousBlockHash";
-
-                cmd.Parameters.SetValue("@previousBlockHash", SqlDbType.Binary, 32).Value = previousBlockHash.ToDbByteArray();
-
-                using (var reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        var blockHash = reader.GetUInt256(0);
-                        var rawBytes = reader.GetBytes(1);
-
-                        yield return StorageEncoder.DecodeBlockHeader(rawBytes.ToMemoryStream(), blockHash);
-                    }
-                }
-            }
-        }
-
         private const string CREATE_QUERY = @"
             MERGE Blocks AS target
             USING (SELECT @blockHash) AS source (BlockHash)

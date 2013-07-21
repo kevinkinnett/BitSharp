@@ -28,11 +28,6 @@ namespace BitSharp.Storage
         public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
 
         public BlockHeaderStorage BlockHeaderStorage { get { return this._blockHeaderStorage; } }
-
-        public IEnumerable<BlockHeader> FindByPreviousBlockHash(UInt256 previousBlockHash)
-        {
-            return this.BlockHeaderStorage.FindByPreviousBlockHash(previousBlockHash);
-        }
     }
 
     public class BlockHeaderStorage : IBoundedStorage<UInt256, BlockHeader>
@@ -83,24 +78,6 @@ namespace BitSharp.Storage
             else
             {
                 return this.StorageContext.BlockStorage.TryReadBlockHeader(blockHash, out blockHeader);
-            }
-        }
-
-        public IEnumerable<BlockHeader> FindByPreviousBlockHash(UInt256 previousBlockHash)
-        {
-            var pendingBlocks = this.CacheContext.BlockCache.GetPendingValues();
-            var returned = new HashSet<UInt256>();
-
-            foreach (var block in pendingBlocks.Where(x => x.Value.Header.PreviousBlock == previousBlockHash))
-            {
-                returned.Add(block.Value.Hash);
-                yield return block.Value.Header;
-            }
-
-            foreach (var blockHeader in this.StorageContext.BlockStorage.FindByPreviousBlockHash(previousBlockHash))
-            {
-                if (!returned.Contains(blockHeader.Hash))
-                    yield return blockHeader;
             }
         }
 

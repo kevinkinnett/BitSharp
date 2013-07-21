@@ -10,14 +10,5 @@ namespace BitSharp.Storage
 {
     public interface IChainedBlockStorage : IBoundedStorage<UInt256, ChainedBlock>
     {
-        IEnumerable<UInt256> FindMissingBlocks();
-
-        IEnumerable<ChainedBlock> FindLeafChained();
-
-        IEnumerable<ChainedBlock> FindChainedByPreviousBlockHash(UInt256 previousBlockHash);
-
-        IEnumerable<ChainedBlock> FindChainedWhereProceedingUnchainedExists();
-
-        IEnumerable<BlockHeader> FindUnchainedWherePreviousBlockExists();
     }
 }

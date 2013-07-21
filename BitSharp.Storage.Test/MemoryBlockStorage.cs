@@ -35,17 +35,5 @@ namespace BitSharp.Storage.Test
                 return false;
             }
         }
-
-
-        public IEnumerable<UInt256> FindMissingPreviousBlocks()
-        {
-            throw new NotImplementedException();
-        }
-
-
-        public IEnumerable<BlockHeader> FindByPreviousBlockHash(UInt256 previousBlockHash)
-        {
-            throw new NotImplementedException();
-        }
     }
 }

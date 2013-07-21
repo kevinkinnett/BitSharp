@@ -14,21 +14,58 @@ namespace BitSharp.Storage
     public class ChainedBlockCache : BoundedCache<UInt256, ChainedBlock>
     {
         private readonly CacheContext _cacheContext;
+        private readonly ConcurrentDictionary<UInt256, ConcurrentSet<UInt256>> chainedBlocksByPrevious;
 
         public ChainedBlockCache(CacheContext cacheContext, long maxFlushMemorySize, long maxCacheMemorySize)
             : base("ChainedBlockCache", cacheContext.StorageContext.ChainedBlockStorage, maxFlushMemorySize, maxCacheMemorySize, ChainedBlock.SizeEstimator)
         {
             this._cacheContext = cacheContext;
+
+            this.chainedBlocksByPrevious = new ConcurrentDictionary<UInt256, ConcurrentSet<UInt256>>();
+
+            this.OnAddition += blockHash => UpdatePreviousIndex(blockHash);
+            this.OnModification += (blockHash, chainedBlock) => UpdatePreviousIndex(chainedBlock);
+            this.OnRetrieved += (blockHash, chainedBlock) => UpdatePreviousIndex(chainedBlock);
+
+            foreach (var value in this.StreamAllValues())
+                UpdatePreviousIndex(value.Value);
         }
 
         public CacheContext CacheContext { get { return this._cacheContext; } }
 
         public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
 
+        public bool IsChainIntact(UInt256 blockHash)
+        {
+            ChainedBlock chainedBlock;
+            if (TryGetValue(blockHash, out chainedBlock))
+            {
+                return IsChainIntact(chainedBlock);
+            }
+            else
+            {
+                return false;
+            }
+        }
+
         public bool IsChainIntact(ChainedBlock chainedBlock)
         {
             List<ChainedBlock> chain;
             return TryGetChain(chainedBlock, out chain);
+        }
+
+        public bool TryGetChain(UInt256 blockHash, out List<ChainedBlock> chain)
+        {
+            ChainedBlock chainedBlock;
+            if (TryGetValue(blockHash, out chainedBlock))
+            {
+                return TryGetChain(chainedBlock, out chain);
+            }
+            else
+            {
+                chain = null;
+                return false;
+            }
         }
 
         public bool TryGetChain(ChainedBlock chainedBlock, out List<ChainedBlock> chain)
@@ -42,7 +79,8 @@ namespace BitSharp.Storage
                 chain.Add(chainedBlock);
 
                 // if a missing link occurrs before height 0, the chain isn't intact
-                if (!TryGetValue(chainedBlock.PreviousBlockHash, out chainedBlock))
+                if (!this.ContainsKey(chainedBlock.PreviousBlockHash)
+                    || !TryGetValue(chainedBlock.PreviousBlockHash, out chainedBlock))
                 {
                     chain = null;
                     return false;
@@ -63,125 +101,66 @@ namespace BitSharp.Storage
             return true;
         }
 
-        public IEnumerable<ChainedBlock> FindLeafChained()
+        public IEnumerable<ChainedBlock> FindLeafChainedBlocks()
         {
-            var pendingChainedBlocks = GetPendingValues().ToDictionary(x => x.Key, x => x.Value);
-            var pendingPreviousHashes = new HashSet<UInt256>(pendingChainedBlocks.Values.Select(x => x.PreviousBlockHash));
+            var leafChainedBlocks = new HashSet<UInt256>(this.GetAllKeys());
+            leafChainedBlocks.ExceptWith(this.chainedBlocksByPrevious.Keys);
 
-            foreach (var chainedBlock in this.StorageContext.ChainedBlockStorage.FindLeafChained())
+            foreach (var leafChainedBlockHash in leafChainedBlocks)
             {
-                // check that there isn't a pending chained block which lists the leaf chained block as its previous block
-                if (!pendingPreviousHashes.Contains(chainedBlock.BlockHash)
-                    && IsChainIntact(chainedBlock))
+                ChainedBlock leafChainedBlock;
+                if (this.TryGetValue(leafChainedBlockHash, out leafChainedBlock)
+                    && this.IsChainIntact(leafChainedBlock))
                 {
-                    yield return chainedBlock;
-                }
-            }
-
-            // find any pending blocks which aren't proceeded by a chained block in pending or storage
-            foreach (var chainedBlock in pendingChainedBlocks.Values)
-            {
-                if (!pendingPreviousHashes.Contains(chainedBlock.BlockHash)
-                    && IsChainIntact(chainedBlock)
-                    && FindChainedByPreviousBlockHash(chainedBlock.BlockHash).Count() == 0)
-                {
-                    yield return chainedBlock;
+                    yield return leafChainedBlock;
                 }
             }
         }
 
-        public IEnumerable<ChainedBlock> FindChainedByPreviousBlockHash(UInt256 previousBlockHash)
+        public IEnumerable<List<ChainedBlock>> FindLeafChains()
         {
-            var pendingChainedBlocks = GetPendingValues().ToDictionary(x => x.Key, x => x.Value);
-            var returned = new HashSet<UInt256>();
+            var leafChainedBlocks = new HashSet<UInt256>(this.GetAllKeys());
+            leafChainedBlocks.ExceptWith(this.chainedBlocksByPrevious.Keys);
 
-            foreach (var chainedBlock in pendingChainedBlocks.Values.Where(x => x.PreviousBlockHash == previousBlockHash))
+            foreach (var leafChainedBlock in leafChainedBlocks)
             {
-                returned.Add(chainedBlock.BlockHash);
-                yield return chainedBlock;
-            }
-
-            foreach (var chainedBlock in this.StorageContext.ChainedBlockStorage.FindChainedByPreviousBlockHash(previousBlockHash))
-            {
-                if (!returned.Contains(chainedBlock.BlockHash))
-                    yield return chainedBlock;
+                List<ChainedBlock> leafChain;
+                if (this.TryGetChain(leafChainedBlock, out leafChain))
+                {
+                    yield return leafChain;
+                }
             }
         }
 
-        public IEnumerable<ChainedBlock> FindChainedWhereProceedingUnchainedExists()
+        public HashSet<UInt256> FindByPreviousBlockHash(UInt256 previousBlockHash)
         {
-            var pendingBlocks = this.CacheContext.BlockCache.GetPendingValues().ToDictionary(x => x.Key, x => x.Value);
-            var returned = new HashSet<UInt256>();
-
-            // find pending blocks that aren't chained and whose previous block is chained
-            foreach (var block in pendingBlocks.Values)
+            ConcurrentSet<UInt256> set;
+            if (this.chainedBlocksByPrevious.TryGetValue(previousBlockHash, out set))
             {
-                if (this.ContainsKey(block.Header.PreviousBlock) && !this.ContainsKey(block.Hash))
-                {
-                    ChainedBlock chainedBlock;
-                    if (this.TryGetValue(block.Header.PreviousBlock, out chainedBlock))
-                    {
-                        returned.Add(chainedBlock.BlockHash);
-                        yield return chainedBlock;
-                    }
-                }
+                return new HashSet<UInt256>(set);
             }
-
-            // finding chained blocks in storage with proceeding unchained blocks
-            foreach (var chainedBlock in this.StorageContext.ChainedBlockStorage.FindChainedWhereProceedingUnchainedExists())
+            else
             {
-                if (!returned.Contains(chainedBlock.BlockHash))
-                    yield return chainedBlock;
+                return new HashSet<UInt256>();
             }
         }
 
-        public IEnumerable<BlockHeader> FindUnchainedWherePreviousBlockExists()
+        private void UpdatePreviousIndex(UInt256 blockHash)
         {
-            var pendingBlocks = this.CacheContext.BlockCache.GetPendingValues().ToDictionary(x => x.Key, x => x.Value);
-            var returned = new HashSet<UInt256>();
-
-            // find pending blocks which aren't chained
-            var unchainedPendingBlocks = pendingBlocks.ToDictionary();
-            unchainedPendingBlocks.RemoveRange(this.GetAllKeys());
-
-            // finding unchained pending blocks whose previous block exists
-            foreach (var unchainedBlock in unchainedPendingBlocks.Values)
-            {
-                if (this.CacheContext.BlockCache.ContainsKey(unchainedBlock.Header.PreviousBlock))
-                {
-                    returned.Add(unchainedBlock.Hash);
-                    yield return unchainedBlock.Header;
-                }
-            }
-
-            // find unchained blocks in storage whose previous block exists
-            foreach (var unchainedBlock in this.StorageContext.ChainedBlockStorage.FindUnchainedWherePreviousBlockExists())
-            {
-                if (!returned.Contains(unchainedBlock.Hash))
-                    yield return unchainedBlock;
-
-            }
+            ChainedBlock chainedBlock;
+            if (this.TryGetValue(blockHash, out chainedBlock))
+                UpdatePreviousIndex(chainedBlock);
         }
 
-        public IEnumerable<UInt256> FindMissingBlocks()
+        private void UpdatePreviousIndex(ChainedBlock chainedBlock)
         {
-            var pendingBlockHashes = new HashSet<UInt256>(this.GetPendingValues().Select(x => x.Value.BlockHash));
-
-            // find all pending chained blocks which don't have a block entry
-            pendingBlockHashes.ExceptWith(this.CacheContext.BlockCache.GetAllKeys());
-
-            // return missing blocks found via pending
-            foreach (var blockHash in pendingBlockHashes)
-                yield return blockHash;
-
-            // find missing blocks from storage
-            foreach (var blockHash in this.StorageContext.ChainedBlockStorage.FindMissingBlocks())
-            {
-                if (!pendingBlockHashes.Contains(blockHash))
-                {
-                    yield return blockHash;
-                }
-            }
+            this.chainedBlocksByPrevious.AddOrUpdate
+            (
+                chainedBlock.PreviousBlockHash,
+                newKey => new ConcurrentSet<UInt256>(),
+                (existingKey, existingValue) => existingValue
+            )
+            .Add(chainedBlock.BlockHash);
         }
     }
 }

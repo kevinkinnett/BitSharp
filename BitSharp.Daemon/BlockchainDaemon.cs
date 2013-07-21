@@ -55,7 +55,6 @@ namespace BitSharp.Daemon
 
         private readonly CancellationTokenSource shutdownToken;
 
-        private readonly Worker missingBlocksWorker;
         private readonly Worker chainingWorker;
         private readonly Worker winnerWorker;
         private readonly Worker validationWorker;
@@ -90,7 +89,7 @@ namespace BitSharp.Daemon
             this._cacheContext.ChainedBlockCache.WaitForStorageFlush();
 
             // pre-fill the chained block and header caches
-            //this._cacheContext.BlockHeaderCache.FillCache();
+            this._cacheContext.BlockHeaderCache.FillCache();
             this._cacheContext.ChainedBlockCache.FillCache();
 
             // wire up cache events
@@ -100,14 +99,11 @@ namespace BitSharp.Daemon
             this._cacheContext.ChainedBlockCache.OnModification += OnChainedBlockModification;
 
             // create workers
-            this.missingBlocksWorker = new Worker("MissingBlocksWorker", MissingBlocksWorker,
-                runOnStart: true, waitTime: TimeSpan.FromSeconds(1), maxIdleTime: TimeSpan.FromMinutes(5));
-
             this.chainingWorker = new Worker("ChainingWorker", ChainingWorker,
-                runOnStart: true, waitTime: TimeSpan.FromSeconds(1), maxIdleTime: TimeSpan.FromMinutes(5));
+                runOnStart: true, waitTime: TimeSpan.FromSeconds(1), maxIdleTime: TimeSpan.FromSeconds(30));
 
             this.winnerWorker = new Worker("WinnerWorker", WinnerWorker,
-                runOnStart: true, waitTime: TimeSpan.FromSeconds(1), maxIdleTime: TimeSpan.FromMinutes(5));
+                runOnStart: true, waitTime: TimeSpan.FromSeconds(1), maxIdleTime: TimeSpan.FromSeconds(30));
 
             this.validationWorker = new Worker("ValidationWorker", ValidationWorker,
                 runOnStart: true, waitTime: TimeSpan.FromSeconds(10), maxIdleTime: TimeSpan.FromMinutes(5));
@@ -153,7 +149,6 @@ namespace BitSharp.Daemon
                 LoadExistingState();
 
                 // startup workers
-                this.missingBlocksWorker.Start();
                 this.chainingWorker.Start();
                 this.winnerWorker.Start();
                 this.validationWorker.Start();
@@ -182,7 +177,6 @@ namespace BitSharp.Daemon
             // cleanup workers
             new IDisposable[]
             {
-                this.missingBlocksWorker,
                 this.chainingWorker,
                 this.winnerWorker,
                 this.validationWorker,
@@ -195,15 +189,9 @@ namespace BitSharp.Daemon
 
         public void WaitForFullUpdate()
         {
-            WaitForMissingBlocksUpdate();
             WaitForChainingUpdate();
             WaitForWinnerUpdate();
             WaitForBlockchainUpdate();
-        }
-
-        public void WaitForMissingBlocksUpdate()
-        {
-            this.missingBlocksWorker.ForceWorkAndWait();
         }
 
         public void WaitForChainingUpdate()
@@ -223,11 +211,6 @@ namespace BitSharp.Daemon
 
         private void OnBlockAddition(UInt256 blockHash)
         {
-            OnBlockModification(blockHash);
-        }
-
-        private void OnBlockModification(UInt256 blockHash)
-        {
             if (this.missingBlocks.TryRemove(blockHash))
             {
                 this.chainingWorker.NotifyWork();
@@ -240,12 +223,12 @@ namespace BitSharp.Daemon
             }
         }
 
-        private void OnChainedBlockAddition(UInt256 blockHash)
+        private void OnBlockModification(UInt256 blockHash, Block block)
         {
-            OnChainedBlockModification(blockHash);
+            OnBlockAddition(blockHash);
         }
 
-        private void OnChainedBlockModification(UInt256 blockHash)
+        private void OnChainedBlockAddition(UInt256 blockHash)
         {
             if (this.missingChainedBlocks.TryRemove(blockHash))
             {
@@ -257,6 +240,11 @@ namespace BitSharp.Daemon
                 this.chainingWorker.NotifyWork();
                 //this.blockchainWorker.NotifyWork();
             }
+        }
+
+        private void OnChainedBlockModification(UInt256 blockHash, ChainedBlock chainedBlock)
+        {
+            OnChainedBlockAddition(blockHash);
         }
 
         private void LoadExistingState()
@@ -313,26 +301,6 @@ namespace BitSharp.Daemon
             }
         }
 
-        private void MissingBlocksWorker()
-        {
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
-
-            var missingBlocksLocal = new HashSet<UInt256>();
-
-            // find any blocks with a missing previous block
-            missingBlocksLocal.UnionWith(this.CacheContext.BlockCache.FindMissingPreviousBlocks());
-
-            // find any chained blocks with a missing block record
-            missingBlocksLocal.UnionWith(this.CacheContext.ChainedBlockCache.FindMissingBlocks());
-
-            // update list of known missing blocks
-            this.missingBlocks.UnionWith(missingBlocksLocal);
-
-            stopwatch.Stop();
-            Debug.WriteLine("MissingBlocksWorker: {0:#,##0.000}s".Format2(stopwatch.ElapsedSecondsFloat()));
-        }
-
         private void ChainingWorker()
         {
             var stopwatch = new Stopwatch();
@@ -341,79 +309,106 @@ namespace BitSharp.Daemon
             var chainCount = 0;
             ChainedBlock? lastChainedBlock = null;
 
-            // retrieve chained blocks that have proceeding unchained blocks
-            var chainedBlocks = this.CacheContext.ChainedBlockCache.FindChainedWhereProceedingUnchainedExists().ToList();
+            var chainedBlocks = new List<ChainedBlock>();
+            var chainedBlocksSet = new HashSet<UInt256>();
 
-            if (chainedBlocks.Count > 0)
+            var unchainedBlocks = new HashSet<UInt256>(this.CacheContext.BlockCache.GetAllKeys());
+            unchainedBlocks.ExceptWith(this.CacheContext.ChainedBlockCache.GetAllKeys());
+
+            var unchainedByPrevious = new Dictionary<UInt256, List<BlockHeader>>();
+            foreach (var unchainedBlock in unchainedBlocks.ToList())
             {
-                // retrieve unchained blocks where the previous block exists
-                var unchainedBlocks = this.CacheContext.ChainedBlockCache.FindUnchainedWherePreviousBlockExists();
-
-                // group unchained blocks by their previous block hash
-                var unchainedByPrevious = new Dictionary<UInt256, List<BlockHeader>>();
-                foreach (var unchainedBlock in unchainedBlocks)
+                BlockHeader unchainedBlockHeader;
+                if (this.CacheContext.BlockHeaderCache.TryGetValue(unchainedBlock, out unchainedBlockHeader))
                 {
+                    if (!chainedBlocksSet.Contains(unchainedBlockHeader.PreviousBlock))
+                    {
+                        ChainedBlock chainedBlock;
+                        if (this.CacheContext.ChainedBlockCache.ContainsKey(unchainedBlockHeader.PreviousBlock)
+                            && this.CacheContext.ChainedBlockCache.TryGetValue(unchainedBlockHeader.PreviousBlock, out chainedBlock))
+                        {
+                            chainedBlocks.Add(chainedBlock);
+                            chainedBlocksSet.Add(chainedBlock.BlockHash);
+                        }
+                    }
+
                     List<BlockHeader> unchainedGroup;
-                    if (!unchainedByPrevious.TryGetValue(unchainedBlock.PreviousBlock, out unchainedGroup))
+                    if (!unchainedByPrevious.TryGetValue(unchainedBlockHeader.PreviousBlock, out unchainedGroup))
                     {
                         unchainedGroup = new List<BlockHeader>();
-                        unchainedByPrevious.Add(unchainedBlock.PreviousBlock, unchainedGroup);
+                        unchainedByPrevious.Add(unchainedBlockHeader.PreviousBlock, unchainedGroup);
                     }
-                    unchainedGroup.Add(unchainedBlock);
+                    unchainedGroup.Add(unchainedBlockHeader);
+                }
+                else
+                {
+                    this.missingBlocks.TryAdd(unchainedBlock);
+                }
+            }
+
+            // start with chained blocks...
+            for (var i = 0; i < chainedBlocks.Count; i++)
+            {
+                // cooperative loop
+                this.shutdownToken.Token.ThrowIfCancellationRequested();
+
+                var chainedBlock = chainedBlocks[i];
+
+                // find any unchained blocks whose previous block is the current chained block...
+                IList<BlockHeader> unchainedGroup;
+                if (unchainedByPrevious.ContainsKey(chainedBlock.BlockHash))
+                {
+                    unchainedGroup = unchainedByPrevious[chainedBlock.BlockHash];
+                    unchainedByPrevious.Remove(chainedBlock.BlockHash);
+                }
+                else
+                {
+                    unchainedGroup = new List<BlockHeader>();
+                    foreach (var blockHash in this.CacheContext.ChainedBlockCache.FindByPreviousBlockHash(chainedBlock.BlockHash))
+                    {
+                        BlockHeader blockHeader;
+                        if (this.CacheContext.BlockHeaderCache.TryGetValue(blockHash, out blockHeader))
+                        {
+                            unchainedGroup.Add(blockHeader);
+                        }
+
+                    }
                 }
 
-                // start with chained blocks...
-                for (var i = 0; i < chainedBlocks.Count; i++)
+                foreach (var unchainedBlock in unchainedGroup)
                 {
                     // cooperative loop
                     this.shutdownToken.Token.ThrowIfCancellationRequested();
+                    
+                    // check that block hasn't become chained
+                    if (this.CacheContext.ChainedBlockCache.ContainsKey(unchainedBlock.Hash))
+                        break;
 
-                    var chainedBlock = chainedBlocks[i];
+                    // update the unchained block to chain off of the current chained block...
+                    var newChainedBlock = new ChainedBlock
+                    (
+                        unchainedBlock.Hash,
+                        unchainedBlock.PreviousBlock,
+                        chainedBlock.Height + 1,
+                        chainedBlock.TotalWork + unchainedBlock.CalculateWork()
+                    );
+                    this.CacheContext.ChainedBlockCache.CreateValue(newChainedBlock.BlockHash, newChainedBlock);
 
-                    // find any unchained blocks whose previous block is the current chained block...
-                    IList<BlockHeader> unchainedGroup;
-                    if (unchainedByPrevious.ContainsKey(chainedBlock.BlockHash))
+                    // and finally add the newly chained block to the list of chained blocks so that an attempt will be made to chain off of it
+                    chainedBlocks.Add(newChainedBlock);
+
+                    // statistics
+                    chainCount++;
+                    lastChainedBlock = newChainedBlock;
+                    Debug.WriteLineIf(chainCount % 1.THOUSAND() == 0, "Chained block {0} at height {1}, total work: {2}".Format2(newChainedBlock.BlockHash.ToHexNumberString(), newChainedBlock.Height, newChainedBlock.TotalWork.ToString("X")));
+
+                    if (chainCount % 1.THOUSAND() == 0)
                     {
-                        unchainedGroup = unchainedByPrevious[chainedBlock.BlockHash];
-                        unchainedByPrevious.Remove(chainedBlock.BlockHash);
-                    }
-                    else
-                    {
-                        unchainedGroup = this.CacheContext.BlockHeaderCache.FindByPreviousBlockHash(chainedBlock.BlockHash)
-                            .Where(x => !this.CacheContext.ChainedBlockCache.ContainsKey(x.Hash)).ToList();
-                    }
+                        // notify winner worker after chaining blocks
+                        this.winnerWorker.NotifyWork();
 
-                    foreach (var unchainedBlock in unchainedGroup)
-                    {
-                        // cooperative loop
-                        this.shutdownToken.Token.ThrowIfCancellationRequested();
-
-                        // update the unchained block to chain off of the current chained block...
-                        var newChainedBlock = new ChainedBlock
-                        (
-                            unchainedBlock.Hash,
-                            unchainedBlock.PreviousBlock,
-                            chainedBlock.Height + 1,
-                            chainedBlock.TotalWork + unchainedBlock.CalculateWork()
-                        );
-                        this.CacheContext.ChainedBlockCache.CreateValue(newChainedBlock.BlockHash, newChainedBlock);
-
-                        // and finally add the newly chained block to the list of chained blocks so that an attempt will be made to chain off of it
-                        chainedBlocks.Add(newChainedBlock);
-
-                        // statistics
-                        chainCount++;
-                        lastChainedBlock = newChainedBlock;
-                        Debug.WriteLineIf(chainCount % 1.THOUSAND() == 0, "Chained block {0} at height {1}, total work: {2}".Format2(newChainedBlock.BlockHash.ToHexNumberString(), newChainedBlock.Height, newChainedBlock.TotalWork.ToString("X")));
-
-                        if (chainCount % 1.THOUSAND() == 0)
-                        {
-                            // notify winner worker after chaining blocks
-                            this.winnerWorker.NotifyWork();
-
-                            // notify the blockchain worker after chaining blocks
-                            this.blockchainWorker.NotifyWork();
-                        }
+                        // notify the blockchain worker after chaining blocks
+                        this.blockchainWorker.NotifyWork();
                     }
                 }
             }
@@ -434,7 +429,7 @@ namespace BitSharp.Daemon
             this.blockchainWorker.NotifyWork();
 
             stopwatch.Stop();
-            //Debug.WriteLine("ChainingWorker: Chained {0:#,##0} items in {1:#,##0.000}s".Format2(chainCount, stopwatch.ElapsedSecondsFloat()));
+            Debug.WriteLine("ChainingWorker: Chained {0:#,##0} items in {1:#,##0.000}s".Format2(chainCount, stopwatch.ElapsedSecondsFloat()));
         }
 
         private void WinnerWorker()
@@ -442,7 +437,7 @@ namespace BitSharp.Daemon
             try
             {
                 // get winning chain metadata
-                var leafChainedBlocks = this.CacheContext.ChainedBlockCache.FindLeafChained().ToList();
+                var leafChainedBlocks = this.CacheContext.ChainedBlockCache.FindLeafChainedBlocks().ToList();
 
                 //TODO ordering will need to follow actual bitcoin rules to ensure the same winning chaing is always selected
                 var winningBlock = this._rules.SelectWinningChainedBlock(leafChainedBlocks);

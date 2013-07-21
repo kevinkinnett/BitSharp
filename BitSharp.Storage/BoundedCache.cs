@@ -31,7 +31,9 @@ namespace BitSharp.Storage
 
             this._dataStorage = dataStorage;
 
-            this.OnRetrieved += key => AddKnownKey(key);
+            this.OnAddition += key => AddKnownKey(key);
+            this.OnModification += (key, value) => AddKnownKey(key);
+            this.OnRetrieved += (key, value) => AddKnownKey(key);
             this.OnMissing += key => RemoveKnownKey(key);
             this.OnClear += ClearKnownKeys;
 
@@ -55,9 +57,7 @@ namespace BitSharp.Storage
         // get all known item keys
         public IEnumerable<TKey> GetAllKeys()
         {
-            //TODO could this ever return a duplicate key?
-            foreach (var key in this.knownKeys)
-                yield return key;
+            return this.knownKeys;
         }
 
         // get all known item keys, reads everything from storage
@@ -98,21 +98,26 @@ namespace BitSharp.Storage
         // get all values, reads everything from storage
         public IEnumerable<KeyValuePair<TKey, TValue>> StreamAllValues()
         {
-            var returnedKeys = new Dictionary<TKey, object>();
+            var keys = new HashSet<TKey>(this.GetAllKeys());
+            var returnedKeys = new HashSet<TKey>();
 
             // return and track items from flush pending list
             // ensure a key is never returned twice in case modifications are made during the enumeration
-            foreach (var flushKeyPair in this.GetPendingValues())
+            foreach (var key in keys)
             {
-                returnedKeys.Add(flushKeyPair.Key, null);
-                yield return flushKeyPair;
+                TValue value;
+                if (TryGetPendingValue(key, out value))
+                {
+                    returnedKeys.Add(key);
+                    yield return new KeyValuePair<TKey, TValue>(key, value);
+                }
             }
 
             // return items from storage, still ensuring a key is never returned twice
             // storage doesn't need to add to returnedKeys as storage items will always be returned uniquely
             foreach (var storageKeyPair in this.DataStorage.ReadAllValues())
             {
-                if (!returnedKeys.ContainsKey(storageKeyPair.Key))
+                if (!returnedKeys.Contains(storageKeyPair.Key))
                 {
                     // make sure any keys found in storage become known
                     AddKnownKey(storageKeyPair.Key);
