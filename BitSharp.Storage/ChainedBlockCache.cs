@@ -25,6 +25,22 @@ namespace BitSharp.Storage
 
         public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
 
+        public bool IsChainIntact(ChainedBlock chainedBlock)
+        {
+            // look backwards until height 0 is reached
+            while (chainedBlock.Height != 0)
+            {
+                // if a missing link occurrs before height 0, the chain isn't intact
+                if (!TryGetValue(chainedBlock.PreviousBlockHash, out chainedBlock))
+                {
+                    return false;
+                }
+            }
+
+            // height 0 reached, chain is intact
+            return true;
+        }
+
         public IEnumerable<ChainedBlock> FindLeafChained()
         {
             var pendingChainedBlocks = GetPendingValues().ToDictionary(x => x.Key, x => x.Value);
@@ -33,7 +49,8 @@ namespace BitSharp.Storage
             foreach (var chainedBlock in this.StorageContext.ChainedBlockStorage.FindLeafChained())
             {
                 // check that there isn't a pending chained block which lists the leaf chained block as its previous block
-                if (!pendingPreviousHashes.Contains(chainedBlock.BlockHash))
+                if (!pendingPreviousHashes.Contains(chainedBlock.BlockHash)
+                    && IsChainIntact(chainedBlock))
                 {
                     yield return chainedBlock;
                 }
@@ -43,6 +60,7 @@ namespace BitSharp.Storage
             foreach (var chainedBlock in pendingChainedBlocks.Values)
             {
                 if (!pendingPreviousHashes.Contains(chainedBlock.BlockHash)
+                    && IsChainIntact(chainedBlock)
                     && FindChainedByPreviousBlockHash(chainedBlock.BlockHash).Count() == 0)
                 {
                     yield return chainedBlock;
