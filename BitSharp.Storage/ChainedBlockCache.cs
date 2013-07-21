@@ -43,10 +43,28 @@ namespace BitSharp.Storage
             foreach (var chainedBlock in pendingChainedBlocks.Values)
             {
                 if (!pendingPreviousHashes.Contains(chainedBlock.BlockHash)
-                    && this.StorageContext.ChainedBlockStorage.FindChainedByPreviousBlockHash(chainedBlock.BlockHash).Count() == 0)
+                    && FindChainedByPreviousBlockHash(chainedBlock.BlockHash).Count() == 0)
                 {
                     yield return chainedBlock;
                 }
+            }
+        }
+
+        public IEnumerable<ChainedBlock> FindChainedByPreviousBlockHash(UInt256 previousBlockHash)
+        {
+            var pendingChainedBlocks = GetPendingValues().ToDictionary(x => x.Key, x => x.Value);
+            var returned = new HashSet<UInt256>();
+
+            foreach (var chainedBlock in pendingChainedBlocks.Values.Where(x => x.PreviousBlockHash == previousBlockHash))
+            {
+                returned.Add(chainedBlock.BlockHash);
+                yield return chainedBlock;
+            }
+
+            foreach (var chainedBlock in this.StorageContext.ChainedBlockStorage.FindChainedByPreviousBlockHash(previousBlockHash))
+            {
+                if (!returned.Contains(chainedBlock.BlockHash))
+                    yield return chainedBlock;
             }
         }
 

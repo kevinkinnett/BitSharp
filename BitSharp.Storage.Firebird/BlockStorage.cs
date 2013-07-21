@@ -101,7 +101,7 @@ namespace BitSharp.Storage.Firebird
         public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<Block>>> values)
         {
             using (var conn = this.OpenConnection())
-            using (var trans = conn.BeginTransaction(IsolationLevel.ReadUncommitted))
+            using (var trans = conn.BeginTransaction())
             using (var cmd = conn.CreateCommand())
             using (var txCmd = conn.CreateCommand())
             {
@@ -260,6 +260,31 @@ namespace BitSharp.Storage.Firebird
                         var blockHash = reader.GetUInt256(0);
                         
                         yield return blockHash;
+                    }
+                }
+            }
+        }
+
+        public IEnumerable<BlockHeader> FindByPreviousBlockHash(UInt256 previousBlockHash)
+        {
+            using (var conn = this.OpenConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    SELECT BlockHash, SUBSTRING(RawBytes FROM 1 FOR 80)
+                    FROM Blocks
+                    WHERE PreviousBlockHash = @previousBlockHash";
+
+                cmd.Parameters.SetValue("@previousBlockHash", FbDbType.Char, FbCharset.Octets, 32).Value = previousBlockHash.ToDbByteArray();
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        var blockHash = reader.GetUInt256(0);
+                        var rawBytes = reader.GetBytes(1);
+
+                        yield return StorageEncoder.DecodeBlockHeader(rawBytes.ToMemoryStream(), blockHash);
                     }
                 }
             }

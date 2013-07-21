@@ -12,6 +12,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using System.Data;
+using System.Data.SqlClient;
 
 namespace BitSharp.Storage.SqlServer
 {
@@ -102,28 +103,46 @@ namespace BitSharp.Storage.SqlServer
 
         public bool TryWriteValues(IEnumerable<KeyValuePair<NetworkAddressKey, WriteValue<NetworkAddressWithTime>>> values)
         {
-            using (var conn = this.OpenConnection())
-            using (var trans = conn.BeginTransaction())
-            using (var cmd = conn.CreateCommand())
+            try
             {
-                cmd.Transaction = trans;
-
-                foreach (var keyPair in values)
+                using (var conn = this.OpenConnection())
+                using (var trans = conn.BeginTransaction())
+                using (var cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = keyPair.Value.IsCreate ? CREATE_QUERY : UPDATE_QUERY;
+                    // give writes low deadlock priority, a flush can always be retried
+                    using (var deadlockCmd = conn.CreateCommand())
+                    {
+                        deadlockCmd.Transaction = trans;
+                        deadlockCmd.CommandText = "SET DEADLOCK_PRIORITY LOW";
+                        deadlockCmd.ExecuteNonQuery();
+                    }
 
-                    var knownAddress = keyPair.Value.Value;
+                    cmd.Transaction = trans;
 
-                    cmd.Parameters.SetValue("@ipAddress", SqlDbType.Binary, 16).Value = knownAddress.NetworkAddress.IPv6Address.ToArray();
-                    cmd.Parameters.SetValue("@port", SqlDbType.Binary, 2).Value = knownAddress.NetworkAddress.Port.ToDbByteArray();
-                    cmd.Parameters.SetValue("@services", SqlDbType.Binary, 8).Value = knownAddress.NetworkAddress.Services.ToDbByteArray();
-                    cmd.Parameters.SetValue("@time", SqlDbType.Binary, 4).Value = knownAddress.Time.ToDbByteArray();
+                    foreach (var keyPair in values)
+                    {
+                        cmd.CommandText = keyPair.Value.IsCreate ? CREATE_QUERY : UPDATE_QUERY;
 
-                    cmd.ExecuteNonQuery();
+                        var knownAddress = keyPair.Value.Value;
+
+                        cmd.Parameters.SetValue("@ipAddress", SqlDbType.Binary, 16).Value = knownAddress.NetworkAddress.IPv6Address.ToArray();
+                        cmd.Parameters.SetValue("@port", SqlDbType.Binary, 2).Value = knownAddress.NetworkAddress.Port.ToDbByteArray();
+                        cmd.Parameters.SetValue("@services", SqlDbType.Binary, 8).Value = knownAddress.NetworkAddress.Services.ToDbByteArray();
+                        cmd.Parameters.SetValue("@time", SqlDbType.Binary, 4).Value = knownAddress.Time.ToDbByteArray();
+
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    trans.Commit();
+                    return true;
                 }
-
-                trans.Commit();
-                return true;
+            }
+            catch (SqlException e)
+            {
+                if (e.IsDeadlock())
+                    return false;
+                else
+                    throw;
             }
         }
 

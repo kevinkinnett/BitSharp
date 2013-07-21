@@ -15,5 +15,7 @@ namespace BitSharp.Storage
         bool TryReadBlockHeader(UInt256 blockHash, out BlockHeader blockHeader);
 
         IEnumerable<UInt256> FindMissingPreviousBlocks();
+
+        IEnumerable<BlockHeader> FindByPreviousBlockHash(UInt256 previousBlockHash);
     }
 }

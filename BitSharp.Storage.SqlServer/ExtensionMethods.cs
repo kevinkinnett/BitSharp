@@ -130,5 +130,11 @@ namespace BitSharp.Storage.SqlServer.ExtensionMethods
         {
             return e.ErrorCode == 1205;
         }
+
+        public static bool IsTimeout(this SqlException e)
+        {
+            throw new NotImplementedException();
+            return e.ErrorCode == 1205;
+        }
     }
 }

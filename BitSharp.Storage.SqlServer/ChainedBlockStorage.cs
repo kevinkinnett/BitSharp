@@ -118,33 +118,51 @@ namespace BitSharp.Storage.SqlServer
 
         public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<ChainedBlock>>> values)
         {
-            using (var conn = this.OpenConnection())
-            using (var trans = conn.BeginTransaction())
-            using (var cmd = conn.CreateCommand())
+            try
             {
-                cmd.Transaction = trans;
-
-                cmd.Parameters.Add(new SqlParameter { ParameterName = "@blockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
-                cmd.Parameters.Add(new SqlParameter { ParameterName = "@previousBlockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
-                cmd.Parameters.Add(new SqlParameter { ParameterName = "@height", SqlDbType = SqlDbType.Int });
-                cmd.Parameters.Add(new SqlParameter { ParameterName = "@totalWork", SqlDbType = SqlDbType.Binary, Size = 64 });
-
-                foreach (var keyPair in values)
+                using (var conn = this.OpenConnection())
+                using (var trans = conn.BeginTransaction())
+                using (var cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = keyPair.Value.IsCreate ? CREATE_QUERY : UPDATE_QUERY;
+                    // give writes low deadlock priority, a flush can always be retried
+                    using (var deadlockCmd = conn.CreateCommand())
+                    {
+                        deadlockCmd.Transaction = trans;
+                        deadlockCmd.CommandText = "SET DEADLOCK_PRIORITY LOW";
+                        deadlockCmd.ExecuteNonQuery();
+                    }
 
-                    var chainedBlock = keyPair.Value.Value;
+                    cmd.Transaction = trans;
 
-                    cmd.Parameters["@blockHash"].Value = chainedBlock.BlockHash.ToDbByteArray();
-                    cmd.Parameters["@previousBlockHash"].Value = chainedBlock.PreviousBlockHash.ToDbByteArray();
-                    cmd.Parameters["@height"].Value = chainedBlock.Height;
-                    cmd.Parameters["@totalWork"].Value = chainedBlock.TotalWork.ToDbByteArray();
-                    
-                    cmd.ExecuteNonQuery();
+                    cmd.Parameters.Add(new SqlParameter { ParameterName = "@blockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
+                    cmd.Parameters.Add(new SqlParameter { ParameterName = "@previousBlockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
+                    cmd.Parameters.Add(new SqlParameter { ParameterName = "@height", SqlDbType = SqlDbType.Int });
+                    cmd.Parameters.Add(new SqlParameter { ParameterName = "@totalWork", SqlDbType = SqlDbType.Binary, Size = 64 });
+
+                    foreach (var keyPair in values)
+                    {
+                        cmd.CommandText = keyPair.Value.IsCreate ? CREATE_QUERY : UPDATE_QUERY;
+
+                        var chainedBlock = keyPair.Value.Value;
+
+                        cmd.Parameters["@blockHash"].Value = chainedBlock.BlockHash.ToDbByteArray();
+                        cmd.Parameters["@previousBlockHash"].Value = chainedBlock.PreviousBlockHash.ToDbByteArray();
+                        cmd.Parameters["@height"].Value = chainedBlock.Height;
+                        cmd.Parameters["@totalWork"].Value = chainedBlock.TotalWork.ToDbByteArray();
+
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    trans.Commit();
+                    return true;
                 }
-
-                trans.Commit();
-                return true;
+            }
+            catch (SqlException e)
+            {
+                if (e.IsDeadlock())
+                    return false;
+                else
+                    throw;
             }
         }
 
@@ -289,7 +307,7 @@ namespace BitSharp.Storage.SqlServer
             using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = @"
-                    SELECT UnchainedBlocks.BlockHash, UnchainedBlocks.BlockHeader
+                    SELECT TOP 1000 UnchainedBlocks.BlockHash, UnchainedBlocks.BlockHeader
                     FROM
                     (
                         SELECT BlockHash, PreviousBlockHash, SUBSTRING(RawBytes, 1, 80) AS BlockHeader
@@ -298,15 +316,49 @@ namespace BitSharp.Storage.SqlServer
                     ) UnchainedBlocks
                     WHERE EXISTS(SELECT * FROM Blocks WHERE Blocks.BlockHash = UnchainedBlocks.PreviousBlockHash)";
 
-                using (var reader = cmd.ExecuteReader())
+                SqlDataReader reader;
+                try
                 {
-                    while (reader.Read())
+                    reader = cmd.ExecuteReader();
+                }
+                catch (SqlException e)
+                {
+                    if (e.IsDeadlock())
+                        yield break;
+                    else
+                        throw;
+                }
+                try
+                {
+                    while (true)
                     {
-                        var blockHash = reader.GetUInt256(0);
-                        var blockHeaderBytes = reader.GetBytes(1);
+                        bool read;
+                        try
+                        {
+                            read = reader.Read();
+                        }
+                        catch (SqlException e)
+                        {
+                            if (e.IsDeadlock())
+                                yield break;
+                            else
+                                throw;
+                        }
 
-                        yield return StorageEncoder.DecodeBlockHeader(blockHeaderBytes.ToMemoryStream(), blockHash);
+                        if (read)
+                        {
+                            var blockHash = reader.GetUInt256(0);
+                            var blockHeaderBytes = reader.GetBytes(1);
+
+                            yield return StorageEncoder.DecodeBlockHeader(blockHeaderBytes.ToMemoryStream(), blockHash);
+                        }
+                        else
+                            break;
                     }
+                }
+                finally
+                {
+                    reader.Dispose();
                 }
             }
         }

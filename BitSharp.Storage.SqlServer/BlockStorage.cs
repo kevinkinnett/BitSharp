@@ -100,81 +100,99 @@ namespace BitSharp.Storage.SqlServer
 
         public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<Block>>> values)
         {
-            using (var conn = this.OpenConnection())
-            using (var trans = conn.BeginTransaction(IsolationLevel.ReadUncommitted))
-            using (var cmd = conn.CreateCommand())
-            using (var txCmd = conn.CreateCommand())
+            try
             {
-                cmd.Transaction = trans;
-                txCmd.Transaction = trans;
-
-                cmd.Parameters.Add(new SqlParameter { ParameterName = "@blockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
-                cmd.Parameters.Add(new SqlParameter { ParameterName = "@previousBlockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
-                cmd.Parameters.Add(new SqlParameter { ParameterName = "@rawBytes", SqlDbType = SqlDbType.VarBinary });
-
-                txCmd.CommandText = @"
-                    MERGE TransactionLocators AS target
-                    USING (SELECT @blockHash, @transactionHash) AS source (BlockHash, TransactionHash)
-                    ON (target.BlockHash = source.BlockHash AND target.TransactionHash = source.TransactionHash)
-	                WHEN NOT MATCHED THEN
-	                    INSERT ( BlockHash, TransactionHash, TransactionIndex )
-	                    VALUES ( @blockHash, @transactionHash, @transactionIndex );";
-
-                txCmd.Parameters.Add(new SqlParameter { ParameterName = "@blockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
-                txCmd.Parameters.Add(new SqlParameter { ParameterName = "@transactionHash", SqlDbType = SqlDbType.Binary, Size = 32 });
-                txCmd.Parameters.Add(new SqlParameter { ParameterName = "@transactionIndex", SqlDbType = SqlDbType.Binary, Size = 4 });
-
-                cmd.CommandText = CREATE_QUERY;
-                foreach (var keyPair in values.Where(x => x.Value.IsCreate))
+                using (var conn = this.OpenConnection())
+                using (var trans = conn.BeginTransaction())
+                using (var cmd = conn.CreateCommand())
+                using (var txCmd = conn.CreateCommand())
                 {
-                    var block = keyPair.Value.Value;
-
-                    var blockBytes = StorageEncoder.EncodeBlock(block);
-                    cmd.Parameters["@blockHash"].Value = block.Hash.ToDbByteArray();
-                    cmd.Parameters["@previousBlockHash"].Value = block.Header.PreviousBlock.ToDbByteArray();
-                    cmd.Parameters["@rawBytes"].Size = blockBytes.Length;
-                    cmd.Parameters["@rawBytes"].Value = blockBytes;
-
-                    cmd.ExecuteNonQuery();
-
-                    for (var txIndex = 0; txIndex < block.Transactions.Length; txIndex++)
+                    // give writes low deadlock priority, a flush can always be retried
+                    using (var deadlockCmd = conn.CreateCommand())
                     {
-                        var tx = block.Transactions[txIndex];
-                        txCmd.Parameters["@blockHash"].Value = block.Hash.ToDbByteArray();
-                        txCmd.Parameters["@transactionHash"].Value = tx.Hash.ToDbByteArray();
-                        txCmd.Parameters["@transactionIndex"].Value = ((UInt32)txIndex).ToDbByteArray();
-
-                        txCmd.ExecuteNonQuery();
+                        deadlockCmd.Transaction = trans;
+                        deadlockCmd.CommandText = "SET DEADLOCK_PRIORITY LOW";
+                        deadlockCmd.ExecuteNonQuery();
                     }
-                }
 
-                cmd.CommandText = UPDATE_QUERY;
-                foreach (var keyPair in values.Where(x => !x.Value.IsCreate))
-                {
-                    var block = keyPair.Value.Value;
+                    cmd.Transaction = trans;
+                    txCmd.Transaction = trans;
 
-                    var blockBytes = StorageEncoder.EncodeBlock(block);
-                    cmd.Parameters["@blockHash"].Value = block.Hash.ToDbByteArray();
-                    cmd.Parameters["@previousBlockHash"].Value = block.Header.PreviousBlock.ToDbByteArray();
-                    cmd.Parameters["@rawBytes"].Size = blockBytes.Length;
-                    cmd.Parameters["@rawBytes"].Value = blockBytes;
+                    cmd.Parameters.Add(new SqlParameter { ParameterName = "@blockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
+                    cmd.Parameters.Add(new SqlParameter { ParameterName = "@previousBlockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
+                    cmd.Parameters.Add(new SqlParameter { ParameterName = "@rawBytes", SqlDbType = SqlDbType.VarBinary });
 
-                    cmd.ExecuteNonQuery();
+                    txCmd.CommandText = @"
+                        MERGE TransactionLocators AS target
+                        USING (SELECT @blockHash, @transactionHash) AS source (BlockHash, TransactionHash)
+                        ON (target.BlockHash = source.BlockHash AND target.TransactionHash = source.TransactionHash)
+	                    WHEN NOT MATCHED THEN
+	                        INSERT ( BlockHash, TransactionHash, TransactionIndex )
+	                        VALUES ( @blockHash, @transactionHash, @transactionIndex );";
 
-                    for (var txIndex = 0; txIndex < block.Transactions.Length; txIndex++)
+                    txCmd.Parameters.Add(new SqlParameter { ParameterName = "@blockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
+                    txCmd.Parameters.Add(new SqlParameter { ParameterName = "@transactionHash", SqlDbType = SqlDbType.Binary, Size = 32 });
+                    txCmd.Parameters.Add(new SqlParameter { ParameterName = "@transactionIndex", SqlDbType = SqlDbType.Binary, Size = 4 });
+
+                    cmd.CommandText = CREATE_QUERY;
+                    foreach (var keyPair in values.Where(x => x.Value.IsCreate))
                     {
-                        var tx = block.Transactions[txIndex];
-                        txCmd.Parameters["@blockHash"].Value = block.Hash.ToDbByteArray();
-                        txCmd.Parameters["@transactionHash"].Value = tx.Hash.ToDbByteArray();
-                        txCmd.Parameters["@transactionIndex"].Value = ((UInt32)txIndex).ToDbByteArray();
+                        var block = keyPair.Value.Value;
 
-                        txCmd.ExecuteNonQuery();
+                        var blockBytes = StorageEncoder.EncodeBlock(block);
+                        cmd.Parameters["@blockHash"].Value = block.Hash.ToDbByteArray();
+                        cmd.Parameters["@previousBlockHash"].Value = block.Header.PreviousBlock.ToDbByteArray();
+                        cmd.Parameters["@rawBytes"].Size = blockBytes.Length;
+                        cmd.Parameters["@rawBytes"].Value = blockBytes;
+
+                        cmd.ExecuteNonQuery();
+
+                        for (var txIndex = 0; txIndex < block.Transactions.Length; txIndex++)
+                        {
+                            var tx = block.Transactions[txIndex];
+                            txCmd.Parameters["@blockHash"].Value = block.Hash.ToDbByteArray();
+                            txCmd.Parameters["@transactionHash"].Value = tx.Hash.ToDbByteArray();
+                            txCmd.Parameters["@transactionIndex"].Value = ((UInt32)txIndex).ToDbByteArray();
+
+                            txCmd.ExecuteNonQuery();
+                        }
                     }
+
+                    cmd.CommandText = UPDATE_QUERY;
+                    foreach (var keyPair in values.Where(x => !x.Value.IsCreate))
+                    {
+                        var block = keyPair.Value.Value;
+
+                        var blockBytes = StorageEncoder.EncodeBlock(block);
+                        cmd.Parameters["@blockHash"].Value = block.Hash.ToDbByteArray();
+                        cmd.Parameters["@previousBlockHash"].Value = block.Header.PreviousBlock.ToDbByteArray();
+                        cmd.Parameters["@rawBytes"].Size = blockBytes.Length;
+                        cmd.Parameters["@rawBytes"].Value = blockBytes;
+
+                        cmd.ExecuteNonQuery();
+
+                        for (var txIndex = 0; txIndex < block.Transactions.Length; txIndex++)
+                        {
+                            var tx = block.Transactions[txIndex];
+                            txCmd.Parameters["@blockHash"].Value = block.Hash.ToDbByteArray();
+                            txCmd.Parameters["@transactionHash"].Value = tx.Hash.ToDbByteArray();
+                            txCmd.Parameters["@transactionIndex"].Value = ((UInt32)txIndex).ToDbByteArray();
+
+                            txCmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    trans.Commit();
+
+                    return true;
                 }
-
-                trans.Commit();
-
-                return true;
+            }
+            catch (SqlException e)
+            {
+                if (e.IsDeadlock())
+                    return false;
+                else
+                    throw;
             }
         }
 
@@ -258,8 +276,33 @@ namespace BitSharp.Storage.SqlServer
                     while (reader.Read())
                     {
                         var blockHash = reader.GetUInt256(0);
-                        
+
                         yield return blockHash;
+                    }
+                }
+            }
+        }
+
+        public IEnumerable<BlockHeader> FindByPreviousBlockHash(UInt256 previousBlockHash)
+        {
+            using (var conn = this.OpenConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    SELECT BlockHash, SUBSTRING(RawBytes, 1, 80)
+                    FROM Blocks
+                    WHERE PreviousBlockHash = @previousBlockHash";
+
+                cmd.Parameters.SetValue("@previousBlockHash", SqlDbType.Binary, 32).Value = previousBlockHash.ToDbByteArray();
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        var blockHash = reader.GetUInt256(0);
+                        var rawBytes = reader.GetBytes(1);
+
+                        yield return StorageEncoder.DecodeBlockHeader(rawBytes.ToMemoryStream(), blockHash);
                     }
                 }
             }

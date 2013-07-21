@@ -257,6 +257,31 @@ namespace BitSharp.Storage.SQLite
             }
         }
 
+        public IEnumerable<BlockHeader> FindByPreviousBlockHash(UInt256 previousBlockHash)
+        {
+            using (var conn = this.OpenReadConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    SELECT BlockHash, SUBSTR(RawBytes, 1, 80)
+                    FROM Blocks
+                    WHERE PreviousBlockHash = @previousBlockHash";
+
+                cmd.Parameters.SetValue("@previousBlockHash", DbType.Binary, 32).Value = previousBlockHash.ToDbByteArray();
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        var blockHash = reader.GetUInt256(0);
+                        var rawBytes = reader.GetBytes(1);
+
+                        yield return StorageEncoder.DecodeBlockHeader(rawBytes.ToMemoryStream(), blockHash);
+                    }
+                }
+            }
+        }
+
         private const string CREATE_QUERY = @"
             INSERT OR IGNORE
             INTO Blocks (BlockHash, PreviousBlockHash, RawBytes)

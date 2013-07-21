@@ -371,42 +371,48 @@ namespace BitSharp.Daemon
                     var chainedBlock = chainedBlocks[i];
 
                     // find any unchained blocks whose previous block is the current chained block...
+                    IList<BlockHeader> unchainedGroup;
                     if (unchainedByPrevious.ContainsKey(chainedBlock.BlockHash))
                     {
-                        var unchainedGroup = unchainedByPrevious[chainedBlock.BlockHash];
+                        unchainedGroup = unchainedByPrevious[chainedBlock.BlockHash];
                         unchainedByPrevious.Remove(chainedBlock.BlockHash);
+                    }
+                    else
+                    {
+                        unchainedGroup = this.CacheContext.BlockHeaderCache.FindByPreviousBlockHash(chainedBlock.BlockHash)
+                            .Where(x => !this.CacheContext.ChainedBlockCache.ContainsKey(x.Hash)).ToList();
+                    }
 
-                        foreach (var unchainedBlock in unchainedGroup)
+                    foreach (var unchainedBlock in unchainedGroup)
+                    {
+                        // cooperative loop
+                        this.shutdownToken.Token.ThrowIfCancellationRequested();
+
+                        // update the unchained block to chain off of the current chained block...
+                        var newChainedBlock = new ChainedBlock
+                        (
+                            unchainedBlock.Hash,
+                            unchainedBlock.PreviousBlock,
+                            chainedBlock.Height + 1,
+                            chainedBlock.TotalWork + unchainedBlock.CalculateWork()
+                        );
+                        this.CacheContext.ChainedBlockCache.CreateValue(newChainedBlock.BlockHash, newChainedBlock);
+
+                        // and finally add the newly chained block to the list of chained blocks so that an attempt will be made to chain off of it
+                        chainedBlocks.Add(newChainedBlock);
+
+                        // statistics
+                        chainCount++;
+                        lastChainedBlock = newChainedBlock;
+                        Debug.WriteLineIf(chainCount % 1.THOUSAND() == 0, "Chained block {0} at height {1}, total work: {2}".Format2(newChainedBlock.BlockHash.ToHexNumberString(), newChainedBlock.Height, newChainedBlock.TotalWork.ToString("X")));
+
+                        if (chainCount % 1.THOUSAND() == 0)
                         {
-                            // cooperative loop
-                            this.shutdownToken.Token.ThrowIfCancellationRequested();
+                            // notify winner worker after chaining blocks
+                            this.winnerWorker.NotifyWork();
 
-                            // update the unchained block to chain off of the current chained block...
-                            var newChainedBlock = new ChainedBlock
-                            (
-                                unchainedBlock.Hash,
-                                unchainedBlock.PreviousBlock,
-                                chainedBlock.Height + 1,
-                                chainedBlock.TotalWork + unchainedBlock.CalculateWork()
-                            );
-                            this.CacheContext.ChainedBlockCache.CreateValue(newChainedBlock.BlockHash, newChainedBlock);
-
-                            // and finally add the newly chained block to the list of chained blocks so that an attempt will be made to chain off of it
-                            chainedBlocks.Add(newChainedBlock);
-
-                            // statistics
-                            chainCount++;
-                            lastChainedBlock = newChainedBlock;
-                            Debug.WriteLineIf(chainCount % 1.THOUSAND() == 0, "Chained block {0} at height {1}, total work: {2}".Format2(newChainedBlock.BlockHash.ToHexNumberString(), newChainedBlock.Height, newChainedBlock.TotalWork.ToString("X")));
-
-                            if (chainCount % 1.THOUSAND() == 0)
-                            {
-                                // notify winner worker after chaining blocks
-                                this.winnerWorker.NotifyWork();
-
-                                // notify the blockchain worker after chaining blocks
-                                this.blockchainWorker.NotifyWork();
-                            }
+                            // notify the blockchain worker after chaining blocks
+                            this.blockchainWorker.NotifyWork();
                         }
                     }
                 }

@@ -19,7 +19,7 @@ namespace BitSharp.Storage
         private readonly IStorageContext _storageContext;
 
         private readonly BlockCache _blockCache;
-        private readonly BoundedCache<UInt256, BlockHeader> _blockHeaderCache;
+        private readonly BlockHeaderCache _blockHeaderCache;
         private readonly ChainedBlockCache _chainedBlockCache;
         private readonly TxKeyCache _txKeyCache;
         private readonly TransactionCache _transactionCache;
@@ -67,7 +67,7 @@ namespace BitSharp.Storage
 
         public BlockCache BlockCache { get { return this._blockCache; } }
 
-        public BoundedCache<UInt256, BlockHeader> BlockHeaderCache { get { return this._blockHeaderCache; } }
+        public BlockHeaderCache BlockHeaderCache { get { return this._blockHeaderCache; } }
 
         public ChainedBlockCache ChainedBlockCache { get { return this._chainedBlockCache; } }
 
