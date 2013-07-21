@@ -426,7 +426,7 @@ namespace BitSharp.Daemon
             this.blockchainWorker.NotifyWork();
 
             stopwatch.Stop();
-            Debug.WriteLine("ChainingWorker: Chained {0:#,##0} items in {1:#,##0.000}s".Format2(chainCount, stopwatch.ElapsedSecondsFloat()));
+            //Debug.WriteLine("ChainingWorker: Chained {0:#,##0} items in {1:#,##0.000}s".Format2(chainCount, stopwatch.ElapsedSecondsFloat()));
         }
 
         private void WinnerWorker()
