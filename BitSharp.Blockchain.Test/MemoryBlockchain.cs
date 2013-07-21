@@ -30,8 +30,8 @@ namespace BitSharp.Blockchain.Test
         private readonly Block _genesisBlock;
         private readonly ChainedBlock _genesisChainedBlock;
 
-        private readonly UnitTestRules rules;
-        private readonly BlockchainCalculator calculator;
+        private readonly UnitTestRules _rules;
+        private readonly BlockchainCalculator _calculator;
 
         private Data.Blockchain _currentBlockchain;
 
@@ -53,19 +53,23 @@ namespace BitSharp.Blockchain.Test
             this._cacheContext = new CacheContext(this._storageContext);
 
             // initialize unit test rules
-            this.rules = new UnitTestRules(this._cacheContext);
+            this._rules = new UnitTestRules(this._cacheContext);
 
             // initialize blockchain calculator
-            this.calculator = new BlockchainCalculator(this.rules, this._cacheContext, this.shutdownToken);
+            this._calculator = new BlockchainCalculator(this._rules, this._cacheContext, this.shutdownToken);
 
             // create and mine the genesis block
             this._genesisBlock = genesisBlock ?? MineEmptyBlock(0);
 
             // update genesis blockchain and add to storage
-            this.rules.SetGenesisBlock(this._genesisBlock);
-            this._currentBlockchain = this.rules.GenesisBlockchain;
+            this._rules.SetGenesisBlock(this._genesisBlock);
+            this._currentBlockchain = this._rules.GenesisBlockchain;
             this._genesisChainedBlock = AddBlock(this._genesisBlock, null).Item2;
         }
+
+        public UnitTestRules Rules { get { return this._rules; } }
+
+        public BlockchainCalculator Calculator { get { return this._calculator; } }
 
         public CacheContext CacheContext { get { return this._cacheContext; } }
 
@@ -123,7 +127,7 @@ namespace BitSharp.Blockchain.Test
                     previousBlock: previousBlockHash,
                     merkleRoot: merkleRoot,
                     time: 0,
-                    bits: this.rules.HighestTargetBits,
+                    bits: DataCalculator.TargetToBits(this._rules.HighestTarget),
                     nonce: 0
                 ),
                 transactions: transactions
@@ -139,7 +143,7 @@ namespace BitSharp.Blockchain.Test
 
         public Block MineBlock(Block block)
         {
-            var minedHeader = Miner.MineBlockHeader(block.Header, this.rules.HighestTarget);
+            var minedHeader = Miner.MineBlockHeader(block.Header, this._rules.HighestTarget);
             if (minedHeader == null)
                 Assert.Fail("No block could be mined for test data header.");
 
@@ -167,7 +171,7 @@ namespace BitSharp.Blockchain.Test
 
         public Tuple<Block, ChainedBlock> MineAndAddBlock(Block block, ChainedBlock? prevChainedBlock)
         {
-            var minedHeader = Miner.MineBlockHeader(block.Header, this.rules.HighestTarget);
+            var minedHeader = Miner.MineBlockHeader(block.Header, this._rules.HighestTarget);
             if (minedHeader == null)
                 Assert.Fail("No block could be mined for test data header.");
 
@@ -227,7 +231,7 @@ namespace BitSharp.Blockchain.Test
 
             while (leafChainedBlocks.Count > 0)
             {
-                var newWinner = this.rules.SelectWinningChainedBlock(leafChainedBlocks.Values.ToList());
+                var newWinner = this._rules.SelectWinningChainedBlock(leafChainedBlocks.Values.ToList());
                 leafChainedBlocks.Remove(newWinner.BlockHash);
 
                 try
@@ -236,7 +240,7 @@ namespace BitSharp.Blockchain.Test
                     using (var cancelToken = new CancellationTokenSource())
                     {
                         List<MissingDataException> missingData;
-                        this._currentBlockchain = this.calculator.CalculateBlockchainFromExisting(this._currentBlockchain, newWinner, out missingData, cancelToken.Token);
+                        this._currentBlockchain = this._calculator.CalculateBlockchainFromExisting(this._currentBlockchain, newWinner, out missingData, cancelToken.Token);
                     }
 
                     // success, exit

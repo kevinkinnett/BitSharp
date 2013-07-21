@@ -23,7 +23,7 @@ namespace BitSharp.Storage.Test
 
         public IEnumerable<ChainedBlock> FindLeafChained()
         {
-            throw new NotImplementedException();
+            return this.Storage.Values.Where(x => !this.Storage.Values.Any(y => y.PreviousBlockHash == x.BlockHash));
         }
 
         public IEnumerable<ChainedBlock> FindChainedByPreviousBlockHash(UInt256 previousBlockHash)
