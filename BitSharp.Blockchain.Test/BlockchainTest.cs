@@ -157,7 +157,9 @@ namespace BitSharp.Blockchain.Test
             var block2 = blockchain1.MineAndAddEmptyBlock(block1.Item2);
 
             // introduce a split
+            blockchain1.Rules.SetHighestTarget(UnitTestRules.Target1);
             var block3a = blockchain1.MineAndAddEmptyBlock(block2.Item2);
+            blockchain1.Rules.SetHighestTarget(UnitTestRules.Target0);
             var block3b = blockchain1.MineAndAddEmptyBlock(block2.Item2);
 
             // check that 3a is current as it was introduced first
@@ -176,6 +178,7 @@ namespace BitSharp.Blockchain.Test
             //TODO Assert.AreEqual(4, blockchain1.CurrentBlockchain.Utxo.Count);
 
             // resolve split, with other chain winning
+            blockchain1.Rules.SetHighestTarget(UnitTestRules.Target1);
             var block5b = blockchain1.MineAndAddEmptyBlock(block4b.Item2);
 
             // check that blockchain reorged to the winning chain

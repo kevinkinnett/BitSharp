@@ -13,8 +13,13 @@ namespace BitSharp.Blockchain.Test
 {
     public class UnitTestRules : MainnetRules
     {
-        private readonly UInt256 _highestTarget;
-        private readonly UInt32 _highestTargetBits;
+        public static readonly UInt256 Target0 = UInt256.Parse("F000000000000000000000000000000000000000000000000000000000000000", NumberStyles.HexNumber);
+        public static readonly UInt256 Target1 = UInt256.Parse("0F00000000000000000000000000000000000000000000000000000000000000", NumberStyles.HexNumber);
+        public static readonly UInt256 Target2 = UInt256.Parse("00F0000000000000000000000000000000000000000000000000000000000000", NumberStyles.HexNumber);
+        public static readonly UInt256 Target3 = UInt256.Parse("000F000000000000000000000000000000000000000000000000000000000000", NumberStyles.HexNumber);
+        public static readonly UInt256 Target4 = UInt256.Parse("0000F00000000000000000000000000000000000000000000000000000000000", NumberStyles.HexNumber);
+
+        private UInt256 _highestTarget;
         private Block _genesisBlock;
         private ChainedBlock _genesisChainedBlock;
         private Data.Blockchain _genesisBlockchain;
@@ -22,9 +27,16 @@ namespace BitSharp.Blockchain.Test
         public UnitTestRules(CacheContext cacheContext)
             : base(cacheContext)
         {
-            this._highestTarget = UInt256.Parse("00F0000000000000000000000000000000000000000000000000000000000000", NumberStyles.HexNumber);
-            this._highestTargetBits = DataCalculator.TargetToBits(this._highestTarget);
+            this._highestTarget = Target0;
         }
+
+        public override UInt256 HighestTarget { get { return this._highestTarget; } }
+
+        public override Block GenesisBlock { get { return this._genesisBlock; } }
+
+        public override ChainedBlock GenesisChainedBlock { get { return this._genesisChainedBlock; } }
+
+        public override Data.Blockchain GenesisBlockchain { get { return this._genesisBlockchain; } }
 
         public void SetGenesisBlock(Block genesisBlock)
         {
@@ -48,14 +60,9 @@ namespace BitSharp.Blockchain.Test
                 );
         }
 
-        public override UInt256 HighestTarget { get { return this._highestTarget; } }
-
-        public override uint HighestTargetBits { get { return this._highestTargetBits; } }
-
-        public override Block GenesisBlock { get { return this._genesisBlock; } }
-
-        public override ChainedBlock GenesisChainedBlock { get { return this._genesisChainedBlock; } }
-
-        public override Data.Blockchain GenesisBlockchain { get { return this._genesisBlockchain; } }
+        public void SetHighestTarget(UInt256 highestTarget)
+        {
+            this._highestTarget = highestTarget;
+        }
     }
 }
