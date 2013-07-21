@@ -38,6 +38,6 @@
         <Label Content="Header Cache (MB):" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,500,0,0" RenderTransformOrigin="-0.219,1.808"/>
         <Slider HorizontalAlignment="Left" VerticalAlignment="Top" Margin="142,500,0,0" Width="365" Height="26" Maximum="100" Value="{Binding HeaderCacheSizeMB}" TickFrequency="25" TickPlacement="BottomRight" ToolTip="{Binding HeaderCacheSizeMB}" SmallChange="25"/>
         <Label Content="Chain Cache (MB):" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,531,0,0" RenderTransformOrigin="-0.219,1.808"/>
-        <Slider HorizontalAlignment="Left" VerticalAlignment="Top" Margin="142,531,0,0" Width="365" Height="26" Maximum="100" Value="{Binding ChainedBlockCacheSizeMB}" TickFrequency="25" TickPlacement="BottomRight" ToolTip="{Binding MetadataCacheSizeMB}" SmallChange="25"/>
+        <Slider HorizontalAlignment="Left" VerticalAlignment="Top" Margin="142,531,0,0" Width="365" Height="26" Maximum="100" Value="{Binding ChainedBlockCacheSizeMB}" TickFrequency="25" TickPlacement="BottomRight" ToolTip="{Binding ChainedBlockCacheSizeMB}" SmallChange="25"/>
     </Grid>
 </Window>
