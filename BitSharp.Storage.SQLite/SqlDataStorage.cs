@@ -36,7 +36,7 @@ namespace BitSharp.Storage.SQLite
             dbPath = Path.Combine(dbFolderPath, "BitSharp.sqlite");
             connString = @"Data Source=""{0}""; Journal Mode=WAL;".Format2(dbPath);
 
-            dbLock = new ReaderWriterLockSlim();
+            dbLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
             connSemaphore = new SemaphoreSlim(1);
         }
 
@@ -46,12 +46,11 @@ namespace BitSharp.Storage.SQLite
 
             connSemaphore.Do(() =>
             {
-                if (connCount == 0)
+                if (Interlocked.Increment(ref connCount) == 1)
                 {
                     conn = OpenConnection();
                     CreateDatabase();
                 }
-                connCount++;
             });
         }
 
@@ -65,8 +64,9 @@ namespace BitSharp.Storage.SQLite
                 {
                     if (!this.disposed)
                     {
-                        connCount--;
-                        if (connCount == 0)
+                        this.disposed = true;
+
+                        if (Interlocked.Decrement(ref connCount) == 0)
                         {
                             conn.Dispose();
                             conn = null;
