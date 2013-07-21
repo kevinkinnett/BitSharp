@@ -204,6 +204,11 @@ namespace BitSharp.Storage.SqlServer
 
         public IEnumerable<ChainedBlock> FindLeafChained()
         {
+            return IgnoreSqlErrors(FindLeafChainedInner());
+        }
+
+        private IEnumerable<ChainedBlock> FindLeafChainedInner()
+        {
             using (var conn = this.OpenConnection())
             using (var cmd = conn.CreateCommand())
             {
@@ -234,6 +239,11 @@ namespace BitSharp.Storage.SqlServer
         }
 
         public IEnumerable<ChainedBlock> FindChainedByPreviousBlockHash(UInt256 previousBlockHash)
+        {
+            return IgnoreSqlErrors(FindChainedByPreviousBlockHashInner(previousBlockHash));
+        }
+
+        private IEnumerable<ChainedBlock> FindChainedByPreviousBlockHashInner(UInt256 previousBlockHash)
         {
             using (var conn = this.OpenConnection())
             using (var cmd = conn.CreateCommand())
@@ -266,6 +276,11 @@ namespace BitSharp.Storage.SqlServer
         }
 
         public IEnumerable<ChainedBlock> FindChainedWhereProceedingUnchainedExists()
+        {
+            return IgnoreSqlErrors(FindChainedWhereProceedingUnchainedExistsInner());
+        }
+
+        private IEnumerable<ChainedBlock> FindChainedWhereProceedingUnchainedExistsInner()
         {
             using (var conn = this.OpenConnection())
             using (var cmd = conn.CreateCommand())
@@ -303,11 +318,16 @@ namespace BitSharp.Storage.SqlServer
 
         public IEnumerable<BlockHeader> FindUnchainedWherePreviousBlockExists()
         {
+            return IgnoreSqlErrors(FindUnchainedWherePreviousBlockExistsInner());
+        }
+
+        private IEnumerable<BlockHeader> FindUnchainedWherePreviousBlockExistsInner()
+        {
             using (var conn = this.OpenConnection())
             using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = @"
-                    SELECT TOP 1000 UnchainedBlocks.BlockHash, UnchainedBlocks.BlockHeader
+                    SELECT UnchainedBlocks.BlockHash, UnchainedBlocks.BlockHeader
                     FROM
                     (
                         SELECT BlockHash, PreviousBlockHash, SUBSTRING(RawBytes, 1, 80) AS BlockHeader
@@ -316,49 +336,15 @@ namespace BitSharp.Storage.SqlServer
                     ) UnchainedBlocks
                     WHERE EXISTS(SELECT * FROM Blocks WHERE Blocks.BlockHash = UnchainedBlocks.PreviousBlockHash)";
 
-                SqlDataReader reader;
-                try
+                using (var reader = cmd.ExecuteReader())
                 {
-                    reader = cmd.ExecuteReader();
-                }
-                catch (SqlException e)
-                {
-                    if (e.IsDeadlock())
-                        yield break;
-                    else
-                        throw;
-                }
-                try
-                {
-                    while (true)
+                    while (reader.Read())
                     {
-                        bool read;
-                        try
-                        {
-                            read = reader.Read();
-                        }
-                        catch (SqlException e)
-                        {
-                            if (e.IsDeadlock())
-                                yield break;
-                            else
-                                throw;
-                        }
+                        var blockHash = reader.GetUInt256(0);
+                        var blockHeaderBytes = reader.GetBytes(1);
 
-                        if (read)
-                        {
-                            var blockHash = reader.GetUInt256(0);
-                            var blockHeaderBytes = reader.GetBytes(1);
-
-                            yield return StorageEncoder.DecodeBlockHeader(blockHeaderBytes.ToMemoryStream(), blockHash);
-                        }
-                        else
-                            break;
+                        yield return StorageEncoder.DecodeBlockHeader(blockHeaderBytes.ToMemoryStream(), blockHash);
                     }
-                }
-                finally
-                {
-                    reader.Dispose();
                 }
             }
         }

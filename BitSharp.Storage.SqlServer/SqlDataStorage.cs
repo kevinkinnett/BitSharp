@@ -10,6 +10,7 @@ using System.IO;
 using System.Reflection;
 using System.Data.Common;
 using BitSharp.Storage;
+using BitSharp.Storage.SqlServer.ExtensionMethods;
 using System.Threading;
 using System.Diagnostics;
 
@@ -45,6 +46,49 @@ namespace BitSharp.Storage.SqlServer
             {
                 connection.Dispose();
                 throw;
+            }
+        }
+
+        protected IEnumerable<T> IgnoreSqlErrors<T>(IEnumerable<T> results)
+        {
+            IEnumerator<T> enumerator;
+            try
+            {
+                enumerator = results.GetEnumerator();
+            }
+            catch (SqlException e)
+            {
+                if (e.IsDeadlock() || e.IsTimeout())
+                    yield break;
+                else
+                    throw;
+            }
+            try
+            {
+                while (true)
+                {
+                    bool read;
+                    try
+                    {
+                        read = enumerator.MoveNext();
+                    }
+                    catch (SqlException e)
+                    {
+                        if (e.IsDeadlock() || e.IsTimeout())
+                            yield break;
+                        else
+                            throw;
+                    }
+
+                    if (!read)
+                        break;
+
+                    yield return enumerator.Current;
+                }
+            }
+            finally
+            {
+                enumerator.Dispose();
             }
         }
 
