@@ -320,10 +320,10 @@ namespace BitSharp.Storage.SQLite
             }
 
             // find any files that are named like a blockchain but not included in the list above, these are invalid and can be cleaned up
-            var validFiles = new HashSet<string>(blockchains.Select(x => "Blockchain_{0}.sqlite".Format2(x.Item1.Guid)));
+            var validFiles = new HashSet<string>(blockchains.Select(x => "Blockchain_{0}.sqlite".Format2(x.Item1.Guid).ToLowerInvariant()));
             foreach (var file in Directory.EnumerateFiles(this.dbFolderPath, "Blockchain_*.sqlite"))
             {
-                if (!validFiles.Contains(Path.GetFileName(file)))
+                if (!validFiles.Contains(Path.GetFileName(file).ToLowerInvariant()))
                 {
                     File.Delete(file);
                 }
