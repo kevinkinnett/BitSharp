@@ -27,15 +27,37 @@ namespace BitSharp.Storage
 
         public bool IsChainIntact(ChainedBlock chainedBlock)
         {
+            List<ChainedBlock> chain;
+            return TryGetChain(chainedBlock, out chain);
+        }
+
+        public bool TryGetChain(ChainedBlock chainedBlock, out List<ChainedBlock> chain)
+        {
+            chain = new List<ChainedBlock>(chainedBlock.Height);
+
             // look backwards until height 0 is reached
+            var expectedHeight = chainedBlock.Height;
             while (chainedBlock.Height != 0)
             {
+                chain.Add(chainedBlock);
+
                 // if a missing link occurrs before height 0, the chain isn't intact
                 if (!TryGetValue(chainedBlock.PreviousBlockHash, out chainedBlock))
                 {
+                    chain = null;
+                    return false;
+                }
+
+                expectedHeight--;
+                if (chainedBlock.Height != expectedHeight)
+                {
+                    Debugger.Break();
+                    chain = null;
                     return false;
                 }
             }
+            chain.Add(chainedBlock);
+            chain.Reverse();
 
             // height 0 reached, chain is intact
             return true;
