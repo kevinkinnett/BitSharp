@@ -418,10 +418,10 @@ namespace BitSharp.Blockchain
             // all validation has passed
         }
 
-        public ChainedBlock SelectWinningChainedBlock(IList<ChainedBlock> leafChainedBlocks)
+        public virtual ChainedBlock SelectWinningChainedBlock(IList<ChainedBlock> leafChainedBlocks)
         {
             var maxTotalWork = leafChainedBlocks.Max(x => x.TotalWork);
-            return leafChainedBlocks.First(x => x.TotalWork == maxTotalWork);
+            return leafChainedBlocks.FirstOrDefault(x => x.TotalWork == maxTotalWork);
         }
     }
 }

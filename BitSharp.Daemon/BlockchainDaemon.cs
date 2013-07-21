@@ -447,7 +447,7 @@ namespace BitSharp.Daemon
                 //TODO ordering will need to follow actual bitcoin rules to ensure the same winning chaing is always selected
                 var winningBlock = this._rules.SelectWinningChainedBlock(leafChainedBlocks);
 
-                if (winningBlock.BlockHash != this.WinningBlock.BlockHash)
+                if (!winningBlock.IsDefault && winningBlock.BlockHash != this.WinningBlock.BlockHash)
                 {
                     var winningBlockchain = new List<ChainedBlock>();
                     foreach (var winningLink in Calculator.PreviousChainedBlocks(winningBlock))

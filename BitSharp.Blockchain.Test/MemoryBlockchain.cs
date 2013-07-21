@@ -229,11 +229,13 @@ namespace BitSharp.Blockchain.Test
                 this.StorageContext.ChainedBlockStorage.FindLeafChained()
                  .ToDictionary(x => x.BlockHash, x => x);
 
-            while (leafChainedBlocks.Count > 0)
+            while (true)
             {
                 var newWinner = this._rules.SelectWinningChainedBlock(leafChainedBlocks.Values.ToList());
+                if (newWinner.IsDefault)
+                    break;
+                
                 leafChainedBlocks.Remove(newWinner.BlockHash);
-
                 try
                 {
                     // try to use the blockchain
