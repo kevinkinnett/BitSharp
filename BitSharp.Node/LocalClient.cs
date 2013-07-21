@@ -31,7 +31,9 @@ namespace BitSharp.Node
 
         private readonly CancellationTokenSource shutdownToken;
 
-        private Thread workerThread;
+        private readonly Worker connectWorker;
+        private readonly Worker messageWorker;
+        private readonly Worker statsWorker;
 
         private readonly BlockchainDaemon blockchainDaemon;
 
@@ -63,110 +65,114 @@ namespace BitSharp.Node
                 maxCacheMemorySize: 500.THOUSAND(),
                 sizeEstimator: knownAddress => 40
             );
+
+            this.connectWorker = new Worker("ConnectWorker", ConnectWorker, true, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+            this.messageWorker = new Worker("MessageWorker", MessageWorker, true, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+            this.statsWorker = new Worker("StatsWorker", StatsWorker, true, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
         }
 
         public void Start()
         {
-            this.workerThread = new Thread(Worker);
-            this.workerThread.Start();
+            Startup();
+
+            this.connectWorker.Start();
+
+            this.messageWorker.Start();
+
+            this.messageStopwatch.Start();
+            this.messageCount = 0;
+            this.statsWorker.Start();
         }
 
         public void Dispose()
         {
             this.shutdownToken.Cancel();
 
-            this.knownAddressCache.Dispose();
-            this.workerThread.Join();
+            Shutdown();
 
-            this.shutdownToken.Dispose();
-        }
-
-        private bool NeedsToConnect()
-        {
-            return (this.connectedPeers.Count + this.pendingPeers.Count) < CONNECTED_MAX && this.pendingPeers.Count < PENDING_MAX && this.unconnectedPeers.Count > 0;
-        }
-
-        private void Worker()
-        {
-            Startup();
-
-            this.messageStopwatch.Start();
-            this.messageCount = 0;
-            var i = 0;
-
-            try
+            new IDisposable[]
             {
-                while (true)
+                this.messageWorker,
+                this.connectWorker,
+                this.statsWorker,
+                this.knownAddressCache,
+                this.shutdownToken
+            }.DisposeList();
+        }
+
+        private void ConnectWorker()
+        {
+            // get peer counts
+            var connectedCount = this.connectedPeers.Count;
+            var pendingCount = this.pendingPeers.Count;
+            var unconnectedCount = this.unconnectedPeers.Count;
+            var maxConnections = Math.Max(CONNECTED_MAX + 20, PENDING_MAX);
+
+            // if there aren't enough peers connected and there is a pending connection slot available, make another connection
+            if (connectedCount < CONNECTED_MAX
+                 && pendingCount < PENDING_MAX
+                 && (connectedCount + pendingCount) < maxConnections
+                 && unconnectedCount > 0)
+            {
+                // grab a snapshot of unconnected peers
+                var unconnectedPeersLocal = this.unconnectedPeers.SafeToList();
+
+                // get number of connections to attempt
+                var connectCount = maxConnections - (connectedCount + pendingCount);
+
+                var connectTasks = new Task[connectCount];
+                for (var i = 0; i < connectCount; i++)
                 {
                     // cooperative loop
                     this.shutdownToken.Token.ThrowIfCancellationRequested();
 
-                    //Debug.WriteLine("-----------------------------");
+                    // get a random peer to connect to
+                    var remoteEndpoint = unconnectedPeersLocal.RandomOrDefault();
+                    connectTasks[i] = ConnectToPeer(remoteEndpoint);
+                }
 
-                    // if there aren't enough peers connected and there is a pending connection slot available, make another connection
-                    if (NeedsToConnect())
-                    {
-                        var connectTasks = new List<Task>();
-                        while (NeedsToConnect())
-                        {
-                            var remoteEndpoint = this.unconnectedPeers.SafeToList().RandomOrDefault();
-                            connectTasks.Add(ConnectToPeer(remoteEndpoint));
-                        }
-                    }
+                // wait for pending connection attempts to complete
+                Task.WaitAll(connectTasks.ToArray());
+            }
 
-                    //Debug.WriteLine("1: {0}".Format2(i));
+            // check if there are too many peers connected
+            var overConnected = this.connectedPeers.Count - CONNECTED_MAX;
+            if (overConnected > 0)
+            {
+                foreach (var remoteEndpoint in this.connectedPeers.Keys.Take(overConnected))
+                {
+                    // cooperative loop
+                    this.shutdownToken.Token.ThrowIfCancellationRequested();
 
-                    var overConnected = this.connectedPeers.Count - CONNECTED_MAX;
-                    if (overConnected > 0)
-                    {
-                        foreach (var remoteEndpoint in this.connectedPeers.Keys.Take(overConnected))
-                        {
-                            //Debug.WriteLine(string.Format("Too many peers connected ({0}), disconnecting {1}", overConnected, remoteEndpoint));
-                            DisconnectPeer(remoteEndpoint, null);
-                        }
-                    }
-
-                    //Debug.WriteLine("2: {0}".Format2(i));
-
-                    i++;
-                    if (i % 100 == 0)
-                    {
-                        //Debug.WriteLine("-----------------------");
-                        Debug.WriteLine(string.Format("UNCONNECTED: {0,3}, PENDING: {1,3}, CONNECTED: {2,3}, BAD: {3,3}, INCOMING: {4,3}, MESSAGES/SEC: {5,6}", this.unconnectedPeers.Count, this.pendingPeers.Count, this.connectedPeers.Count, this.badPeers.Count, this.incomingCount, ((float)this.messageCount / ((float)this.messageStopwatch.ElapsedMilliseconds / 1000)).ToString("0")));
-
-                        this.messageStopwatch.Restart();
-                        this.messageCount = 0;
-                    }
-
-                    //Debug.WriteLine("3: {0}".Format2(i));
-
-                    // periodically ask for new blocks
-                    if (i % 5 == 0)
-                    {
-                        // send out requests for any missing blocks
-                        foreach (var missingBlock in this.blockchainDaemon.MissingBlocks)
-                            RequestBlock(missingBlock);
-
-                        // send out request for unknown blocks
-                        var remoteNode = this.connectedPeers.Values.SafeToList().RandomOrDefault();
-                        if (remoteNode != null)
-                            SendGetBlocks(remoteNode).Forget();
-                    }
-
-                    //Debug.WriteLine("4: {0}".Format2(i));
-
-                    Thread.Sleep(100);
+                    //Debug.WriteLine(string.Format("Too many peers connected ({0}), disconnecting {1}", overConnected, remoteEndpoint));
+                    DisconnectPeer(remoteEndpoint, null);
                 }
             }
-            catch (OperationCanceledException) { }
-            catch (Exception e)
+        }
+
+        private void MessageWorker()
+        {
+            // send out requests for any missing blocks
+            foreach (var missingBlock in this.blockchainDaemon.MissingBlocks)
             {
-                Debug.WriteLine(string.Format("LocalClient encountered fatal exception: {0}\n\n{1}", e.Message, e));
-                Debugger.Break();
-                Environment.Exit(-2);
+                // cooperative loop
+                this.shutdownToken.Token.ThrowIfCancellationRequested();
+
+                RequestBlock(missingBlock);
             }
 
-            Shutdown();
+            // send out request for unknown blocks
+            var remoteNode = this.connectedPeers.Values.SafeToList().RandomOrDefault();
+            if (remoteNode != null)
+                SendGetBlocks(remoteNode).Forget();
+        }
+
+        private void StatsWorker()
+        {
+            Debug.WriteLine(string.Format("UNCONNECTED: {0,3}, PENDING: {1,3}, CONNECTED: {2,3}, BAD: {3,3}, INCOMING: {4,3}, MESSAGES/SEC: {5,6}", this.unconnectedPeers.Count, this.pendingPeers.Count, this.connectedPeers.Count, this.badPeers.Count, this.incomingCount, ((float)this.messageCount / ((float)this.messageStopwatch.ElapsedMilliseconds / 1000)).ToString("0")));
+
+            this.messageStopwatch.Restart();
+            this.messageCount = 0;
         }
 
         private void Startup()
@@ -233,7 +239,7 @@ namespace BitSharp.Node
                             var remoteNode = new RemoteNode(newSocket);
                             try
                             {
-                                this.pendingPeers.CheckedAdd(remoteNode.RemoteEndPoint, remoteNode);
+                                this.pendingPeers.TryAdd(remoteNode.RemoteEndPoint, remoteNode);
 
                                 WireNode(remoteNode);
 
@@ -248,8 +254,9 @@ namespace BitSharp.Node
 
                                 this.incomingCount++;
 
-                                this.pendingPeers.CheckedRemove(remoteNode.RemoteEndPoint, remoteNode);
-                                this.connectedPeers.CheckedAdd(remoteNode.RemoteEndPoint, remoteNode);
+                                RemoteNode ignore;
+                                this.pendingPeers.TryRemove(remoteNode.RemoteEndPoint, out ignore);
+                                this.connectedPeers.TryAdd(remoteNode.RemoteEndPoint, remoteNode);
 
                                 await PeerStartup(remoteNode);
                             }
@@ -359,7 +366,8 @@ namespace BitSharp.Node
             {
                 var remoteNode = new RemoteNode(remoteEndPoint);
 
-                this.unconnectedPeers.CheckedRemove(remoteEndPoint);
+                this.unconnectedPeers.TryRemove(remoteEndPoint);
+                this.pendingPeers.TryAdd(remoteNode.RemoteEndPoint, remoteNode);
 
                 WireNode(remoteNode);
 
@@ -496,7 +504,7 @@ namespace BitSharp.Node
                 //TODO
                 RemoteNode ignore;
                 this.pendingPeers.TryRemove(remoteNode.RemoteEndPoint, out ignore);
-                this.connectedPeers.CheckedAdd(remoteNode.RemoteEndPoint, remoteNode);
+                this.connectedPeers.TryAdd(remoteNode.RemoteEndPoint, remoteNode);
 
                 // setup task to wait for verack
                 var verAckTask = remoteNode.Receiver.WaitForMessage(x => x.Command == "verack", HANDSHAKE_TIMEOUT_MS);
@@ -597,34 +605,6 @@ namespace BitSharp.Node
     {
         internal static class LocalClientExtensionMethods
         {
-            public static void CheckedAdd<TKey, TValue>(this ConcurrentDictionary<TKey, TValue> dictionary, TKey key, TValue value)
-            {
-                if (!dictionary.TryAdd(key, value))
-                    throw new Exception();
-            }
-
-            public static void CheckedRemove<TKey, TValue>(this ConcurrentDictionary<TKey, TValue> dictionary, TKey key, TValue value)
-            {
-                TValue removedValue;
-                if (!dictionary.TryRemove(key, out removedValue))
-                    throw new Exception();
-
-                if (!object.ReferenceEquals(value, removedValue))
-                    throw new Exception();
-            }
-
-            public static void CheckedAdd<T>(this ConcurrentSet<T> set, T item)
-            {
-                if (!set.TryAdd(item))
-                    throw new Exception();
-            }
-
-            public static void CheckedRemove<T>(this ConcurrentSet<T> set, T item)
-            {
-                if (!set.TryRemove(item))
-                    throw new Exception();
-            }
-
             public static List<T> SafeToList<T>(this ICollection<T> collection)
             {
                 var list = new List<T>(collection.Count);
