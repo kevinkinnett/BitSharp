@@ -11,7 +11,7 @@ namespace BitSharp.BlockHelper
 {
     public class FileSystemBlockProvider : BlockProvider
     {
-        private static readonly ReaderWriterLock rwl = new ReaderWriterLock();
+        private static readonly ReaderWriterLockSlim rwl = new ReaderWriterLockSlim();
         private static readonly object staticLock = new object();
 
         private readonly string storagePath;
@@ -43,7 +43,7 @@ namespace BitSharp.BlockHelper
             var file = new FileInfo(path);
             if (file.Exists)
             {
-                rwl.AcquireReaderLock(1000);
+                rwl.EnterReadLock();
                 try
                 {
                     using (var reader = new StreamReader(file.FullName, Encoding.UTF8))
@@ -53,7 +53,7 @@ namespace BitSharp.BlockHelper
                 }
                 finally
                 {
-                    rwl.ReleaseLock();
+                    rwl.ExitReadLock();
                 }
             }
             else
@@ -64,7 +64,7 @@ namespace BitSharp.BlockHelper
 
                 lock (staticLock)
                 {
-                    rwl.AcquireWriterLock(1000);
+                    rwl.EnterWriteLock();
                     try
                     {
                         using (var writer = new StreamWriter(file.FullName, false, Encoding.UTF8))
@@ -74,7 +74,7 @@ namespace BitSharp.BlockHelper
                     }
                     finally
                     {
-                        rwl.ReleaseLock();
+                        rwl.ExitWriteLock();
                     }
                 }
 

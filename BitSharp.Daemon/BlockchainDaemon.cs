@@ -45,7 +45,7 @@ namespace BitSharp.Daemon
         private ImmutableArray<ChainedBlock> _winningBlockchain;
 
         private Data.Blockchain _currentBlockchain;
-        private ReaderWriterLock currentBlockchainLock;
+        private ReaderWriterLockSlim currentBlockchainLock;
         //TODO
         private Guid lastCurrentBlockchainWrite;
 
@@ -73,7 +73,7 @@ namespace BitSharp.Daemon
 
             this._winningBlock = this._rules.GenesisChainedBlock;
             this._currentBlockchain = this._rules.GenesisBlockchain;
-            this.currentBlockchainLock = new ReaderWriterLock();
+            this.currentBlockchainLock = new ReaderWriterLockSlim();
             //TODO
             this.lastCurrentBlockchainWrite = Guid.NewGuid();
 

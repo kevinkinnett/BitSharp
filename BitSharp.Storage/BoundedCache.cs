@@ -18,7 +18,7 @@ namespace BitSharp.Storage
     public class BoundedCache<TKey, TValue> : UnboundedCache<TKey, TValue>
     {
         // known keys
-        private readonly ReaderWriterLock knownKeysLock;
+        private readonly ReaderWriterLockSlim knownKeysLock;
         private ConcurrentSet<TKey> knownKeys;
 
         private readonly IBoundedStorage<TKey, TValue> _dataStorage;
@@ -26,7 +26,7 @@ namespace BitSharp.Storage
         public BoundedCache(string name, IBoundedStorage<TKey, TValue> dataStorage, long maxFlushMemorySize, long maxCacheMemorySize, Func<TValue, long> sizeEstimator)
             : base(name, dataStorage, maxFlushMemorySize, maxCacheMemorySize, sizeEstimator)
         {
-            this.knownKeysLock = new ReaderWriterLock();
+            this.knownKeysLock = new ReaderWriterLockSlim();
             this.knownKeys = new ConcurrentSet<TKey>();
 
             this._dataStorage = dataStorage;

@@ -31,7 +31,7 @@ namespace BitSharp.Storage
         private long flushPendingSize;
 
         // memory cache
-        private readonly ReaderWriterLock memoryCacheLock;
+        private readonly ReaderWriterLockSlim memoryCacheLock;
         private readonly ConcurrentDictionary<CacheKey<TKey>, TValue> memoryCache;
         private long memoryCacheSize;
         private long cacheIndex;
@@ -55,7 +55,7 @@ namespace BitSharp.Storage
             this.flushPending = new ConcurrentDictionary<TKey, WriteValue<TValue>>();
             this.flushPendingSize = 0;
 
-            this.memoryCacheLock = new ReaderWriterLock();
+            this.memoryCacheLock = new ReaderWriterLockSlim();
             this.memoryCache = new ConcurrentDictionary<CacheKey<TKey>, TValue>();
             this.memoryCacheSize = 0;
 
@@ -117,7 +117,7 @@ namespace BitSharp.Storage
             }
 
             // look in the cache next, it will be added here before being removed from pending
-            this.memoryCacheLock.AcquireReaderLock(int.MaxValue);
+            this.memoryCacheLock.EnterReadLock();
             try
             {
                 TValue cachedValue;
@@ -129,7 +129,7 @@ namespace BitSharp.Storage
             }
             finally
             {
-                this.memoryCacheLock.ReleaseReaderLock();
+                this.memoryCacheLock.ExitReadLock();
             }
 
             //Debug.WriteLine("{0}: Cache miss".Format2(this.name));

@@ -229,55 +229,55 @@ namespace BitSharp.Common.ExtensionMethods
         {
         }
 
-        public static void DoRead(this ReaderWriterLock rwLock, Action action)
+        public static void DoRead(this ReaderWriterLockSlim rwLock, Action action)
         {
-            rwLock.AcquireReaderLock(int.MaxValue);
+            rwLock.EnterReadLock();
             try
             {
                 action();
             }
             finally
             {
-                rwLock.ReleaseReaderLock();
+                rwLock.ExitReadLock();
             }
         }
 
-        public static T DoRead<T>(this ReaderWriterLock rwLock, Func<T> func)
+        public static T DoRead<T>(this ReaderWriterLockSlim rwLock, Func<T> func)
         {
-            rwLock.AcquireReaderLock(int.MaxValue);
+            rwLock.EnterReadLock();
             try
             {
                 return func();
             }
             finally
             {
-                rwLock.ReleaseReaderLock();
+                rwLock.ExitReadLock();
             }
         }
 
-        public static void DoWrite(this ReaderWriterLock rwLock, Action action)
+        public static void DoWrite(this ReaderWriterLockSlim rwLock, Action action)
         {
-            rwLock.AcquireWriterLock(int.MaxValue);
+            rwLock.EnterWriteLock();
             try
             {
                 action();
             }
             finally
             {
-                rwLock.ReleaseWriterLock();
+                rwLock.ExitWriteLock();
             }
         }
 
-        public static T DoWrite<T>(this ReaderWriterLock rwLock, Func<T> func)
+        public static T DoWrite<T>(this ReaderWriterLockSlim rwLock, Func<T> func)
         {
-            rwLock.AcquireWriterLock(int.MaxValue);
+            rwLock.EnterWriteLock();
             try
             {
                 return func();
             }
             finally
             {
-                rwLock.ReleaseWriterLock();
+                rwLock.ExitWriteLock();
             }
         }
 

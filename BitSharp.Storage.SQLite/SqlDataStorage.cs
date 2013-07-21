@@ -22,7 +22,7 @@ namespace BitSharp.Storage.SQLite
         private static readonly string dbPath;
         private static readonly string connString;
 
-        private static readonly ReaderWriterLock dbLock;
+        private static readonly ReaderWriterLockSlim dbLock;
         private static SQLiteConnection conn;
         private static int connCount;
         private static readonly SemaphoreSlim connSemaphore;
@@ -36,7 +36,7 @@ namespace BitSharp.Storage.SQLite
             dbPath = Path.Combine(dbFolderPath, "BitSharp.sqlite");
             connString = @"Data Source=""{0}""; Journal Mode=WAL;".Format2(dbPath);
 
-            dbLock = new ReaderWriterLock();
+            dbLock = new ReaderWriterLockSlim();
             connSemaphore = new SemaphoreSlim(1);
         }
 
@@ -107,7 +107,7 @@ namespace BitSharp.Storage.SQLite
 
         private void CreateDatabase()
         {
-            dbLock.AcquireWriterLock(int.MaxValue);
+            dbLock.EnterWriteLock();
             try
             {
                 var assembly = Assembly.GetExecutingAssembly();
@@ -128,22 +128,22 @@ namespace BitSharp.Storage.SQLite
             }
             finally
             {
-                dbLock.ReleaseWriterLock();
+                dbLock.ExitWriteLock();
             }
         }
 
         public class ReadConnection : IDisposable
         {
             private readonly SQLiteConnection conn;
-            private readonly ReaderWriterLock dbLock;
+            private readonly ReaderWriterLockSlim dbLock;
             private bool disposed;
 
-            public ReadConnection(SQLiteConnection conn, ReaderWriterLock dbLock)
+            public ReadConnection(SQLiteConnection conn, ReaderWriterLockSlim dbLock)
             {
                 this.conn = conn;
                 this.dbLock = dbLock;
                 this.disposed = false;
-                this.dbLock.AcquireReaderLock(int.MaxValue);
+                this.dbLock.EnterReadLock();
             }
 
             public SQLiteCommand CreateCommand()
@@ -155,7 +155,7 @@ namespace BitSharp.Storage.SQLite
             {
                 if (!this.disposed)
                 {
-                    this.dbLock.ReleaseReaderLock();
+                    this.dbLock.ExitReadLock();
                     this.disposed = true;
                 }
             }
@@ -165,22 +165,22 @@ namespace BitSharp.Storage.SQLite
         {
             private readonly SQLiteConnection conn;
             private readonly SQLiteTransaction trans;
-            private readonly ReaderWriterLock dbLock;
+            private readonly ReaderWriterLockSlim dbLock;
             private bool disposed;
 
-            public WriteConnection(SQLiteConnection conn, ReaderWriterLock dbLock)
+            public WriteConnection(SQLiteConnection conn, ReaderWriterLockSlim dbLock)
             {
                 this.conn = conn;
                 this.dbLock = dbLock;
                 this.disposed = false;
-                this.dbLock.AcquireWriterLock(int.MaxValue);
+                this.dbLock.EnterWriteLock();
                 try
                 {
                     this.trans = this.conn.BeginTransaction();
                 }
                 catch (Exception)
                 {
-                    this.dbLock.ReleaseWriterLock();
+                    this.dbLock.ExitWriteLock();
                     throw;
                 }
             }
@@ -220,7 +220,7 @@ namespace BitSharp.Storage.SQLite
                     }
                     finally
                     {
-                        this.dbLock.ReleaseWriterLock();
+                        this.dbLock.ExitWriteLock();
                         this.disposed = true;
                     }
                 }
