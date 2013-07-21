@@ -27,7 +27,6 @@ namespace BitSharp.Blockchain
 
         private readonly CacheContext _cacheContext;
         private readonly UInt256 _highestTarget;
-        private readonly UInt32 _highestTargetBits;
         private readonly Block _genesisBlock;
         private readonly ChainedBlock _genesisChainedBlock;
         private readonly Data.Blockchain _genesisBlockchain;
@@ -39,7 +38,6 @@ namespace BitSharp.Blockchain
             this._cacheContext = cacheContext;
 
             this._highestTarget = UInt256.Parse("00000000FFFF0000000000000000000000000000000000000000000000000000", NumberStyles.HexNumber);
-            this._highestTargetBits = 0x1d00ffff;
 
             this._genesisBlock =
                 new Block
@@ -121,8 +119,6 @@ namespace BitSharp.Blockchain
         public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
 
         public virtual UInt256 HighestTarget { get { return this._highestTarget; } }
-
-        public virtual UInt32 HighestTargetBits { get { return this._highestTargetBits; } }
 
         public virtual Block GenesisBlock { get { return this._genesisBlock; } }
 

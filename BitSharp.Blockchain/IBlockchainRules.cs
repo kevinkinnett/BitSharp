@@ -15,8 +15,6 @@ namespace BitSharp.Blockchain
     {
         UInt256 HighestTarget { get; }
 
-        UInt32 HighestTargetBits { get; }
-
         Block GenesisBlock { get; }
 
         ChainedBlock GenesisChainedBlock { get; }

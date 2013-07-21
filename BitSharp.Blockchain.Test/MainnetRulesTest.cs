@@ -72,15 +72,5 @@ namespace BitSharp.Blockchain.Test
 
             Assert.AreEqual(expected3, actual3);
         }
-
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
-        public void TestTargetBitsTooHigh()
-        {
-            Assert.AreEqual(this.rules.HighestTargetBits, 0x1d00ffffU);
-
-            var bits = 0x1d00ffffU + 1;
-            DataCalculator.BitsToTarget(bits);
-        }
     }
 }
