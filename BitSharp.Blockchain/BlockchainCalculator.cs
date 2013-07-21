@@ -131,17 +131,14 @@ namespace BitSharp.Blockchain
                     this.shutdownToken.ThrowIfCancellationRequested();
                     cancelToken.ThrowIfCancellationRequested();
 
+                    newChainedBlock = prevBlock;
                     if (newChainedBlock.BlockHash == currentBlockchain.BlockList[currentBlockchainIndex].BlockHash)
                     {
                         break;
                     }
 
-                    // roll back new block chain
-                    newChainedBlock = prevBlock;
-
                     // ensure that height is as expected while looking up previous blocks
-                    if (newChainedBlock.Height != currentBlockchain.BlockList[currentBlockchainIndex].Height
-                        || newChainedBlock.BlockHash != currentBlockchain.BlockList[currentBlockchainIndex].BlockHash)
+                    if (newChainedBlock.Height != currentBlockchain.BlockList[currentBlockchainIndex].Height)
                     {
                         throw new ValidationException();
                     }
