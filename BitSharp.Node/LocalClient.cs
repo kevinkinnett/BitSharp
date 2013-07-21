@@ -2,7 +2,6 @@
 using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Daemon;
-using BitSharp.Storage.Firebird;
 using BitSharp.Network;
 using BitSharp.Node.ExtensionMethods;
 using BitSharp.Script;
