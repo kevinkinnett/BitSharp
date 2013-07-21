@@ -605,15 +605,6 @@ namespace BitSharp.Node
     {
         internal static class LocalClientExtensionMethods
         {
-            public static List<T> SafeToList<T>(this ICollection<T> collection)
-            {
-                var list = new List<T>(collection.Count);
-                foreach (var item in collection)
-                    list.Add(item);
-
-                return list;
-            }
-
             public static NetworkAddressKey GetKey(this NetworkAddressWithTime knownAddress)
             {
                 return new NetworkAddressKey(knownAddress.NetworkAddress.IPv6Address, knownAddress.NetworkAddress.Port);
