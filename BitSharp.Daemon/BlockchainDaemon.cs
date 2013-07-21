@@ -230,7 +230,7 @@ namespace BitSharp.Daemon
         {
             if (this.missingBlocks.TryRemove(blockHash))
             {
-                this.chainingWorker.ForceWork();
+                this.chainingWorker.NotifyWork();
                 this.blockchainWorker.NotifyWork();
             }
             else
@@ -249,7 +249,7 @@ namespace BitSharp.Daemon
         {
             if (this.missingChainedBlocks.TryRemove(blockHash))
             {
-                this.chainingWorker.ForceWork();
+                this.chainingWorker.NotifyWork();
                 //this.blockchainWorker.ForceWork();
             }
             else
