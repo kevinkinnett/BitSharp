@@ -357,5 +357,23 @@ namespace BitSharp.Common.ExtensionMethods
 
             return success;
         }
+
+        public static List<T> SafeToList<T>(this IEnumerable<T> enumerable)
+        {
+            var list = new List<T>();
+            foreach (var item in enumerable)
+                list.Add(item);
+
+            return list;
+        }
+
+        public static List<T> SafeToList<T>(this ICollection<T> collection)
+        {
+            var list = new List<T>(collection.Count);
+            foreach (var item in collection)
+                list.Add(item);
+
+            return list;
+        }
     }
 }
