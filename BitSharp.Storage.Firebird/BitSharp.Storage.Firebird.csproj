@@ -95,7 +95,7 @@
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="SqlDataStorage.cs" />
     <Compile Include="BlockStorage.cs" />
-    <Compile Include="BlockMetadataStorage.cs" />
+    <Compile Include="ChainedBlockStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

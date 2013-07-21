@@ -29,7 +29,7 @@ namespace BitSharp.Storage.SqlServer
             {
                 cmd.CommandText = @"
                     SELECT BlockHash
-                    FROM BlockData";
+                    FROM Blocks";
 
                 using (var reader = cmd.ExecuteReader())
                 {
@@ -45,7 +45,7 @@ namespace BitSharp.Storage.SqlServer
         public IEnumerable<KeyValuePair<UInt256, Block>> ReadAllValues()
         {
             Debug.WriteLine(new string('*', 80));
-            Debug.WriteLine("EXPENSIVE OPERATION: BlockDataStorage.GetAllValues");
+            Debug.WriteLine("EXPENSIVE OPERATION: BlockStorage.GetAllValues");
             Debug.WriteLine(new string('*', 80));
 
             using (var conn = this.OpenConnection())
@@ -53,7 +53,7 @@ namespace BitSharp.Storage.SqlServer
             {
                 cmd.CommandText = @"
                     SELECT BlockHash, RawBytes
-                    FROM BlockData";
+                    FROM Blocks";
 
                 using (var reader = cmd.ExecuteReader())
                 {
@@ -75,7 +75,7 @@ namespace BitSharp.Storage.SqlServer
             {
                 cmd.CommandText = @"
                     SELECT RawBytes
-                    FROM BlockData
+                    FROM Blocks
                     WHERE BlockHash = @blockHash";
 
                 cmd.Parameters.SetValue("@blockHash", SqlDbType.Binary, 32).Value = blockHash.ToDbByteArray();
@@ -109,6 +109,7 @@ namespace BitSharp.Storage.SqlServer
                 txCmd.Transaction = trans;
 
                 cmd.Parameters.Add(new SqlParameter { ParameterName = "@blockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
+                cmd.Parameters.Add(new SqlParameter { ParameterName = "@previousBlockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
                 cmd.Parameters.Add(new SqlParameter { ParameterName = "@rawBytes", SqlDbType = SqlDbType.VarBinary });
 
                 txCmd.CommandText = @"
@@ -130,6 +131,7 @@ namespace BitSharp.Storage.SqlServer
 
                     var blockBytes = StorageEncoder.EncodeBlock(block);
                     cmd.Parameters["@blockHash"].Value = block.Hash.ToDbByteArray();
+                    cmd.Parameters["@previousBlockHash"].Value = block.Header.PreviousBlock.ToDbByteArray();
                     cmd.Parameters["@rawBytes"].Size = blockBytes.Length;
                     cmd.Parameters["@rawBytes"].Value = blockBytes;
 
@@ -153,6 +155,7 @@ namespace BitSharp.Storage.SqlServer
 
                     var blockBytes = StorageEncoder.EncodeBlock(block);
                     cmd.Parameters["@blockHash"].Value = block.Hash.ToDbByteArray();
+                    cmd.Parameters["@previousBlockHash"].Value = block.Header.PreviousBlock.ToDbByteArray();
                     cmd.Parameters["@rawBytes"].Size = blockBytes.Length;
                     cmd.Parameters["@rawBytes"].Value = blockBytes;
 
@@ -182,7 +185,7 @@ namespace BitSharp.Storage.SqlServer
             using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = @"
-                    DELETE FROM BlockData";
+                    DELETE FROM Blocks";
 
                 cmd.ExecuteNonQuery();
             }
@@ -195,7 +198,7 @@ namespace BitSharp.Storage.SqlServer
             {
                 cmd.CommandText = @"
                     SELECT BlockHash, SUBSTR(RawBytes, 1, 80)
-                    FROM BlockData";
+                    FROM Blocks";
 
                 using (var reader = cmd.ExecuteReader())
                 {
@@ -217,7 +220,7 @@ namespace BitSharp.Storage.SqlServer
             {
                 cmd.CommandText = @"
                     SELECT SUBSTRING(RawBytes, 1, 80)
-                    FROM BlockData
+                    FROM Blocks
                     WHERE BlockHash = @blockHash";
 
                 cmd.Parameters.SetValue("@blockHash", SqlDbType.Binary, 32).Value = blockHash.ToDbByteArray();
@@ -240,22 +243,44 @@ namespace BitSharp.Storage.SqlServer
             }
         }
 
+        public IEnumerable<UInt256> FindMissingPreviousBlocks()
+        {
+            using (var conn = this.OpenConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    SELECT Next.BlockHash
+                    FROM Blocks Next
+                    WHERE NOT EXISTS(SELECT * FROM Blocks Previous WHERE Previous.BlockHash = Next.PreviousBlockHash)";
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        var blockHash = reader.GetUInt256(0);
+                        
+                        yield return blockHash;
+                    }
+                }
+            }
+        }
+
         private const string CREATE_QUERY = @"
-            MERGE BlockData AS target
+            MERGE Blocks AS target
             USING (SELECT @blockHash) AS source (BlockHash)
             ON (target.BlockHash = source.BlockHash)
 	        WHEN NOT MATCHED THEN
-	            INSERT (BlockHash, RawBytes)
-	            VALUES (@blockHash, @rawBytes);";
+	            INSERT (BlockHash, PreviousBlockHash, RawBytes)
+	            VALUES (@blockHash, @previousBlockHash, @rawBytes);";
 
         private const string UPDATE_QUERY = @"
-            MERGE BlockData AS target
+            MERGE Blocks AS target
             USING (SELECT @blockHash) AS source (BlockHash)
             ON (target.BlockHash = source.BlockHash)
 	        WHEN NOT MATCHED THEN
-	            INSERT (BlockHash, RawBytes)
-	            VALUES (@blockHash, @rawBytes)
+	            INSERT (BlockHash, PreviousBlockHash, RawBytes)
+	            VALUES (@blockHash, @previousBlockHash, @rawBytes)
             WHEN MATCHED THEN
-                UPDATE SET RawBytes = @rawBytes;";
+                UPDATE SET PreviousBlockHash = @previousBlockHash, RawBytes = @rawBytes;";
     }
 }

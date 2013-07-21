@@ -12,7 +12,7 @@ namespace BitSharp.Storage
     {
         IEnumerable<Tuple<BlockchainKey, BlockchainMetadata>> ListBlockchains();
 
-        Data.Blockchain ReadBlockchain(BlockchainKey blockMetadata);
+        Data.Blockchain ReadBlockchain(BlockchainKey chainedBlock);
 
         BlockchainKey WriteBlockchain(Data.Blockchain blockchain);
 

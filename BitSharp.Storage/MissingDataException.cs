@@ -11,7 +11,7 @@ namespace BitSharp.Storage
     {
         Block,
         BlockHeader,
-        BlockMetadata,
+        ChainedBlock,
         Transaction
     }
 

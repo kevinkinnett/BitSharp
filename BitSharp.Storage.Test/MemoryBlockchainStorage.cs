@@ -31,7 +31,7 @@ namespace BitSharp.Storage.Test
             throw new NotImplementedException();
         }
 
-        public Blockchain ReadBlockchain(BlockchainKey blockMetadata)
+        public Blockchain ReadBlockchain(BlockchainKey chainedBlock)
         {
             throw new NotImplementedException();
         }

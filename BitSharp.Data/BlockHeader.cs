@@ -19,6 +19,9 @@ namespace BitSharp.Data
         private readonly UInt32 _nonce;
         private readonly UInt256 _hash;
 
+        private readonly bool notDefault;
+        private readonly int hashCode;
+
         public BlockHeader(UInt32 version, UInt256 previousBlock, UInt256 merkleRoot, UInt32 time, UInt32 bits, UInt32 nonce, UInt256? hash = null)
         {
             this._version = version;
@@ -29,7 +32,12 @@ namespace BitSharp.Data
             this._nonce = nonce;
 
             this._hash = hash ?? DataCalculator.CalculateBlockHash(version, previousBlock, merkleRoot, time, bits, nonce);
+
+            this.notDefault = true;
+            this.hashCode = this._hash.GetHashCode();
         }
+
+        public bool IsDefault { get { return !this.notDefault; } }
 
         public UInt32 Version { get { return this._version; } }
 
@@ -66,6 +74,29 @@ namespace BitSharp.Data
         public UInt256 CalculateTarget()
         {
             return DataCalculator.BitsToTarget(this.Bits);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is BlockHeader))
+                return false;
+
+            return (BlockHeader)obj == this;
+        }
+
+        public override int GetHashCode()
+        {
+            return this.hashCode;
+        }
+
+        public static bool operator ==(BlockHeader left, BlockHeader right)
+        {
+            return left.Hash == right.Hash;
+        }
+
+        public static bool operator !=(BlockHeader left, BlockHeader right)
+        {
+            return !(left == right);
         }
 
         public static long SizeEstimator(BlockHeader blockHeader)

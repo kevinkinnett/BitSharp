@@ -10,7 +10,7 @@ namespace BitSharp.Storage
     {
         IBlockStorage BlockStorage { get; }
 
-        IBlockMetadataStorage BlockMetadataStorage { get; }
+        IChainedBlockStorage ChainedBlockStorage { get; }
 
         ITxKeyStorage TxKeyStorage { get; }
 

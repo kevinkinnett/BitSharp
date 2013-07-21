@@ -7,7 +7,6 @@ using BitSharp.Network;
 using BitSharp.Node.ExtensionMethods;
 using BitSharp.Script;
 using BitSharp.Storage;
-using BitSharp.Network;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -36,8 +35,7 @@ namespace BitSharp.Node
 
         private readonly BlockchainDaemon blockchainDaemon;
 
-        private readonly IBoundedStorage<KnownAddressKey, NetworkAddressWithTime> knownAddressStorage;
-        private readonly BoundedCache<KnownAddressKey, NetworkAddressWithTime> knownAddressCache;
+        private readonly BoundedCache<NetworkAddressKey, NetworkAddressWithTime> knownAddressCache;
 
         private Stopwatch messageStopwatch = new Stopwatch();
         private int messageCount;
@@ -52,16 +50,15 @@ namespace BitSharp.Node
 
         private Socket listenSocket;
 
-        public LocalClient(BlockchainDaemon blockchainDaemon)
+        public LocalClient(BlockchainDaemon blockchainDaemon, IBoundedStorage<NetworkAddressKey, NetworkAddressWithTime> knownAddressStorage)
         {
             this.blockchainDaemon = blockchainDaemon;
             this.shutdownToken = new CancellationTokenSource();
 
-            this.knownAddressStorage = new KnownAddressStorage();
-            this.knownAddressCache = new BoundedCache<KnownAddressKey, NetworkAddressWithTime>
+            this.knownAddressCache = new BoundedCache<NetworkAddressKey, NetworkAddressWithTime>
             (
                 "KnownAddressCache",
-                dataStorage: this.knownAddressStorage,
+                dataStorage: knownAddressStorage,
                 maxFlushMemorySize: 5.THOUSAND(),
                 maxCacheMemorySize: 500.THOUSAND(),
                 sizeEstimator: knownAddress => 40
@@ -80,7 +77,7 @@ namespace BitSharp.Node
 
             this.knownAddressCache.Dispose();
             this.workerThread.Join();
-            
+
             this.shutdownToken.Dispose();
         }
 
@@ -574,7 +571,7 @@ namespace BitSharp.Node
         }
 
         //TODO move into p2p node
-        private static ImmutableArray<UInt256> CalculateBlockLocatorHashes(IImmutableList<BlockMetadata> blockHashes)
+        private static ImmutableArray<UInt256> CalculateBlockLocatorHashes(IImmutableList<ChainedBlock> blockHashes)
         {
             var blockLocatorHashes = new List<UInt256>();
 
@@ -637,9 +634,9 @@ namespace BitSharp.Node
                 return list;
             }
 
-            public static KnownAddressKey GetKey(this NetworkAddressWithTime knownAddress)
+            public static NetworkAddressKey GetKey(this NetworkAddressWithTime knownAddress)
             {
-                return new KnownAddressKey(knownAddress.NetworkAddress.IPv6Address, knownAddress.NetworkAddress.Port);
+                return new NetworkAddressKey(knownAddress.NetworkAddress.IPv6Address, knownAddress.NetworkAddress.Port);
             }
         }
     }

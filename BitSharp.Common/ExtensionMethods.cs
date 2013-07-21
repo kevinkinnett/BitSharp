@@ -311,7 +311,7 @@ namespace BitSharp.Common.ExtensionMethods
             return value * 1000 * 1000 * 1000;
         }
 
-        public static float EllapsedSecondsFloat(this Stopwatch stopwatch)
+        public static float ElapsedSecondsFloat(this Stopwatch stopwatch)
         {
             return (float)stopwatch.ElapsedTicks / Stopwatch.Frequency;
         }
@@ -347,6 +347,15 @@ namespace BitSharp.Common.ExtensionMethods
         public static Dictionary<TKey, TValue> ToDictionary<TKey, TValue>(this IEnumerable<KeyValuePair<TKey, TValue>> keyPairs)
         {
             return keyPairs.ToDictionary(x => x.Key, x => x.Value);
+        }
+
+        public static bool RemoveRange<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, IEnumerable<TKey> keys)
+        {
+            bool success = true;
+            foreach (var key in keys)
+                success &= dictionary.Remove(key);
+
+            return success;
         }
     }
 }

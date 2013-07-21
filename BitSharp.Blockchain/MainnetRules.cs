@@ -29,7 +29,7 @@ namespace BitSharp.Blockchain
         private readonly UInt256 _highestTarget;
         private readonly UInt32 _highestTargetBits;
         private readonly Block _genesisBlock;
-        private readonly BlockMetadata _genesisBlockMetadata;
+        private readonly ChainedBlock _genesisChainedBlock;
         private readonly Data.Blockchain _genesisBlockchain;
         private readonly int _difficultyInternal = 2016;
         private readonly long _difficultyTargetTimespan = 14 * 24 * 60 * 60;
@@ -98,21 +98,19 @@ namespace BitSharp.Blockchain
                     )
                 );
 
-            this._genesisBlockMetadata =
-                new BlockMetadata
+            this._genesisChainedBlock =
+                new ChainedBlock
                 (
                     blockHash: this._genesisBlock.Hash,
                     previousBlockHash: this._genesisBlock.Header.PreviousBlock,
-                    work: this._genesisBlock.Header.CalculateWork(),
                     height: 0,
-                    totalWork: this._genesisBlock.Header.CalculateWork(),
-                    isValid: true
+                    totalWork: this._genesisBlock.Header.CalculateWork()
                 );
 
             this._genesisBlockchain =
                 new Data.Blockchain
                 (
-                    blockList: ImmutableList.Create(this._genesisBlockMetadata),
+                    blockList: ImmutableList.Create(this._genesisChainedBlock),
                     blockListHashes: ImmutableHashSet.Create(this._genesisBlock.Hash),
                     utxo: ImmutableHashSet.Create<TxOutputKey>() // genesis block coinbase is not included in utxo, it is unspendable
                 );
@@ -128,7 +126,7 @@ namespace BitSharp.Blockchain
 
         public virtual Block GenesisBlock { get { return this._genesisBlock; } }
 
-        public virtual BlockMetadata GenesisBlockMetadata { get { return this._genesisBlockMetadata; } }
+        public virtual ChainedBlock GenesisChainedBlock { get { return this._genesisChainedBlock; } }
 
         public virtual Data.Blockchain GenesisBlockchain { get { return this._genesisBlockchain; } }
 
@@ -199,9 +197,9 @@ namespace BitSharp.Blockchain
                 else
                 {
                     // get the block difficultyInterval blocks ago
-                    var startBlockMetadata = blockchain.BlockList.Reverse().Skip(DifficultyInternal).First();
-                    var startBlockHeader = this.CacheContext.GetBlockHeader(startBlockMetadata.BlockHash);
-                    Debug.Assert(startBlockMetadata.Height == blockchain.Height - DifficultyInternal);
+                    var startChainedBlock = blockchain.BlockList.Reverse().Skip(DifficultyInternal).First();
+                    var startBlockHeader = this.CacheContext.GetBlockHeader(startChainedBlock.BlockHash);
+                    Debug.Assert(startChainedBlock.Height == blockchain.Height - DifficultyInternal);
 
                     var actualTimespan = (long)currentBlockHeader.Time - (long)startBlockHeader.Time;
                     var targetTimespan = DifficultyTargetTimespan;
@@ -424,10 +422,10 @@ namespace BitSharp.Blockchain
             // all validation has passed
         }
 
-        public BlockMetadata SelectWinningBlockchain(IEnumerable<BlockMetadata> candidateBlockchains)
+        public ChainedBlock SelectWinningChainedBlock(IList<ChainedBlock> leafChainedBlocks)
         {
-            var maxTotalWork = candidateBlockchains.Max(x => x.TotalWork);
-            return candidateBlockchains.First(x => x.TotalWork == maxTotalWork);
+            var maxTotalWork = leafChainedBlocks.Max(x => x.TotalWork);
+            return leafChainedBlocks.First(x => x.TotalWork == maxTotalWork);
         }
     }
 }

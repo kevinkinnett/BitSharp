@@ -35,5 +35,11 @@ namespace BitSharp.Storage.Test
                 return false;
             }
         }
+
+
+        public IEnumerable<UInt256> FindMissingPreviousBlocks()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

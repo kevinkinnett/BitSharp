@@ -35,15 +35,15 @@ namespace BitSharp.Blockchain.ExtensionMethods
             return blockHeader;
         }
 
-        public static BlockMetadata GetBlockMetadata(this CacheContext cacheContext, UInt256 blockHash, bool saveInCache = true)
+        public static ChainedBlock GetChainedBlock(this CacheContext cacheContext, UInt256 blockHash, bool saveInCache = true)
         {
-            BlockMetadata blockMetadata;
-            if (!cacheContext.BlockMetadataCache.TryGetValue(blockHash, out blockMetadata, saveInCache))
+            ChainedBlock chainedBlock;
+            if (!cacheContext.ChainedBlockCache.TryGetValue(blockHash, out chainedBlock, saveInCache))
             {
-                throw new MissingDataException(DataType.BlockMetadata, blockHash);
+                throw new MissingDataException(DataType.ChainedBlock, blockHash);
             }
 
-            return blockMetadata;
+            return chainedBlock;
         }
 
         public static Transaction GetTransaction(this CacheContext cacheContext, TxKeySearch txKeySearch, bool saveInCache = true)

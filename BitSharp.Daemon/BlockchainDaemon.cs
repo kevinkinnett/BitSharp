@@ -33,7 +33,7 @@ namespace BitSharp.Daemon
     //TODO compact UTXO's and other immutables in the blockchains on a thread
     public class BlockchainDaemon : IDisposable
     {
-        public event EventHandler<BlockMetadata> OnWinningBlockChanged;
+        public event EventHandler<ChainedBlock> OnWinningBlockChanged;
         public event EventHandler<Data.Blockchain> OnCurrentBlockchainChanged;
 
         private readonly CacheContext _cacheContext;
@@ -41,8 +41,8 @@ namespace BitSharp.Daemon
         private readonly IBlockchainRules _rules;
         private readonly BlockchainCalculator _calculator;
 
-        private BlockMetadata _winningBlock;
-        private ImmutableArray<BlockMetadata> _winningBlockchain;
+        private ChainedBlock _winningBlock;
+        private ImmutableArray<ChainedBlock> _winningBlockchain;
 
         private Data.Blockchain _currentBlockchain;
         private ReaderWriterLock currentBlockchainLock;
@@ -50,14 +50,12 @@ namespace BitSharp.Daemon
         private Guid lastCurrentBlockchainWrite;
 
         private readonly ConcurrentSet<UInt256> missingBlocks;
-        private readonly ConcurrentSet<UInt256> missingBlockMetadata;
+        private readonly ConcurrentSet<UInt256> missingChainedBlocks;
         private readonly ConcurrentSet<UInt256> missingTransactions;
-        private readonly ConcurrentSet<UInt256> updateMetadataSet;
 
         private readonly CancellationTokenSource shutdownToken;
 
-        private readonly Worker missingMetadataWorker;
-        private readonly Worker updateMetadataWorker;
+        private readonly Worker missingBlocksWorker;
         private readonly Worker chainingWorker;
         private readonly Worker winnerWorker;
         private readonly Worker validationWorker;
@@ -73,39 +71,36 @@ namespace BitSharp.Daemon
             this._cacheContext = cacheContext;
             this._calculator = new BlockchainCalculator(this._rules, this._cacheContext, this.shutdownToken.Token);
 
-            this._winningBlock = this._rules.GenesisBlockMetadata;
+            this._winningBlock = this._rules.GenesisChainedBlock;
             this._currentBlockchain = this._rules.GenesisBlockchain;
             this.currentBlockchainLock = new ReaderWriterLock();
             //TODO
             this.lastCurrentBlockchainWrite = Guid.NewGuid();
 
             this.missingBlocks = new ConcurrentSet<UInt256>();
-            this.missingBlockMetadata = new ConcurrentSet<UInt256>();
+            this.missingChainedBlocks = new ConcurrentSet<UInt256>();
             this.missingTransactions = new ConcurrentSet<UInt256>();
-            this.updateMetadataSet = new ConcurrentSet<UInt256>();
 
             // write genesis block out to storage
             this._cacheContext.BlockCache.UpdateValue(this._rules.GenesisBlock.Hash, this._rules.GenesisBlock);
-            this._cacheContext.BlockMetadataCache.UpdateValue(this._rules.GenesisBlockMetadata.BlockHash, this._rules.GenesisBlockMetadata);
+            this._cacheContext.ChainedBlockCache.UpdateValue(this._rules.GenesisChainedBlock.BlockHash, this._rules.GenesisChainedBlock);
 
             // wait for genesis block to be flushed
             this._cacheContext.BlockCache.WaitForStorageFlush();
-            this._cacheContext.BlockMetadataCache.WaitForStorageFlush();
+            this._cacheContext.ChainedBlockCache.WaitForStorageFlush();
 
-            // pre-fill the metadata cache
-            this._cacheContext.BlockMetadataCache.FillCache();
+            // pre-fill the chained block and header caches
+            this._cacheContext.BlockHeaderCache.FillCache();
+            this._cacheContext.ChainedBlockCache.FillCache();
 
             // wire up cache events
-            this._cacheContext.BlockCache.OnAddition += OnBlockDataAddition;
-            this._cacheContext.BlockCache.OnModification += OnBlockDataModification;
-            this._cacheContext.BlockMetadataCache.OnAddition += OnBlockMetadataAddition;
-            this._cacheContext.BlockMetadataCache.OnModification += OnBlockMetadataModification;
+            this._cacheContext.BlockCache.OnAddition += OnBlockAddition;
+            this._cacheContext.BlockCache.OnModification += OnBlockModification;
+            this._cacheContext.ChainedBlockCache.OnAddition += OnChainedBlockAddition;
+            this._cacheContext.ChainedBlockCache.OnModification += OnChainedBlockModification;
 
             // create workers
-            this.missingMetadataWorker = new Worker("MissingMetadataWorker", MissingMetadataWorker,
-                runOnStart: true, waitTime: TimeSpan.FromSeconds(1), maxIdleTime: TimeSpan.FromMinutes(5));
-
-            this.updateMetadataWorker = new Worker("UpdateMetadataWorker", UpdateMetadataWorker,
+            this.missingBlocksWorker = new Worker("MissingBlocksWorker", MissingBlocksWorker,
                 runOnStart: true, waitTime: TimeSpan.FromSeconds(1), maxIdleTime: TimeSpan.FromMinutes(5));
 
             this.chainingWorker = new Worker("ChainingWorker", ChainingWorker,
@@ -135,9 +130,9 @@ namespace BitSharp.Daemon
 
         public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
 
-        public BlockMetadata WinningBlock { get { return this._winningBlock; } }
+        public ChainedBlock WinningBlock { get { return this._winningBlock; } }
 
-        public ImmutableArray<BlockMetadata> WinningBlockchain { get { return this._winningBlockchain; } }
+        public ImmutableArray<ChainedBlock> WinningBlockchain { get { return this._winningBlockchain; } }
 
         public Data.Blockchain CurrentBlockchain { get { return this._currentBlockchain; } }
 
@@ -158,8 +153,7 @@ namespace BitSharp.Daemon
                 LoadExistingState();
 
                 // startup workers
-                this.missingMetadataWorker.Start();
-                this.updateMetadataWorker.Start();
+                this.missingBlocksWorker.Start();
                 this.chainingWorker.Start();
                 this.winnerWorker.Start();
                 this.validationWorker.Start();
@@ -177,10 +171,10 @@ namespace BitSharp.Daemon
         public void Dispose()
         {
             // cleanup events
-            this.CacheContext.BlockCache.OnAddition -= OnBlockDataAddition;
-            this.CacheContext.BlockCache.OnModification -= OnBlockDataModification;
-            this.CacheContext.BlockMetadataCache.OnAddition -= OnBlockMetadataAddition;
-            this.CacheContext.BlockMetadataCache.OnModification -= OnBlockMetadataModification;
+            this.CacheContext.BlockCache.OnAddition -= OnBlockAddition;
+            this.CacheContext.BlockCache.OnModification -= OnBlockModification;
+            this.CacheContext.ChainedBlockCache.OnAddition -= OnChainedBlockAddition;
+            this.CacheContext.ChainedBlockCache.OnModification -= OnChainedBlockModification;
 
             // notify threads to begin shutting down
             this.shutdownToken.Cancel();
@@ -188,8 +182,7 @@ namespace BitSharp.Daemon
             // cleanup workers
             new IDisposable[]
             {
-                this.missingMetadataWorker,
-                this.updateMetadataWorker,
+                this.missingBlocksWorker,
                 this.chainingWorker,
                 this.winnerWorker,
                 this.validationWorker,
@@ -202,21 +195,15 @@ namespace BitSharp.Daemon
 
         public void WaitForFullUpdate()
         {
-            WaitForMissingMetadataUpdate();
-            WaitForUpdateMetadataUpdate();
+            WaitForMissingBlocksUpdate();
             WaitForChainingUpdate();
             WaitForWinnerUpdate();
             WaitForBlockchainUpdate();
         }
 
-        public void WaitForMissingMetadataUpdate()
+        public void WaitForMissingBlocksUpdate()
         {
-            this.missingMetadataWorker.ForceWorkAndWait();
-        }
-
-        public void WaitForUpdateMetadataUpdate()
-        {
-            this.updateMetadataWorker.ForceWorkAndWait();
+            this.missingBlocksWorker.ForceWorkAndWait();
         }
 
         public void WaitForChainingUpdate()
@@ -234,48 +221,40 @@ namespace BitSharp.Daemon
             this.blockchainWorker.ForceWorkAndWait();
         }
 
-        private void OnBlockDataAddition(UInt256 blockHash)
+        private void OnBlockAddition(UInt256 blockHash)
         {
-            OnBlockDataModification(blockHash);
+            OnBlockModification(blockHash);
         }
 
-        private void OnBlockDataModification(UInt256 blockHash)
+        private void OnBlockModification(UInt256 blockHash)
         {
-            this.updateMetadataSet.TryAdd(blockHash);
-
             if (this.missingBlocks.TryRemove(blockHash))
             {
-                this.updateMetadataWorker.ForceWork();
-                this.chainingWorker.NotifyWork();
+                this.chainingWorker.ForceWork();
                 this.blockchainWorker.NotifyWork();
             }
             else
             {
-                this.updateMetadataWorker.NotifyWork();
                 this.chainingWorker.NotifyWork();
                 this.blockchainWorker.NotifyWork();
             }
         }
 
-        private void OnBlockMetadataAddition(UInt256 blockHash)
+        private void OnChainedBlockAddition(UInt256 blockHash)
         {
-            OnBlockMetadataModification(blockHash);
+            OnChainedBlockModification(blockHash);
         }
 
-        private void OnBlockMetadataModification(UInt256 blockHash)
+        private void OnChainedBlockModification(UInt256 blockHash)
         {
-            this.updateMetadataSet.TryAdd(blockHash);
-
-            if (this.missingBlockMetadata.TryRemove(blockHash))
+            if (this.missingChainedBlocks.TryRemove(blockHash))
             {
-                this.updateMetadataWorker.ForceWork();
-                //this.chainingWorker.ForceWork();
+                this.chainingWorker.ForceWork();
                 //this.blockchainWorker.ForceWork();
             }
             else
             {
-                this.updateMetadataWorker.NotifyWork();
-                //this.chainingWorker.NotifyWork();
+                this.chainingWorker.NotifyWork();
                 //this.blockchainWorker.NotifyWork();
             }
         }
@@ -325,7 +304,7 @@ namespace BitSharp.Daemon
                     )
                     .Format2
                     (
-                        stopwatch.EllapsedSecondsFloat(),
+                        stopwatch.ElapsedSecondsFloat(),
                         blockchain.Height,
                         blockchain.Utxo.Count,
                         (float)GC.GetTotalMemory(false) / 1.MILLION(),
@@ -334,166 +313,24 @@ namespace BitSharp.Daemon
             }
         }
 
-        private void MissingMetadataWorker()
+        private void MissingBlocksWorker()
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            // find any blocks with a missing metadata record
-            var missingSet = new HashSet<UInt256>(
-                this.CacheContext.BlockCache.GetAllKeys()
-                .Except(this.CacheContext.BlockMetadataCache.GetAllKeys()));
+            var missingBlocksLocal = new HashSet<UInt256>();
 
-            // notify metadata worker of available work
-            if (missingSet.Count > 0)
-            {
-                this.updateMetadataSet.UnionWith(missingSet);
-                this.updateMetadataWorker.NotifyWork();
-            }
+            // find any blocks with a missing previous block
+            missingBlocksLocal.UnionWith(this.CacheContext.BlockCache.FindMissingPreviousBlocks());
 
-            // find any metadata with a missing block record
-            foreach (var blockHash in CacheContext.BlockMetadataCache.FindMissingBlocks())
-            {
-                this.missingBlocks.TryAdd(blockHash);
-            }
+            // find any chained blocks with a missing block record
+            missingBlocksLocal.UnionWith(this.CacheContext.ChainedBlockCache.FindMissingBlocks());
 
-            // find any previous blocks that are missing
-            var missingPreviousBlocks = this.CacheContext.BlockMetadataCache.FindMissingPreviousBlocks();
-            this.missingBlocks.UnionWith(missingPreviousBlocks);
+            // update list of known missing blocks
+            this.missingBlocks.UnionWith(missingBlocksLocal);
 
             stopwatch.Stop();
-            Debug.WriteLine("MissingMetadataWorker: {0:#,##0.000}s".Format2(stopwatch.EllapsedSecondsFloat()));
-        }
-
-        private void UpdateMetadataWorker()
-        {
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
-
-            // prepare list of work
-            this.updateMetadataSet.UnionWith(this.missingBlockMetadata);
-            var updateMetadataSetLocal = new HashSet<UInt256>(this.updateMetadataSet);
-            var updateMetadataSetSnapshot = new HashSet<UInt256>(updateMetadataSetLocal);
-
-            // add the metadata entries
-            var totalUpdateCount = 0;
-            var currentUpdateCount = 0;
-            while (updateMetadataSetLocal.Count > 0)
-            {
-                // cooperative loop
-                this.shutdownToken.Token.ThrowIfCancellationRequested();
-
-                var blockHash = updateMetadataSetLocal.First();
-                var updateCount = UpdateMetadata(blockHash, updateMetadataSetLocal);
-                currentUpdateCount += updateCount;
-                totalUpdateCount += updateCount;
-
-                // periodically notify chaining worker if processing a large update
-                if (currentUpdateCount > 10.THOUSAND())
-                {
-                    this.chainingWorker.NotifyWork();
-                    currentUpdateCount = 0;
-                }
-            }
-
-            this.updateMetadataSet.ExceptWith(updateMetadataSetSnapshot);
-
-            if (totalUpdateCount > 0)
-            {
-                // notify the chaining, winner and blockchain workers after adding missing metadatda
-                this.chainingWorker.NotifyWork();
-                this.winnerWorker.NotifyWork();
-                this.blockchainWorker.NotifyWork();
-            }
-
-            stopwatch.Stop();
-            //Debug.WriteLine("UpdateMetadataWorker: Updated {0} items items in {1:#,##0.000}s".Format2(totalUpdateCount, stopwatch.EllapsedSecondsFloat()));
-        }
-
-        private int UpdateMetadata(UInt256 blockHash, HashSet<UInt256> workList, int depth = 0)
-        {
-            var updateCount = 0;
-            workList.Remove(blockHash);
-
-            bool isChanged;
-            BlockMetadata updatedMetadata;
-
-            if (TryGetBlockMetadata(blockHash, out updatedMetadata))
-            {
-                isChanged = false;
-            }
-            else
-            {
-                BlockHeader blockHeader;
-                if (TryGetBlockHeader(blockHash, out blockHeader))
-                {
-                    isChanged = true;
-                    updatedMetadata = new BlockMetadata
-                    (
-                        blockHash,
-                        previousBlockHash: blockHeader.PreviousBlock,
-                        work: blockHeader.CalculateWork(),
-                        height: null,
-                        totalWork: null,
-                        isValid: null
-                    );
-                }
-                else
-                {
-                    return updateCount;
-                }
-            }
-
-            // check if the previous block is missing
-            var prevMissing = !this.CacheContext.BlockMetadataCache.ContainsKey(updatedMetadata.PreviousBlockHash);
-
-            // if current block is unchained and the previous block is present, see if current block can be chained from the previous block
-            if (updatedMetadata.Height == null && !prevMissing)
-            {
-                BlockMetadata prevBlockMetadata;
-                if (
-                    TryGetBlockMetadata(updatedMetadata.PreviousBlockHash, out prevBlockMetadata)
-                    && prevBlockMetadata.Height != null && prevBlockMetadata.TotalWork != null)
-                {
-                    isChanged = true;
-                    updatedMetadata = new BlockMetadata
-                    (
-                        blockHash: updatedMetadata.BlockHash,
-                        previousBlockHash: updatedMetadata.PreviousBlockHash,
-                        work: updatedMetadata.Work,
-                        height: prevBlockMetadata.Height + 1,
-                        totalWork: prevBlockMetadata.TotalWork + updatedMetadata.Work,
-                        isValid: null
-                    );
-                }
-                else
-                {
-                    prevMissing = true;
-                }
-            }
-
-            // update the metadata in storage if anything changed
-            if (isChanged)
-            {
-                this.CacheContext.BlockMetadataCache.UpdateValue(blockHash, updatedMetadata);
-                updateCount++;
-            }
-
-            // if the previous block is missing or unchained, attempt to update it
-            if (prevMissing)
-            {
-                if (depth < 50)
-                {
-                    updateCount += UpdateMetadata(updatedMetadata.PreviousBlockHash, workList, depth + 1);
-                }
-                else
-                {
-                    updateMetadataSet.TryAdd(updatedMetadata.PreviousBlockHash);
-                    this.updateMetadataWorker.NotifyWork();
-                }
-            }
-
-            return updateCount;
+            Debug.WriteLine("MissingBlocksWorker: {0:#,##0.000}s".Format2(stopwatch.ElapsedSecondsFloat()));
         }
 
         private void ChainingWorker()
@@ -501,116 +338,97 @@ namespace BitSharp.Daemon
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            // find any chained blocks that are followed by unchained blocks
-            var chainedWithProceeding = this.CacheContext.BlockMetadataCache.FindChainedWithProceedingUnchained();
-
-            // check if there are any chainable blocks
             var chainCount = 0;
-            if (chainedWithProceeding.Count > 0)
-            {
-                // unchained blocks are present, look them  up
-                var unchainedBlocksByPrevious = new MethodTimer().Time("FindUnchainedBlocksByPrevious", () =>
-                    this.CacheContext.BlockMetadataCache.FindUnchainedBlocksByPrevious());
+            ChainedBlock? lastChainedBlock = null;
 
-                bool wasLoopAdvanced = true;
-                BlockMetadata? lastChainedBlock = null;
-                while (wasLoopAdvanced)
+            // retrieve chained blocks that have proceeding unchained blocks
+            var chainedBlocks = this.CacheContext.ChainedBlockCache.FindChainedWhereProceedingUnchainedExists().ToList();
+
+            if (chainedBlocks.Count > 0)
+            {
+                // retrieve unchained blocks where the previous block exists
+                var unchainedBlocks = this.CacheContext.ChainedBlockCache.FindUnchainedWherePreviousBlockExists();
+
+                // group unchained blocks by their previous block hash
+                var unchainedByPrevious = new Dictionary<UInt256, List<BlockHeader>>();
+                foreach (var unchainedBlock in unchainedBlocks)
+                {
+                    List<BlockHeader> unchainedGroup;
+                    if (!unchainedByPrevious.TryGetValue(unchainedBlock.PreviousBlock, out unchainedGroup))
+                    {
+                        unchainedGroup = new List<BlockHeader>();
+                        unchainedByPrevious.Add(unchainedBlock.PreviousBlock, unchainedGroup);
+                    }
+                    unchainedGroup.Add(unchainedBlock);
+                }
+
+                // start with chained blocks...
+                for (var i = 0; i < chainedBlocks.Count; i++)
                 {
                     // cooperative loop
                     this.shutdownToken.Token.ThrowIfCancellationRequested();
 
-                    wasLoopAdvanced = false;
+                    var chainedBlock = chainedBlocks[i];
 
-                    // find any unchained blocks that are preceded by a  chained block
-                    while (chainedWithProceeding.Count > 0)
+                    // find any unchained blocks whose previous block is the current chained block...
+                    if (unchainedByPrevious.ContainsKey(chainedBlock.BlockHash))
                     {
-                        // cooperative loop
-                        this.shutdownToken.Token.ThrowIfCancellationRequested();
+                        var unchainedGroup = unchainedByPrevious[chainedBlock.BlockHash];
+                        unchainedByPrevious.Remove(chainedBlock.BlockHash);
 
-                        // grab an item
-                        var chained = chainedWithProceeding.Keys.First();
-                        var proceeding = chainedWithProceeding[chained];
-
-                        // remove item to be processed from the list
-                        chainedWithProceeding.Remove(chained);
-
-                        foreach (var unchained in proceeding)
+                        foreach (var unchainedBlock in unchainedGroup)
                         {
                             // cooperative loop
                             this.shutdownToken.Token.ThrowIfCancellationRequested();
 
-                            var newMetadata = new BlockMetadata
+                            // update the unchained block to chain off of the current chained block...
+                            var newChainedBlock = new ChainedBlock
                             (
-                                blockHash: unchained.BlockHash,
-                                previousBlockHash: unchained.PreviousBlockHash,
-                                work: unchained.Work,
-                                height: chained.Height.Value + 1,
-                                totalWork: chained.TotalWork.Value + unchained.Work,
-                                isValid: unchained.IsValid
+                                unchainedBlock.Hash,
+                                unchainedBlock.PreviousBlock,
+                                chainedBlock.Height + 1,
+                                chainedBlock.TotalWork + unchainedBlock.CalculateWork()
                             );
+                            this.CacheContext.ChainedBlockCache.CreateValue(newChainedBlock.BlockHash, newChainedBlock);
 
-                            this.CacheContext.BlockMetadataCache.UpdateValue(newMetadata.BlockHash, newMetadata);
+                            // and finally add the newly chained block to the list of chained blocks so that an attempt will be made to chain off of it
+                            chainedBlocks.Add(newChainedBlock);
 
+                            // statistics
                             chainCount++;
-                            lastChainedBlock = newMetadata;
-                            wasLoopAdvanced = true;
-                            Debug.WriteLineIf(chainCount % 1.THOUSAND() == 0, "Chained block {0} at height {1}, total work: {2}".Format2(newMetadata.BlockHash.ToHexNumberString(), newMetadata.Height.Value, newMetadata.TotalWork.Value.ToString("X")));
+                            lastChainedBlock = newChainedBlock;
+                            Debug.WriteLineIf(chainCount % 1.THOUSAND() == 0, "Chained block {0} at height {1}, total work: {2}".Format2(newChainedBlock.BlockHash.ToHexNumberString(), newChainedBlock.Height, newChainedBlock.TotalWork.ToString("X")));
 
                             if (chainCount % 1.THOUSAND() == 0)
                             {
                                 // notify winner worker after chaining blocks
                                 this.winnerWorker.NotifyWork();
-                                
+
                                 // notify the blockchain worker after chaining blocks
                                 this.blockchainWorker.NotifyWork();
-                            }
-
-                            // see if any unchained blocks can chain off this newly added link
-                            if (unchainedBlocksByPrevious.ContainsKey(newMetadata.BlockHash))
-                            {
-                                // lookup the metadata for any blocks that can now chain
-                                var proceeding2 = new HashSet<BlockMetadata>();
-                                foreach (var proceedingHash in unchainedBlocksByPrevious[newMetadata.BlockHash])
-                                {
-                                    // cooperative loop
-                                    this.shutdownToken.Token.ThrowIfCancellationRequested();
-
-                                    BlockMetadata proceedingMetadata;
-                                    if (TryGetBlockMetadata(proceedingHash, out proceedingMetadata))
-                                    {
-                                        // only keep looking if next block isn't already chained
-                                        if (proceedingMetadata.Height == null)
-                                            proceeding2.Add(proceedingMetadata);
-                                    }
-                                }
-
-                                // add the newly chainable blocks to the list to be processed
-                                if (!chainedWithProceeding.ContainsKey(newMetadata))
-                                    chainedWithProceeding.Add(newMetadata, new HashSet<BlockMetadata>());
-                                chainedWithProceeding[newMetadata].UnionWith(proceeding2);
                             }
                         }
                     }
                 }
-
-                if (lastChainedBlock != null)
-                    Debug.WriteLine("Chained block {0} at height {1}, total work: {2}".Format2(lastChainedBlock.Value.BlockHash.ToHexNumberString(), lastChainedBlock.Value.Height.Value, lastChainedBlock.Value.TotalWork.Value.ToString("X")));
-
-                if (chainCount > 0)
-                {
-                    // keep looking for more broken links after each pass
-                    this.chainingWorker.NotifyWork();
-                }
-
-                // notify winner worker after chaining blocks
-                this.winnerWorker.NotifyWork();
-
-                // notify the blockchain worker after chaining blocks
-                this.blockchainWorker.NotifyWork();
             }
 
+            if (lastChainedBlock != null)
+                Debug.WriteLine("Chained block {0} at height {1}, total work: {2}".Format2(lastChainedBlock.Value.BlockHash.ToHexNumberString(), lastChainedBlock.Value.Height, lastChainedBlock.Value.TotalWork.ToString("X")));
+
+            if (chainCount > 0)
+            {
+                // keep looking for more broken links after each pass
+                this.chainingWorker.NotifyWork();
+            }
+
+            // notify winner worker after chaining blocks
+            this.winnerWorker.NotifyWork();
+
+            // notify the blockchain worker after chaining blocks
+            this.blockchainWorker.NotifyWork();
+
             stopwatch.Stop();
-            //Debug.WriteLine("ChainingWorker: Chained {0:#,##0} items in {1:#,##0.000}s".Format2(chainCount, stopwatch.EllapsedSecondsFloat()));
+            //Debug.WriteLine("ChainingWorker: Chained {0:#,##0} items in {1:#,##0.000}s".Format2(chainCount, stopwatch.ElapsedSecondsFloat()));
         }
 
         private void WinnerWorker()
@@ -618,15 +436,15 @@ namespace BitSharp.Daemon
             try
             {
                 // get winning chain metadata
-                var winningChainedBlocks = this.CacheContext.BlockMetadataCache.FindWinningChainedBlocks();
+                var leafChainedBlocks = this.CacheContext.ChainedBlockCache.FindLeafChained().ToList();
 
                 //TODO ordering will need to follow actual bitcoin rules to ensure the same winning chaing is always selected
-                var winningBlock = this._rules.SelectWinningBlockchain(winningChainedBlocks);
+                var winningBlock = this._rules.SelectWinningChainedBlock(leafChainedBlocks);
 
                 if (winningBlock.BlockHash != this.WinningBlock.BlockHash)
                 {
-                    var winningBlockchain = new List<BlockMetadata>();
-                    foreach (var winningLink in Calculator.PreviousBlockMetadata(winningBlock))
+                    var winningBlockchain = new List<ChainedBlock>();
+                    foreach (var winningLink in Calculator.PreviousChainedBlocks(winningBlock))
                     {
                         winningBlockchain.Add(winningLink);
                     }
@@ -657,7 +475,7 @@ namespace BitSharp.Daemon
             stopwatch.Start();
 
             stopwatch.Stop();
-            Debug.WriteLine("ValidationWorker: {0:#,##0.000}s".Format2(stopwatch.EllapsedSecondsFloat()));
+            Debug.WriteLine("ValidationWorker: {0:#,##0.000}s".Format2(stopwatch.ElapsedSecondsFloat()));
         }
 
         private void ValidateCurrentChainWorker()
@@ -688,7 +506,7 @@ namespace BitSharp.Daemon
             }
 
             stopwatch.Stop();
-            Debug.WriteLine("ValidateCurrentChainWorker: {0:#,##0.000}s".Format2(stopwatch.EllapsedSecondsFloat()));
+            Debug.WriteLine("ValidateCurrentChainWorker: {0:#,##0.000}s".Format2(stopwatch.ElapsedSecondsFloat()));
         }
 
         private Stopwatch validateStopwatch = new Stopwatch();
@@ -788,7 +606,7 @@ namespace BitSharp.Daemon
             }
 
             stopwatch.Stop();
-            Debug.WriteLine("WriteBlockchainWorker: {0:#,##0.000}s".Format2(stopwatch.EllapsedSecondsFloat()));
+            Debug.WriteLine("WriteBlockchainWorker: {0:#,##0.000}s".Format2(stopwatch.ElapsedSecondsFloat()));
         }
 
         public bool TryGetBlock(UInt256 blockHash, out Block block, bool saveInCache = true)
@@ -828,20 +646,20 @@ namespace BitSharp.Daemon
             }
         }
 
-        public bool TryGetBlockMetadata(UInt256 blockHash, out BlockMetadata blockMetadata, bool saveInCache = true)
+        public bool TryGetChainedBlock(UInt256 blockHash, out ChainedBlock chainedBlock, bool saveInCache = true)
         {
-            if (this.CacheContext.BlockMetadataCache.TryGetValue(blockHash, out blockMetadata, saveInCache))
+            if (this.CacheContext.ChainedBlockCache.TryGetValue(blockHash, out chainedBlock, saveInCache))
             {
-                this.missingBlockMetadata.TryRemove(blockHash);
+                this.missingChainedBlocks.TryRemove(blockHash);
                 return true;
             }
             else
             {
-                this.missingBlockMetadata.TryAdd(blockHash);
+                this.missingChainedBlocks.TryAdd(blockHash);
                 if (!this.CacheContext.BlockCache.ContainsKey(blockHash))
                     this.missingBlocks.TryAdd(blockHash);
 
-                blockMetadata = default(BlockMetadata);
+                chainedBlock = default(ChainedBlock);
                 return false;
             }
         }
@@ -871,9 +689,9 @@ namespace BitSharp.Daemon
             get { return this.CacheContext.BlockHeaderCache.MaxCacheMemorySize; }
         }
 
-        public long MetadataCacheMemorySize
+        public long ChainedBlockCacheMemorySize
         {
-            get { return this.CacheContext.BlockMetadataCache.MaxCacheMemorySize; }
+            get { return this.CacheContext.ChainedBlockCache.MaxCacheMemorySize; }
         }
 
         private void HandleMissingData(MissingDataException e)
@@ -885,8 +703,8 @@ namespace BitSharp.Daemon
                     this.missingBlocks.TryAdd(e.DataKey);
                     break;
 
-                case DataType.BlockMetadata:
-                    this.missingBlockMetadata.TryAdd(e.DataKey);
+                case DataType.ChainedBlock:
+                    this.missingChainedBlocks.TryAdd(e.DataKey);
                     break;
 
                 case DataType.Transaction:
@@ -895,7 +713,7 @@ namespace BitSharp.Daemon
             }
         }
 
-        private void UpdateWinningBlock(BlockMetadata winningBlock, ImmutableArray<BlockMetadata> winningBlockchain)
+        private void UpdateWinningBlock(ChainedBlock winningBlock, ImmutableArray<ChainedBlock> winningBlockchain)
         {
             this._winningBlock = winningBlock;
             this._winningBlockchain = winningBlockchain;

@@ -20,7 +20,7 @@ namespace BitSharp.Storage
 
         private readonly BlockCache _blockCache;
         private readonly BoundedCache<UInt256, BlockHeader> _blockHeaderCache;
-        private readonly BlockMetadataCache _blockMetadataCache;
+        private readonly ChainedBlockCache _chainedBlockCache;
         private readonly TxKeyCache _txKeyCache;
         private readonly TransactionCache _transactionCache;
 
@@ -42,7 +42,7 @@ namespace BitSharp.Storage
                 maxCacheMemorySize: 100.MILLION()
             );
 
-            this._blockMetadataCache = new BlockMetadataCache
+            this._chainedBlockCache = new ChainedBlockCache
             (
                 cacheContext: this,
                 maxFlushMemorySize: 1.MILLION(),
@@ -69,7 +69,7 @@ namespace BitSharp.Storage
 
         public BoundedCache<UInt256, BlockHeader> BlockHeaderCache { get { return this._blockHeaderCache; } }
 
-        public BlockMetadataCache BlockMetadataCache { get { return this._blockMetadataCache; } }
+        public ChainedBlockCache ChainedBlockCache { get { return this._chainedBlockCache; } }
 
         public TxKeyCache TxKeyCache { get { return this._txKeyCache; } }
 
@@ -81,7 +81,7 @@ namespace BitSharp.Storage
             {
                 this._blockCache,
                 this._blockHeaderCache,
-                this._blockMetadataCache,
+                this._chainedBlockCache,
                 this._txKeyCache,
                 this._transactionCache
             }.DisposeList();

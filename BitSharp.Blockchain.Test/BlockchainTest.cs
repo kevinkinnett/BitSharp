@@ -26,7 +26,7 @@ namespace BitSharp.Blockchain.Test
         {
             var blockchain = new MemoryBlockchain();
 
-            var block = blockchain.MineAndAddEmptyBlock(blockchain.GenesisBlockMetadata).Item1;
+            var block = blockchain.MineAndAddEmptyBlock(blockchain.GenesisChainedBlock).Item1;
 
             Assert.AreEqual(1, blockchain.CurrentBlockchain.Height);
             Assert.AreEqual(block.Hash, blockchain.CurrentBlockchain.RootBlockHash);
@@ -39,15 +39,15 @@ namespace BitSharp.Blockchain.Test
 
             var count = 1.THOUSAND();
 
-            var blockMetadata = blockchain.GenesisBlockMetadata;
+            var chainedBlock = blockchain.GenesisChainedBlock;
             for (var i = 0; i < count; i++)
             {
                 Debug.WriteLine("TestLongBlockchain mining block {0:#,##0}".Format2(i));
-                blockMetadata = blockchain.MineAndAddEmptyBlock(blockMetadata).Item2;
+                chainedBlock = blockchain.MineAndAddEmptyBlock(chainedBlock).Item2;
             }
 
             Assert.AreEqual(count, blockchain.CurrentBlockchain.Height);
-            Assert.AreEqual(blockMetadata.BlockHash, blockchain.CurrentBlockchain.RootBlockHash);
+            Assert.AreEqual(chainedBlock.BlockHash, blockchain.CurrentBlockchain.RootBlockHash);
         }
 
         [TestMethod]
@@ -61,7 +61,7 @@ namespace BitSharp.Blockchain.Test
             var toPublicKey = toKeyPair.Item2;
 
             // add some simple blocks
-            var block1 = blockchain.MineAndAddEmptyBlock(blockchain.GenesisBlockMetadata);
+            var block1 = blockchain.MineAndAddEmptyBlock(blockchain.GenesisChainedBlock);
             var block2 = blockchain.MineAndAddEmptyBlock(block1.Item2);
 
             // check
@@ -105,7 +105,7 @@ namespace BitSharp.Blockchain.Test
             var toPublicKeyBad = toKeyPair.Item2;
 
             // add some simple blocks
-            var block1 = blockchain.MineAndAddEmptyBlock(blockchain.GenesisBlockMetadata);
+            var block1 = blockchain.MineAndAddEmptyBlock(blockchain.GenesisChainedBlock);
             var block2 = blockchain.MineAndAddEmptyBlock(block1.Item2);
 
             // check
@@ -153,7 +153,7 @@ namespace BitSharp.Blockchain.Test
             var blockchain1 = new MemoryBlockchain();
 
             // add some simple blocks
-            var block1 = blockchain1.MineAndAddEmptyBlock(blockchain1.GenesisBlockMetadata);
+            var block1 = blockchain1.MineAndAddEmptyBlock(blockchain1.GenesisChainedBlock);
             var block2 = blockchain1.MineAndAddEmptyBlock(block1.Item2);
 
             // introduce a split
@@ -195,7 +195,7 @@ namespace BitSharp.Blockchain.Test
             var blockchain2 = new MemoryBlockchain(blockchain1.GenesisBlock);
 
             // add only the winning blocks to the second blockchain
-            blockchain2.AddBlock(block1.Item1, blockchain2.GenesisBlockMetadata);
+            blockchain2.AddBlock(block1.Item1, blockchain2.GenesisChainedBlock);
             blockchain2.AddBlock(block2.Item1, block1.Item2);
             blockchain2.AddBlock(block3b.Item1, block2.Item2);
             blockchain2.AddBlock(block4b.Item1, block3b.Item2);

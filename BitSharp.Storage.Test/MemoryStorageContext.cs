@@ -10,21 +10,21 @@ namespace BitSharp.Storage.Test
     public class MemoryStorageContext : IStorageContext
     {
         private readonly MemoryBlockStorage _blockStorage;
-        private readonly MemoryBlockMetadataStorage _blockMetadataStorage;
+        private readonly MemoryChainedBlockStorage _chainedBlockStorage;
         private readonly MemoryTxKeyStorage _txKeyStorage;
         private readonly MemoryBlockchainStorage _blockchainStorage;
 
         public MemoryStorageContext()
         {
             this._blockStorage = new MemoryBlockStorage(this);
-            this._blockMetadataStorage = new MemoryBlockMetadataStorage(this);
+            this._chainedBlockStorage = new MemoryChainedBlockStorage(this);
             this._txKeyStorage = new MemoryTxKeyStorage(this);
             this._blockchainStorage = new MemoryBlockchainStorage(this);
         }
 
         public MemoryBlockStorage BlockStorage { get { return this._blockStorage; } }
 
-        public MemoryBlockMetadataStorage BlockMetadataStorage { get { return this._blockMetadataStorage; } }
+        public MemoryChainedBlockStorage ChainedBlockStorage { get { return this._chainedBlockStorage; } }
 
         public MemoryTxKeyStorage TxKeyStorage { get { return this._txKeyStorage; } }
 
@@ -32,7 +32,7 @@ namespace BitSharp.Storage.Test
 
         IBlockStorage IStorageContext.BlockStorage { get { return this._blockStorage; } }
 
-        IBlockMetadataStorage IStorageContext.BlockMetadataStorage { get { return this._blockMetadataStorage; } }
+        IChainedBlockStorage IStorageContext.ChainedBlockStorage { get { return this._chainedBlockStorage; } }
 
         ITxKeyStorage IStorageContext.TxKeyStorage { get { return this._txKeyStorage; } }
 
@@ -43,7 +43,7 @@ namespace BitSharp.Storage.Test
             new IDisposable[]
             {
                 this._blockStorage,
-                this._blockMetadataStorage,
+                this._chainedBlockStorage,
                 this._txKeyStorage,
                 this._blockchainStorage
             }.DisposeList();

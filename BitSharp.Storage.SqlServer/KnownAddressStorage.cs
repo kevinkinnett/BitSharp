@@ -15,42 +15,13 @@ using System.Data;
 
 namespace BitSharp.Storage.SqlServer
 {
-    public struct KnownAddressKey
-    {
-        public readonly ImmutableArray<byte> IPv6Address;
-        public readonly UInt16 Port;
-        private readonly int _hashCode;
-
-        public KnownAddressKey(ImmutableArray<byte> IPv6Address, UInt16 Port)
-        {
-            this.IPv6Address = IPv6Address;
-            this.Port = Port;
-
-            this._hashCode = Port.GetHashCode() ^ new BigInteger(IPv6Address.ToArray()).GetHashCode();
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (!(obj is KnownAddressKey))
-                return false;
-
-            var other = (KnownAddressKey)obj;
-            return other.IPv6Address.SequenceEqual(this.IPv6Address) && other.Port == this.Port;
-        }
-
-        public override int GetHashCode()
-        {
-            return this._hashCode;
-        }
-    }
-
-    public class KnownAddressStorage : SqlDataStorage, IBoundedStorage<KnownAddressKey, NetworkAddressWithTime>
+    public class KnownAddressStorage : SqlDataStorage, IBoundedStorage<NetworkAddressKey, NetworkAddressWithTime>
     {
         public KnownAddressStorage(SqlServerStorageContext storageContext)
             : base(storageContext)
         { }
 
-        public IEnumerable<KnownAddressKey> ReadAllKeys()
+        public IEnumerable<NetworkAddressKey> ReadAllKeys()
         {
             using (var conn = this.OpenConnection())
             using (var cmd = conn.CreateCommand())
@@ -65,13 +36,13 @@ namespace BitSharp.Storage.SqlServer
                     {
                         var ipAddress = reader.GetBytes(0).ToImmutableArray();
                         var port = reader.GetUInt16(1);
-                        yield return new KnownAddressKey(ipAddress, port);
+                        yield return new NetworkAddressKey(ipAddress, port);
                     }
                 }
             }
         }
 
-        public IEnumerable<KeyValuePair<KnownAddressKey, NetworkAddressWithTime>> ReadAllValues()
+        public IEnumerable<KeyValuePair<NetworkAddressKey, NetworkAddressWithTime>> ReadAllValues()
         {
             using (var conn = this.OpenConnection())
             using (var cmd = conn.CreateCommand())
@@ -89,16 +60,16 @@ namespace BitSharp.Storage.SqlServer
                         var services = reader.GetUInt64(2);
                         var time = reader.GetUInt32(3);
 
-                        var key = new KnownAddressKey(ipAddress, port);
+                        var key = new NetworkAddressKey(ipAddress, port);
                         var knownAddress = new NetworkAddressWithTime(time, new NetworkAddress(services, ipAddress, port));
 
-                        yield return new KeyValuePair<KnownAddressKey, NetworkAddressWithTime>(key, knownAddress);
+                        yield return new KeyValuePair<NetworkAddressKey, NetworkAddressWithTime>(key, knownAddress);
                     }
                 }
             }
         }
 
-        public bool TryReadValue(KnownAddressKey key, out NetworkAddressWithTime knownAddress)
+        public bool TryReadValue(NetworkAddressKey key, out NetworkAddressWithTime knownAddress)
         {
             using (var conn = this.OpenConnection())
             using (var cmd = conn.CreateCommand())
@@ -129,7 +100,7 @@ namespace BitSharp.Storage.SqlServer
             }
         }
 
-        public bool TryWriteValues(IEnumerable<KeyValuePair<KnownAddressKey, WriteValue<NetworkAddressWithTime>>> values)
+        public bool TryWriteValues(IEnumerable<KeyValuePair<NetworkAddressKey, WriteValue<NetworkAddressWithTime>>> values)
         {
             using (var conn = this.OpenConnection())
             using (var trans = conn.BeginTransaction())

@@ -37,18 +37,18 @@ namespace BitSharp.Blockchain
 
         public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
 
-        public Data.Blockchain CalculateBlockchainFromExisting(Data.Blockchain currentBlockchain, BlockMetadata targetBlockMetadata, out List<MissingDataException> missingData, CancellationToken cancelToken, Action<Data.Blockchain> onProgress = null)
+        public Data.Blockchain CalculateBlockchainFromExisting(Data.Blockchain currentBlockchain, ChainedBlock targetChainedBlock, out List<MissingDataException> missingData, CancellationToken cancelToken, Action<Data.Blockchain> onProgress = null)
         {
-            Debug.WriteLine("Winning chained block {0} at height {1}, total work: {2}".Format2(targetBlockMetadata.BlockHash.ToHexNumberString(), targetBlockMetadata.Height.Value, targetBlockMetadata.TotalWork.Value.ToString("X")));
+            Debug.WriteLine("Winning chained block {0} at height {1}, total work: {2}".Format2(targetChainedBlock.BlockHash.ToHexNumberString(), targetChainedBlock.Height, targetChainedBlock.TotalWork.ToString("X")));
 
             missingData = new List<MissingDataException>();
 
             // take snapshots
-            var newChainBlockMetadata = targetBlockMetadata;
-            var newChainBlockList = new[] { newChainBlockMetadata.BlockHash }.ToList();
+            var newChainedBlock = targetChainedBlock;
+            var newChainBlockList = new[] { newChainedBlock.BlockHash }.ToList();
 
             // check height difference between chains, they will be roll backed before checking for the last common ancestor
-            var heightDelta = (int)targetBlockMetadata.Height.Value - currentBlockchain.Height;
+            var heightDelta = (int)targetChainedBlock.Height - currentBlockchain.Height;
 
             // if current chain is shorter, roll new chain back to current chain's height
             if (heightDelta > 0)
@@ -61,24 +61,16 @@ namespace BitSharp.Blockchain
                     this.shutdownToken.ThrowIfCancellationRequested();
                     cancelToken.ThrowIfCancellationRequested();
 
-                    newChainBlockMetadata = this.CacheContext.GetBlockMetadata(newChainBlockMetadata.PreviousBlockHash);
-
-                    // check that block metadata has been chained
-                    if (newChainBlockMetadata.Height == null)
-                    {
-                        //TODO why is this happening outside of initial startup?
-                        //Debugger.Break();
-                        throw new MissingDataException(DataType.BlockMetadata, newChainBlockMetadata.BlockHash);
-                    }
+                    newChainedBlock = this.CacheContext.GetChainedBlock(newChainedBlock.PreviousBlockHash);
 
                     // ensure that height is as expected while looking up previous blocks
-                    if (newChainBlockMetadata.Height != targetBlockMetadata.Height - i - 1)
+                    if (newChainedBlock.Height != targetChainedBlock.Height - i - 1)
                     {
                         throw new ValidationException();
                     }
 
                     // keep track of rolled back data on the new blockchain
-                    newChainBlockList.Add(newChainBlockMetadata.BlockHash);
+                    newChainBlockList.Add(newChainedBlock.BlockHash);
                 }
             }
             // if current chain is longer, roll it back to new chain's height
@@ -88,7 +80,7 @@ namespace BitSharp.Blockchain
 
                 var rollbackCount = -heightDelta;
                 var rollbackList = new List<UInt256>(rollbackCount);
-                foreach (var prevBlock in PreviousBlockMetadata(currentBlockchain.RootBlock))
+                foreach (var prevBlock in PreviousChainedBlocks(currentBlockchain.RootBlock))
                 {
                     // cooperative loop
                     this.shutdownToken.ThrowIfCancellationRequested();
@@ -103,7 +95,7 @@ namespace BitSharp.Blockchain
                 Debug.Assert(rollbackList.Count == rollbackCount);
 
                 var rollbackIndex = 0;
-                foreach (var tuple in BlockAndMetadataLookAhead(rollbackList, null))
+                foreach (var tuple in BlockAndTxLookAhead(rollbackList, null))
                 {
                     // cooperative loop
                     this.shutdownToken.ThrowIfCancellationRequested();
@@ -118,7 +110,7 @@ namespace BitSharp.Blockchain
                 }
             }
 
-            Debug.Assert(newChainBlockMetadata.Height == currentBlockchain.Height);
+            Debug.Assert(newChainedBlock.Height == currentBlockchain.Height);
 
             //TODO continue looking backwards while processing moves forward to double check
             //TODO the blockchain history back to genesis? only look at height, work, valid bits in
@@ -129,33 +121,33 @@ namespace BitSharp.Blockchain
             Debug.WriteLine("Searching for last common ancestor between current chainblock and winning chainblock");
 
             // with both chains at the same height, roll back to last common ancestor
-            if (newChainBlockMetadata.BlockHash != currentBlockchain.RootBlockHash)
+            if (newChainedBlock.BlockHash != currentBlockchain.RootBlockHash)
             {
                 var rollbackList = new List<UInt256>();
                 var currentBlockchainIndex = currentBlockchain.BlockList.Count - 1;
-                foreach (var prevBlock in PreviousBlockMetadata(newChainBlockMetadata))
+                foreach (var prevBlock in PreviousChainedBlocks(newChainedBlock))
                 {
                     // cooperative loop
                     this.shutdownToken.ThrowIfCancellationRequested();
                     cancelToken.ThrowIfCancellationRequested();
 
-                    if (newChainBlockMetadata.BlockHash == currentBlockchain.BlockList[currentBlockchainIndex].BlockHash)
+                    if (newChainedBlock.BlockHash == currentBlockchain.BlockList[currentBlockchainIndex].BlockHash)
                     {
                         break;
                     }
 
                     // roll back new block chain
-                    newChainBlockMetadata = prevBlock;
+                    newChainedBlock = prevBlock;
 
                     // ensure that height is as expected while looking up previous blocks
-                    if (newChainBlockMetadata.Height != currentBlockchain.BlockList[currentBlockchainIndex].Height
-                        || newChainBlockMetadata.BlockHash != currentBlockchain.BlockList[currentBlockchainIndex].BlockHash)
+                    if (newChainedBlock.Height != currentBlockchain.BlockList[currentBlockchainIndex].Height
+                        || newChainedBlock.BlockHash != currentBlockchain.BlockList[currentBlockchainIndex].BlockHash)
                     {
                         throw new ValidationException();
                     }
 
                     // keep track of rolled back data on the new blockchain
-                    newChainBlockList.Add(newChainBlockMetadata.BlockHash);
+                    newChainBlockList.Add(newChainedBlock.BlockHash);
 
                     // queue up current blockchain rollback
                     rollbackList.Add(currentBlockchain.BlockList[currentBlockchainIndex].BlockHash);
@@ -164,7 +156,7 @@ namespace BitSharp.Blockchain
                 }
 
                 // roll back current block chain
-                foreach (var tuple in BlockAndMetadataLookAhead(rollbackList, null))
+                foreach (var tuple in BlockAndTxLookAhead(rollbackList, null))
                 {
                     var block = tuple.Item1;
                     currentBlockchain = RollbackBlockchain(currentBlockchain, block);
@@ -174,7 +166,7 @@ namespace BitSharp.Blockchain
             // look up the remainder of the blockchain for transaction lookup
             var newBlockchainHashesBuilder = ImmutableHashSet.CreateBuilder<UInt256>();
             newBlockchainHashesBuilder.UnionWith(newChainBlockList);
-            foreach (var prevBlock in PreviousBlockMetadata(newChainBlockMetadata))
+            foreach (var prevBlock in PreviousChainedBlocks(newChainedBlock))
             {
                 // cooperative loop
                 this.shutdownToken.ThrowIfCancellationRequested();
@@ -215,7 +207,7 @@ namespace BitSharp.Blockchain
 
             // start calculating new utxo
             var index = 0;
-            foreach (var tuple in BlockAndMetadataLookAhead(newChainBlockList, newBlockchainHashes))
+            foreach (var tuple in BlockAndTxLookAhead(newChainBlockList, newBlockchainHashes))
             {
                 // cooperative loop
                 this.shutdownToken.ThrowIfCancellationRequested();
@@ -225,21 +217,21 @@ namespace BitSharp.Blockchain
                 {
                     // get block and metadata for next link in blockchain
                     var nextBlock = tuple.Item1;
-                    var nextBlockMetadata = tuple.Item2;
+                    var nextChainedBlock = tuple.Item2;
                     var transactions = tuple.Item3;
 
-                    if (nextBlockMetadata.Height == null || nextBlockMetadata.TotalWork == null)
+                    if (nextChainedBlock.Height == null || nextChainedBlock.TotalWork == null)
                         throw new ValidationException();
 
                     // calculate the new block utxo, double spends will be checked for
                     long txCount, inputCount;
-                    var newUtxo = CalculateUtxo(nextBlockMetadata.Height.Value, nextBlock, newBlockchain.Utxo, out txCount, out inputCount);
+                    var newUtxo = CalculateUtxo(nextChainedBlock.Height, nextBlock, newBlockchain.Utxo, out txCount, out inputCount);
 
                     var nextBlockchain =
                         new Data.Blockchain
                         (
-                            blockList: newBlockchain.BlockList.Add(nextBlockMetadata),
-                            blockListHashes: newBlockchain.BlockListHashes.Add(nextBlockMetadata.BlockHash),
+                            blockList: newBlockchain.BlockList.Add(nextChainedBlock),
+                            blockListHashes: newBlockchain.BlockListHashes.Add(nextChainedBlock.BlockHash),
                             utxo: newUtxo
                         );
 
@@ -327,9 +319,9 @@ namespace BitSharp.Blockchain
 
         private void LogBlockchainProgress(Data.Blockchain blockchain, Stopwatch totalStopwatch, long totalTxCount, long totalInputCount, Stopwatch currentRateStopwatch, long currentBlockCount, long currentTxCount, long currentInputCount)
         {
-            var currentBlockRate = (float)currentBlockCount / currentRateStopwatch.EllapsedSecondsFloat();
-            var currentTxRate = (float)currentTxCount / currentRateStopwatch.EllapsedSecondsFloat();
-            var currentInputRate = (float)currentInputCount / currentRateStopwatch.EllapsedSecondsFloat();
+            var currentBlockRate = (float)currentBlockCount / currentRateStopwatch.ElapsedSecondsFloat();
+            var currentTxRate = (float)currentTxCount / currentRateStopwatch.ElapsedSecondsFloat();
+            var currentInputRate = (float)currentInputCount / currentRateStopwatch.ElapsedSecondsFloat();
 
             Debug.WriteLine(
                 string.Join("\n",
@@ -525,54 +517,6 @@ namespace BitSharp.Blockchain
             return prevUtxoBuilder.ToImmutable();
         }
 
-        //public TxLocator FindTransaction(Blockchain blockchain, UInt256 txHash)
-        //{
-        //    //TODO blockchain.Utxo.trygetvalue
-        //    using (var cancelToken = new CancellationTokenSource())
-        //    using (var foundToken = new CancellationTokenSource())
-        //    {
-        //        var lookupTasks = new Task[blockchain.BlockList.Count];
-        //        var foundTx = new ConcurrentBag<TxLocator>();
-
-        //        var i = 0;
-        //        foreach (var block in
-        //            LookAheadMethods.ParallelLookupLookAhead<BlockMetadata, Block>(
-        //                blockchain.BlockList.Reverse().ToList(),
-        //                blockMetadata => this.CacheContext.GetBlock(blockMetadata.BlockHash),
-        //                cancelToken.Token))
-        //        {
-        //            lookupTasks[i] = Task.Run(()=>
-        //            {
-        //                Parallel.ForEach(block.Transactions, (tx, loopState, txIndex) =>
-        //                {
-        //                    if (tx.Hash == txHash)
-        //                    {
-        //                        foundTx.Add(new TxLocator(tx.Hash, block.Hash, (UInt32)txIndex));
-        //                        foundToken.Cancel();
-        //                        loopState.Break();
-        //                    }
-        //                });
-        //            });
-
-        //            i++;
-        //        }
-
-        //        while (foundTx.Count == 0)
-        //        {
-        //            Task.WaitAll(lookupTasks, foundToken.Token);
-        //        }
-
-        //        if (foundTx.Count > 1)
-        //            throw new ValidationException();
-        //        else if (foundTx.Count == 1)
-        //            return foundTx.Single();
-        //        else
-        //            throw new MissingDataException(DataType.Transaction, txHash);
-        //    }
-
-        //    return default(TxLocator);
-        //}
-
         public void RevalidateBlockchain(Data.Blockchain blockchain, Block genesisBlock)
         {
             var stopwatch = new Stopwatch();
@@ -614,29 +558,29 @@ namespace BitSharp.Blockchain
                     this.shutdownToken.ThrowIfCancellationRequested();
 
                     // get the current link in the chain
-                    var blockMetadata = blockchain.BlockList[height];
+                    var chainedBlock = blockchain.BlockList[height];
 
                     // verify height
-                    if (blockMetadata.Height != height)
+                    if (chainedBlock.Height != height)
                         throw new ValidationException();
 
                     // verify blockchain linking
-                    if (blockMetadata.PreviousBlockHash != expectedPreviousBlockHash)
+                    if (chainedBlock.PreviousBlockHash != expectedPreviousBlockHash)
                         throw new ValidationException();
 
                     // verify block exists
-                    var blockHeader = this.CacheContext.GetBlockHeader(blockMetadata.BlockHash);
+                    var blockHeader = this.CacheContext.GetBlockHeader(chainedBlock.BlockHash);
 
                     // verify block metadata matches header values
-                    if (blockHeader.PreviousBlock != blockMetadata.PreviousBlockHash)
+                    if (blockHeader.PreviousBlock != chainedBlock.PreviousBlockHash)
                         throw new ValidationException();
 
                     // verify block header hash
-                    if (CalculateHash(blockHeader) != blockMetadata.BlockHash)
+                    if (CalculateHash(blockHeader) != chainedBlock.BlockHash)
                         throw new ValidationException();
 
                     // next block metadata should have the current metadata's hash as its previous hash value
-                    expectedPreviousBlockHash = blockMetadata.BlockHash;
+                    expectedPreviousBlockHash = chainedBlock.BlockHash;
                 }
 
                 // all validation passed
@@ -644,11 +588,11 @@ namespace BitSharp.Blockchain
             finally
             {
                 stopwatch.Stop();
-                Debug.WriteLine("Blockchain revalidation: {0:#,##0.000000}s".Format2(stopwatch.EllapsedSecondsFloat()));
+                Debug.WriteLine("Blockchain revalidation: {0:#,##0.000000}s".Format2(stopwatch.ElapsedSecondsFloat()));
             }
         }
 
-        public IEnumerable<Tuple<Block, BlockMetadata, ImmutableDictionary<UInt256, Transaction>>> BlockAndMetadataLookAhead(IList<UInt256> blockHashes, ImmutableHashSet<UInt256> blockchainHashes)
+        public IEnumerable<Tuple<Block, ChainedBlock, ImmutableDictionary<UInt256, Transaction>>> BlockAndTxLookAhead(IList<UInt256> blockHashes, ImmutableHashSet<UInt256> blockchainHashes)
         {
             var blockLookAhead = LookAheadMethods.ParallelLookupLookAhead<UInt256, Tuple<Block, ImmutableDictionary<UInt256, Transaction>>>(
                 blockHashes, blockHash =>
@@ -674,13 +618,13 @@ namespace BitSharp.Blockchain
                     return Tuple.Create(block, transactionsBuilder.ToImmutable());
                 }, this.shutdownToken);
 
-            var metadataLookAhead = LookAheadMethods.ParallelLookupLookAhead<UInt256, BlockMetadata>(
-                blockHashes, blockHash => this.CacheContext.GetBlockMetadata(blockHash, saveInCache: false), this.shutdownToken);
+            var chainedBlockLookAhead = LookAheadMethods.ParallelLookupLookAhead<UInt256, ChainedBlock>(
+                blockHashes, blockHash => this.CacheContext.GetChainedBlock(blockHash, saveInCache: false), this.shutdownToken);
 
-            return blockLookAhead.Zip(metadataLookAhead, (block, blockMetadata) => Tuple.Create(block.Item1, blockMetadata, block.Item2));
+            return blockLookAhead.Zip(chainedBlockLookAhead, (block, chainedBlock) => Tuple.Create(block.Item1, chainedBlock, block.Item2));
         }
 
-        public IEnumerable<Tuple<BlockMetadata, Block>> PreviousBlocksLookAhead(BlockMetadata firstBlock)
+        public IEnumerable<Tuple<ChainedBlock, Block>> PreviousBlocksLookAhead(ChainedBlock firstBlock)
         {
             using (var cancelToken = new CancellationTokenSource())
             {
@@ -692,41 +636,41 @@ namespace BitSharp.Blockchain
         }
 
 
-        public IEnumerable<Tuple<BlockMetadata, Block>> PreviousBlocks(BlockMetadata firstBlock)
+        public IEnumerable<Tuple<ChainedBlock, Block>> PreviousBlocks(ChainedBlock firstBlock)
         {
-            var prevBlockMetadata = firstBlock;
+            var prevChainedBlock = firstBlock;
             //TODO some kind of hard stop
             while (true)
             {
-                var prevBlock = this.CacheContext.GetBlock(prevBlockMetadata.BlockHash);
+                var prevBlock = this.CacheContext.GetBlock(prevChainedBlock.BlockHash);
 
-                yield return Tuple.Create(prevBlockMetadata, prevBlock);
+                yield return Tuple.Create(prevChainedBlock, prevBlock);
 
-                var prevBlockHash = prevBlockMetadata.PreviousBlockHash;
+                var prevBlockHash = prevChainedBlock.PreviousBlockHash;
                 if (prevBlockHash == 0)
                 {
                     break;
                 }
 
-                prevBlockMetadata = this.CacheContext.GetBlockMetadata(prevBlockHash);
+                prevChainedBlock = this.CacheContext.GetChainedBlock(prevBlockHash);
             }
         }
 
-        public IEnumerable<BlockMetadata> PreviousBlockMetadata(BlockMetadata firstBlock)
+        public IEnumerable<ChainedBlock> PreviousChainedBlocks(ChainedBlock firstBlock)
         {
-            var prevBlockMetadata = firstBlock;
+            var prevChainedBlock = firstBlock;
             //TODO some kind of hard stop
             while (true)
             {
-                yield return prevBlockMetadata;
+                yield return prevChainedBlock;
 
-                var prevBlockHash = prevBlockMetadata.PreviousBlockHash;
+                var prevBlockHash = prevChainedBlock.PreviousBlockHash;
                 if (prevBlockHash == 0)
                 {
                     break;
                 }
 
-                prevBlockMetadata = this.CacheContext.GetBlockMetadata(prevBlockHash);
+                prevChainedBlock = this.CacheContext.GetChainedBlock(prevBlockHash);
             }
         }
 

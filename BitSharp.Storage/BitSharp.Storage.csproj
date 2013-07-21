@@ -89,7 +89,7 @@
   </Choose>
   <ItemGroup>
     <Compile Include="BlockCache.cs" />
-    <Compile Include="BlockMetadataCache.cs" />
+    <Compile Include="ChainedBlockCache.cs" />
     <Compile Include="BlockHeaderCache.cs" />
     <Compile Include="IUnboundedStorage.cs" />
     <Compile Include="Provider\IBlockchainStorage.cs" />
@@ -99,7 +99,7 @@
     <Compile Include="TxKeyCache.cs" />
     <Compile Include="UnboundedCache.cs" />
     <Compile Include="Provider\IBlockStorage.cs" />
-    <Compile Include="Provider\IBlockMetadataStorage.cs" />
+    <Compile Include="Provider\IChainedBlockStorage.cs" />
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="IBoundedStorage.cs" />
     <Compile Include="BoundedCache.cs" />

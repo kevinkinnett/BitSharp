@@ -96,6 +96,7 @@
     <Compile Include="Structs\GetBlocksPayload.cs" />
     <Compile Include="Structs\InventoryPayload.cs" />
     <Compile Include="Structs\InventoryVector.cs" />
+    <Compile Include="Structs\NetworkAddressKey.cs" />
     <Compile Include="Structs\Message.cs" />
     <Compile Include="Structs\NetworkAddress.cs" />
     <Compile Include="Structs\NetworkAddressWithTime.cs" />

@@ -19,12 +19,12 @@ namespace BitSharp.Blockchain
 
         Block GenesisBlock { get; }
 
-        BlockMetadata GenesisBlockMetadata { get; }
+        ChainedBlock GenesisChainedBlock { get; }
 
         Data.Blockchain GenesisBlockchain { get; }
 
         void ValidateBlock(Block block, Data.Blockchain blockchain, ImmutableDictionary<UInt256, Transaction> transactions);
 
-        BlockMetadata SelectWinningBlockchain(IEnumerable<BlockMetadata> candidateBlockchains);
+        ChainedBlock SelectWinningChainedBlock(IList<ChainedBlock> leafChainedBlocks);
     }
 }

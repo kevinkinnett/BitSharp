@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Storage
 {
-    //TODO add shared key storage so that things like BlockHeaderSqlStorage and BlockDataSqlStorage share a single view of keys on the same underlying table
+    //TODO add shared key storage so that things like BlockHeaderSqlStorage and BlockSqlStorage share a single view of keys on the same underlying table
 
     public class UnboundedCache<TKey, TValue> : IDisposable
     {

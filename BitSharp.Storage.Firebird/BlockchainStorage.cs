@@ -89,10 +89,11 @@ namespace BitSharp.Storage.Firebird
         {
             CheckDatabaseFolder();
 
-            var blockListBuilder = ImmutableList.CreateBuilder<BlockMetadata>();
+            var blockListBuilder = ImmutableList.CreateBuilder<ChainedBlock>();
             var utxoBuilder = ImmutableHashSet.CreateBuilder<TxOutputKey>();
 
-            var connString = @"ServerType=1; DataSource=localhost; Database=Blockchain_{0}.fdb; Pooling=false; User=SYSDBA; Password=NA;".Format2(blockchainKey.Guid);
+            var dbPath = GetDatabasePath(blockchainKey.Guid);
+            var connString = @"ServerType=1; DataSource=localhost; Database={0}; Pooling=false; User=SYSDBA; Password=NA;".Format2(dbPath);
             using (var conn = new FbConnection(connString))
             {
                 conn.Open();
@@ -100,8 +101,8 @@ namespace BitSharp.Storage.Firebird
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = @"
-                        SELECT BlockHash, PreviousBlockHash, ""Work"", Height, TotalWork, IsValid
-                        FROM BlockMetadata
+                        SELECT BlockHash, PreviousBlockHash, Height, TotalWork
+                        FROM ChainedBlocks
                         WHERE Guid = @guid AND RootBlockHash = @rootBlockHash
                         ORDER BY Height ASC";
 
@@ -114,12 +115,10 @@ namespace BitSharp.Storage.Firebird
                         {
                             var blockHash = reader.GetUInt256(0);
                             var previousBlockHash = reader.GetUInt256(1);
-                            var work = reader.GetBigInteger(2);
-                            var height = reader.GetInt64Nullable(3);
-                            var totalWork = reader.GetBigIntegerNullable(4);
-                            var isValid = reader.GetBooleanNullable(5);
+                            var height = reader.GetInt32(2);
+                            var totalWork = reader.GetBigInteger(3);
 
-                            blockListBuilder.Add(new BlockMetadata(blockHash, previousBlockHash, work, height, totalWork, isValid));
+                            blockListBuilder.Add(new ChainedBlock(blockHash, previousBlockHash, height, totalWork));
                         }
                     }
                 }
@@ -167,9 +166,10 @@ namespace BitSharp.Storage.Firebird
         public BlockchainKey WriteBlockchain(Data.Blockchain blockchain)
         {
             var guid = Guid.NewGuid();
-            var dbPath = CreateDatabase(guid);
+            CreateDatabase(guid);
             var blockchainKey = new BlockchainKey(guid, blockchain.RootBlockHash);
 
+            var dbPath = GetDatabasePath(guid);
             var connString = @"ServerType=1; DataSource=localhost; Database={0}; Pooling=false; User=SYSDBA; Password=NA;".Format2(dbPath);
             using (var conn = new FbConnection(connString))
             {
@@ -199,26 +199,22 @@ namespace BitSharp.Storage.Firebird
                         cmd.Transaction = trans;
 
                         cmd.CommandText = @"
-                            INSERT INTO BlockMetadata (Guid, RootBlockHash, BlockHash, PreviousBlockHash, ""Work"", Height, TotalWork, IsValid)
-                            VALUES (@guid, @rootBlockHash, @blockHash, @previousBlockHash, @work, @height, @totalWork, @isValid)";
+                            INSERT INTO ChainedBlocks (Guid, RootBlockHash, BlockHash, PreviousBlockHash, Height, TotalWork)
+                            VALUES (@guid, @rootBlockHash, @blockHash, @previousBlockHash, @height, @totalWork)";
 
                         cmd.Parameters.SetValue("@guid", FbDbType.Char, FbCharset.Octets, 16).Value = blockchainKey.Guid.ToByteArray();
                         cmd.Parameters.SetValue("@rootBlockHash", FbDbType.Char, FbCharset.Octets, 32).Value = blockchainKey.RootBlockHash.ToDbByteArray();
                         cmd.Parameters.Add(new FbParameter { ParameterName = "@blockHash", FbDbType = FbDbType.Char, Charset = FbCharset.Octets, Size = 32 });
                         cmd.Parameters.Add(new FbParameter { ParameterName = "@previousBlockHash", FbDbType = FbDbType.Char, Charset = FbCharset.Octets, Size = 32 });
-                        cmd.Parameters.Add(new FbParameter { ParameterName = "@work", FbDbType = FbDbType.Char, Charset = FbCharset.Octets, Size = 64 });
-                        cmd.Parameters.Add(new FbParameter { ParameterName = "@height", FbDbType = FbDbType.BigInt });
+                        cmd.Parameters.Add(new FbParameter { ParameterName = "@height", FbDbType = FbDbType.Integer });
                         cmd.Parameters.Add(new FbParameter { ParameterName = "@totalWork", FbDbType = FbDbType.Char, Charset = FbCharset.Octets, Size = 64 });
-                        cmd.Parameters.Add(new FbParameter { ParameterName = "@isValid", FbDbType = FbDbType.Integer });
 
-                        foreach (var blockMetadata in blockchain.BlockList)
+                        foreach (var chainedBlock in blockchain.BlockList)
                         {
-                            cmd.Parameters["@blockHash"].Value = blockMetadata.BlockHash.ToDbByteArray();
-                            cmd.Parameters["@previousBlockHash"].Value = blockMetadata.PreviousBlockHash.ToDbByteArray();
-                            cmd.Parameters["@work"].Value = blockMetadata.Work.ToDbByteArray();
-                            cmd.Parameters["@height"].Value = blockMetadata.Height.Value;
-                            cmd.Parameters["@totalWork"].Value = blockMetadata.TotalWork.Value.ToDbByteArray();
-                            cmd.Parameters["@isValid"].Value = (object)blockMetadata.IsValid ?? DBNull.Value;
+                            cmd.Parameters["@blockHash"].Value = chainedBlock.BlockHash.ToDbByteArray();
+                            cmd.Parameters["@previousBlockHash"].Value = chainedBlock.PreviousBlockHash.ToDbByteArray();
+                            cmd.Parameters["@height"].Value = chainedBlock.Height;
+                            cmd.Parameters["@totalWork"].Value = chainedBlock.TotalWork.ToDbByteArray();
 
                             cmd.ExecuteNonQuery();
                         }
@@ -327,7 +323,7 @@ namespace BitSharp.Storage.Firebird
             var validFiles = new HashSet<string>(blockchains.Select(x => "Blockchain_{0}.fdb".Format2(x.Item1.Guid)));
             foreach (var file in Directory.EnumerateFiles(this.dbFolderPath, "Blockchain_*.fdb"))
             {
-                if (!validFiles.Contains(file))
+                if (!validFiles.Contains(Path.GetFileName(file)))
                 {
                     File.Delete(file);
                 }
@@ -340,10 +336,16 @@ namespace BitSharp.Storage.Firebird
                 Directory.CreateDirectory(this.dbFolderPath);
         }
 
-        private string CreateDatabase(Guid guid)
+        private string GetDatabasePath(Guid guid)
         {
             var dbFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BitSharp");
             var dbPath = Path.Combine(dbFolderPath, "Blockchain_{0}.fdb".Format2(guid.ToString()));
+            return dbPath;
+        }
+
+        private void CreateDatabase(Guid guid)
+        {
+            var dbPath = GetDatabasePath(guid);
             var connString = @"ServerType=1; DataSource=localhost; Database={0}; Pooling=false; User=SYSDBA; Password=NA;".Format2(dbPath);
 
             // create db folder
@@ -380,8 +382,6 @@ namespace BitSharp.Storage.Firebird
                     throw;
                 }
             }
-
-            return dbPath;
         }
     }
 }

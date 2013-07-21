@@ -28,7 +28,7 @@ namespace BitSharp.Blockchain.Test
         private readonly CacheContext _cacheContext;
 
         private readonly Block _genesisBlock;
-        private readonly BlockMetadata _genesisBlockMetadata;
+        private readonly ChainedBlock _genesisChainedBlock;
 
         private readonly UnitTestRules rules;
         private readonly BlockchainCalculator calculator;
@@ -64,7 +64,7 @@ namespace BitSharp.Blockchain.Test
             // update genesis blockchain and add to storage
             this.rules.SetGenesisBlock(this._genesisBlock);
             this._currentBlockchain = this.rules.GenesisBlockchain;
-            this._genesisBlockMetadata = AddBlock(this._genesisBlock, null).Item2;
+            this._genesisChainedBlock = AddBlock(this._genesisBlock, null).Item2;
         }
 
         public CacheContext CacheContext { get { return this._cacheContext; } }
@@ -73,7 +73,7 @@ namespace BitSharp.Blockchain.Test
 
         public Block GenesisBlock { get { return this._genesisBlock; } }
 
-        public BlockMetadata GenesisBlockMetadata { get { return this._genesisBlockMetadata; } }
+        public ChainedBlock GenesisChainedBlock { get { return this._genesisChainedBlock; } }
 
         public Data.Blockchain CurrentBlockchain { get { return this._currentBlockchain; } }
 
@@ -132,9 +132,9 @@ namespace BitSharp.Blockchain.Test
             return block;
         }
 
-        public Block CreateEmptyBlock(BlockMetadata previousBlockMetadata)
+        public Block CreateEmptyBlock(ChainedBlock prevChainedBlock)
         {
-            return CreateEmptyBlock(previousBlockMetadata.BlockHash);
+            return CreateEmptyBlock(prevChainedBlock.BlockHash);
         }
 
         public Block MineBlock(Block block)
@@ -158,14 +158,14 @@ namespace BitSharp.Blockchain.Test
             return MineEmptyBlock(previousBlock.Hash);
         }
 
-        public Tuple<Block, BlockMetadata> MineAndAddEmptyBlock(BlockMetadata previousBlockMetadata)
+        public Tuple<Block, ChainedBlock> MineAndAddEmptyBlock(ChainedBlock prevChainedBlock)
         {
-            var block = MineEmptyBlock(previousBlockMetadata.BlockHash);
+            var block = MineEmptyBlock(prevChainedBlock.BlockHash);
 
-            return AddBlock(block, previousBlockMetadata);
+            return AddBlock(block, prevChainedBlock);
         }
 
-        public Tuple<Block, BlockMetadata> MineAndAddBlock(Block block, BlockMetadata? previousBlockMetadata)
+        public Tuple<Block, ChainedBlock> MineAndAddBlock(Block block, ChainedBlock? prevChainedBlock)
         {
             var minedHeader = Miner.MineBlockHeader(block.Header, this.rules.HighestTarget);
             if (minedHeader == null)
@@ -173,33 +173,31 @@ namespace BitSharp.Blockchain.Test
 
             var minedBlock = block.With(Header: minedHeader);
 
-            return AddBlock(minedBlock, previousBlockMetadata);
+            return AddBlock(minedBlock, prevChainedBlock);
         }
 
-        public Tuple<Block, BlockMetadata> AddBlock(Block block, BlockMetadata? previousBlockMetadata)
+        public Tuple<Block, ChainedBlock> AddBlock(Block block, ChainedBlock? prevChainedBlock)
         {
-            if (previousBlockMetadata != null)
-                Assert.AreEqual(block.Header.PreviousBlock, previousBlockMetadata.Value.BlockHash);
+            if (prevChainedBlock != null)
+                Assert.AreEqual(block.Header.PreviousBlock, prevChainedBlock.Value.BlockHash);
 
-            var blockMetadata = new BlockMetadata
+            var chainedBlock = new ChainedBlock
             (
                 block.Hash,
                 block.Header.PreviousBlock,
-                block.Header.CalculateWork(),
-                previousBlockMetadata != null ? previousBlockMetadata.Value.Height.Value + 1 : 0,
-                previousBlockMetadata != null ? previousBlockMetadata.Value.TotalWork.Value + block.Header.CalculateWork() : block.Header.CalculateWork(),
-                isValid: null
+                prevChainedBlock != null ? prevChainedBlock.Value.Height + 1 : 0,
+                prevChainedBlock != null ? prevChainedBlock.Value.TotalWork + block.Header.CalculateWork() : block.Header.CalculateWork()
             );
 
             this.StorageContext.BlockStorage.TryWriteValue(
                 new KeyValuePair<UInt256, WriteValue<Block>>(block.Hash, new WriteValue<Block>(block, IsCreate: true)));
 
-            this.StorageContext.BlockMetadataStorage.TryWriteValue(
-                new KeyValuePair<UInt256, WriteValue<BlockMetadata>>(block.Hash, new WriteValue<BlockMetadata>(blockMetadata, IsCreate: true)));
+            this.StorageContext.ChainedBlockStorage.TryWriteValue(
+                new KeyValuePair<UInt256, WriteValue<ChainedBlock>>(block.Hash, new WriteValue<ChainedBlock>(chainedBlock, IsCreate: true)));
 
             ChooseNewWinner();
 
-            return Tuple.Create(block, blockMetadata);
+            return Tuple.Create(block, chainedBlock);
         }
 
         public long BlockCacheMemorySize
@@ -212,7 +210,7 @@ namespace BitSharp.Blockchain.Test
             get { return long.MaxValue; }
         }
 
-        public long MetadataCacheMemorySize
+        public long ChainedBlockCacheMemorySize
         {
             get { return long.MaxValue; }
         }
@@ -223,14 +221,14 @@ namespace BitSharp.Blockchain.Test
 
             //TODO when there is a tie this method is not deterministic, causing TestSimpleBlockchainSplit to fail
 
-            var candidates =
-                this.StorageContext.BlockMetadataStorage.FindWinningChainedBlocks(new Dictionary<UInt256, BlockMetadata>())
-                .ToDictionary(x => x.BlockHash, x => x);
+            var leafChainedBlocks =
+                this.StorageContext.ChainedBlockStorage.FindLeafChained()
+                 .ToDictionary(x => x.BlockHash, x => x);
 
-            while (candidates.Count > 0)
+            while (leafChainedBlocks.Count > 0)
             {
-                var newWinner = this.rules.SelectWinningBlockchain(candidates.Values);
-                candidates.Remove(newWinner.BlockHash);
+                var newWinner = this.rules.SelectWinningChainedBlock(leafChainedBlocks.Values.ToList());
+                leafChainedBlocks.Remove(newWinner.BlockHash);
 
                 try
                 {

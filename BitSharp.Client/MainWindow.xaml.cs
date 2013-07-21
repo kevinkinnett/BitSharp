@@ -54,17 +54,23 @@ namespace BitSharp.Client
                 ScriptEngine.BypassVerifySignature = true;
 
 #if SQLITE
-                this.storageContext = new SQLiteStorageContext();
+                var storageContext = new SQLiteStorageContext();
+                var knownAddressStorage = new BitSharp.Storage.SQLite.KnownAddressStorage(storageContext);
+                this.storageContext = storageContext;
 #elif FIREBIRD
-                this.storageContext = new FirebirdStorageContext();
+                var storageContext = new FirebirdStorageContext();
+                var knownAddressStorage = new BitSharp.Storage.Firebird.KnownAddressStorage(storageContext);
+                this.storageContext = storageContext;
 #elif SQL_SERVER
-                this.storageContext = new SqlServerStorageContext();
+                var storageContext = new SqlServerStorageContext();
+                var knownAddressStorage = new BitSharp.Storage.SqlServer.KnownAddressStorage(storageContext);
+                this.storageContext = storageContext;
 #endif
 
                 this.cacheContext = new CacheContext(this.storageContext);
                 this.rules = new MainnetRules(this.cacheContext);
                 this.blockchainDaemon = new BlockchainDaemon(this.rules, this.cacheContext);
-                this.localClient = new LocalClient(this.blockchainDaemon);
+                this.localClient = new LocalClient(this.blockchainDaemon, knownAddressStorage);
 
                 // setup view model
                 this.viewModel = new MainWindowViewModel(this.blockchainDaemon);

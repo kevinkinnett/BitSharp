@@ -86,7 +86,7 @@
     <Compile Include="MemoryBlockchainStorage.cs" />
     <Compile Include="MemoryTxKeyStorage.cs" />
     <Compile Include="MemoryBlockStorage.cs" />
-    <Compile Include="MemoryBlockMetadataStorage.cs" />
+    <Compile Include="MemoryChainedBlockStorage.cs" />
     <Compile Include="MemoryStorage.cs" />
     <Compile Include="MemoryStorageContext.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

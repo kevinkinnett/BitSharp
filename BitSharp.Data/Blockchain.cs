@@ -13,12 +13,12 @@ namespace BitSharp.Data
     public struct Blockchain
     {
         //TODO use block hash instead of block metadata
-        private readonly ImmutableList<BlockMetadata> _blockList;
+        private readonly ImmutableList<ChainedBlock> _blockList;
         private readonly ImmutableHashSet<UInt256> _blockListHashes;
         private readonly ImmutableHashSet<TxOutputKey> _utxo;
         private readonly bool notDefault;
 
-        public Blockchain(ImmutableList<BlockMetadata> blockList, ImmutableHashSet<UInt256> blockListHashes, ImmutableHashSet<TxOutputKey> utxo)
+        public Blockchain(ImmutableList<ChainedBlock> blockList, ImmutableHashSet<UInt256> blockListHashes, ImmutableHashSet<TxOutputKey> utxo)
         {
             this._blockList = blockList;
             this._blockListHashes = blockListHashes;
@@ -29,7 +29,7 @@ namespace BitSharp.Data
 
         public bool IsDefault { get { return !this.notDefault; } }
 
-        public ImmutableList<BlockMetadata> BlockList { get { return this._blockList; } }
+        public ImmutableList<ChainedBlock> BlockList { get { return this._blockList; } }
 
         public ImmutableHashSet<UInt256> BlockListHashes { get { return this._blockListHashes; } }
 
@@ -39,9 +39,9 @@ namespace BitSharp.Data
 
         public int Height { get { return this.BlockList.Count - 1; } }
 
-        public BigInteger TotalWork { get { return this.RootBlock.TotalWork.Value; } }
+        public BigInteger TotalWork { get { return this.RootBlock.TotalWork; } }
 
-        public BlockMetadata RootBlock { get { return this.BlockList[this.BlockList.Count - 1]; } }
+        public ChainedBlock RootBlock { get { return this.BlockList[this.BlockList.Count - 1]; } }
 
         public UInt256 RootBlockHash { get { return this.RootBlock.BlockHash; } }
     }

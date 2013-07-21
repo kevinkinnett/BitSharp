@@ -85,7 +85,7 @@ namespace BitSharp.Storage.SqlServer
         {
             CheckDatabaseFolder();
 
-            var blockListBuilder = ImmutableList.CreateBuilder<BlockMetadata>();
+            var blockListBuilder = ImmutableList.CreateBuilder<ChainedBlock>();
             var utxoBuilder = ImmutableHashSet.CreateBuilder<TxOutputKey>();
 
             var connString = @"Server=localhost; Database=BitSharp_Blockchains; Trusted_Connection=true;";
@@ -96,8 +96,8 @@ namespace BitSharp.Storage.SqlServer
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = @"
-                        SELECT BlockHash, PreviousBlockHash, ""Work"", Height, TotalWork, IsValid
-                        FROM BlockMetadata
+                        SELECT BlockHash, PreviousBlockHash, Height, TotalWork
+                        FROM ChainedBlocks
                         WHERE Guid = @guid AND RootBlockHash = @rootBlockHash
                         ORDER BY Height ASC";
 
@@ -110,12 +110,10 @@ namespace BitSharp.Storage.SqlServer
                         {
                             var blockHash = reader.GetUInt256(0);
                             var previousBlockHash = reader.GetUInt256(1);
-                            var work = reader.GetBigInteger(2);
-                            var height = reader.GetInt64Nullable(3);
-                            var totalWork = reader.GetBigIntegerNullable(4);
-                            var isValid = reader.GetBooleanNullable(5);
+                            var height = reader.GetInt32(2);
+                            var totalWork = reader.GetBigInteger(3);
 
-                            blockListBuilder.Add(new BlockMetadata(blockHash, previousBlockHash, work, height, totalWork, isValid));
+                            blockListBuilder.Add(new ChainedBlock(blockHash, previousBlockHash, height, totalWork));
                         }
                     }
                 }
@@ -194,26 +192,22 @@ namespace BitSharp.Storage.SqlServer
                         cmd.Transaction = trans;
 
                         cmd.CommandText = @"
-                            INSERT INTO BlockMetadata (Guid, RootBlockHash, BlockHash, PreviousBlockHash, ""Work"", Height, TotalWork, IsValid)
-                            VALUES (@guid, @rootBlockHash, @blockHash, @previousBlockHash, @work, @height, @totalWork, @isValid)";
+                            INSERT INTO ChainedBlocks (Guid, RootBlockHash, BlockHash, PreviousBlockHash, Height, TotalWork)
+                            VALUES (@guid, @rootBlockHash, @blockHash, @previousBlockHash, @height, @totalWork)";
 
                         cmd.Parameters.SetValue("@guid", SqlDbType.Binary, 16).Value = blockchainKey.Guid.ToByteArray();
                         cmd.Parameters.SetValue("@rootBlockHash", SqlDbType.Binary, 32).Value = blockchainKey.RootBlockHash.ToDbByteArray();
                         cmd.Parameters.Add(new SqlParameter { ParameterName = "@blockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
                         cmd.Parameters.Add(new SqlParameter { ParameterName = "@previousBlockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
-                        cmd.Parameters.Add(new SqlParameter { ParameterName = "@work", SqlDbType = SqlDbType.Binary, Size = 64 });
-                        cmd.Parameters.Add(new SqlParameter { ParameterName = "@height", SqlDbType = SqlDbType.BigInt });
+                        cmd.Parameters.Add(new SqlParameter { ParameterName = "@height", SqlDbType = SqlDbType.Int });
                         cmd.Parameters.Add(new SqlParameter { ParameterName = "@totalWork", SqlDbType = SqlDbType.Binary, Size = 64 });
-                        cmd.Parameters.Add(new SqlParameter { ParameterName = "@isValid", SqlDbType = SqlDbType.Bit });
 
-                        foreach (var blockMetadata in blockchain.BlockList)
+                        foreach (var chainedBlock in blockchain.BlockList)
                         {
-                            cmd.Parameters["@blockHash"].Value = blockMetadata.BlockHash.ToDbByteArray();
-                            cmd.Parameters["@previousBlockHash"].Value = blockMetadata.PreviousBlockHash.ToDbByteArray();
-                            cmd.Parameters["@work"].Value = blockMetadata.Work.ToDbByteArray();
-                            cmd.Parameters["@height"].Value = blockMetadata.Height.Value;
-                            cmd.Parameters["@totalWork"].Value = blockMetadata.TotalWork.Value.ToDbByteArray();
-                            cmd.Parameters["@isValid"].Value = (object)blockMetadata.IsValid ?? DBNull.Value;
+                            cmd.Parameters["@blockHash"].Value = chainedBlock.BlockHash.ToDbByteArray();
+                            cmd.Parameters["@previousBlockHash"].Value = chainedBlock.PreviousBlockHash.ToDbByteArray();
+                            cmd.Parameters["@height"].Value = chainedBlock.Height;
+                            cmd.Parameters["@totalWork"].Value = chainedBlock.TotalWork.ToDbByteArray();
 
                             cmd.ExecuteNonQuery();
                         }

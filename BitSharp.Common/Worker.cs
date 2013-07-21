@@ -110,32 +110,42 @@ namespace BitSharp.Common
 
         public void NotifyWork()
         {
-            this.notifyEvent.Set();
+            if (!this.isDisposed)
+            {
+                this.notifyEvent.Set();
+            }
         }
 
         public void ForceWork()
         {
-            this.forceNotifyEvent.Set();
-            this.notifyEvent.Set();
+            if (!this.isDisposed)
+            {
+                this.forceNotifyEvent.Set();
+                this.notifyEvent.Set();
+            }
         }
 
         public void ForceWorkAndWait()
         {
-            // wait for worker to idle
-            this.idleEvent.Wait();
+            if (!this.isDisposed)
+            {
+                // wait for worker to idle
+                this.idleEvent.Wait();
 
-            // reset its idle state
-            this.idleEvent.Reset();
+                // reset its idle state
+                this.idleEvent.Reset();
 
-            // force an execution
-            ForceWork();
+                // force an execution
+                ForceWork();
 
-            // wait for worker to be idle again
-            this.idleEvent.Wait();
+                // wait for worker to be idle again
+                this.idleEvent.Wait();
+            }
         }
 
         private void WorkerLoop()
         {
+            var working = false;
             try
             {
                 while (true)
@@ -165,11 +175,19 @@ namespace BitSharp.Common
                     stopwatch.Start();
 
                     // perform the work
+                    working = true;
                     workAction();
+                    working = false;
 
                     stopwatch.Stop();
-                    //Debug.WriteLine("{0} worked in {1:#,##0.000}s".Format2(this.Name, stopwatch.EllapsedSecondsFloat()));
+                    //Debug.WriteLineIf(stopwatch.ElapsedMilliseconds >= 25 && !this.Name.Contains(".StorageWorker"), "{0,35} worked in {1:#,##0.000}s".Format2(this.Name, stopwatch.ElapsedSecondsFloat()));
                 }
+            }
+            catch (ObjectDisposedException e)
+            {
+                // only throw disposed exceptions that occur in workAction()
+                if (working)
+                    throw;
             }
             catch (OperationCanceledException) { }
         }

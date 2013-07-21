@@ -36,7 +36,7 @@ namespace BitSharp.Client
 
             this.blockchainDaemon.OnWinningBlockChanged +=
                 (sender, block) =>
-                    WinningBlockchainHeight = block.Height ?? -1;
+                    WinningBlockchainHeight = block.Height;
 
             this.blockchainDaemon.OnCurrentBlockchainChanged +=
                 (sender, blockchain) =>
@@ -123,7 +123,7 @@ namespace BitSharp.Client
             SetViewBlockchain(this.blockchainDaemon.CurrentBlockchain);
         }
 
-        private void SetViewBlockchain(BlockMetadata targetBlock)
+        private void SetViewBlockchain(ChainedBlock targetBlock)
         {
             using (var cancelToken = new CancellationTokenSource())
             {
@@ -228,21 +228,21 @@ namespace BitSharp.Client
             }
         }
 
-        public long MetadataCacheSizeMB
+        public long ChainedBlockCacheSizeMB
         {
             get
             {
-                return this.blockchainDaemon.CacheContext.BlockMetadataCache.MaxCacheMemorySize / 1.MILLION();
+                return this.blockchainDaemon.CacheContext.ChainedBlockCache.MaxCacheMemorySize / 1.MILLION();
             }
             set
             {
                 var newValue = value * 1.MILLION();
-                if (newValue != this.blockchainDaemon.CacheContext.BlockMetadataCache.MaxCacheMemorySize)
+                if (newValue != this.blockchainDaemon.CacheContext.ChainedBlockCache.MaxCacheMemorySize)
                 {
-                    this.blockchainDaemon.CacheContext.BlockMetadataCache.MaxCacheMemorySize = newValue;
+                    this.blockchainDaemon.CacheContext.ChainedBlockCache.MaxCacheMemorySize = newValue;
                     var handler = this.PropertyChanged;
                     if (handler != null)
-                        handler(this, new PropertyChangedEventArgs("MetadataCacheSizeMB"));
+                        handler(this, new PropertyChangedEventArgs("ChainedBlockSizeMB"));
                 }
             }
         }
