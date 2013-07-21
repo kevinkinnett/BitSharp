@@ -90,7 +90,7 @@ namespace BitSharp.Daemon
             this._cacheContext.ChainedBlockCache.WaitForStorageFlush();
 
             // pre-fill the chained block and header caches
-            this._cacheContext.BlockHeaderCache.FillCache();
+            //this._cacheContext.BlockHeaderCache.FillCache();
             this._cacheContext.ChainedBlockCache.FillCache();
 
             // wire up cache events
