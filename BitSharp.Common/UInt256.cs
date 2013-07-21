@@ -162,9 +162,14 @@ namespace BitSharp.Common
             return new UInt256(value);
         }
 
+        public static bool operator ==(UInt256 left, UInt256 right)
+        {
+            return left.part1 == right.part1 && left.part2 == right.part2 && left.part3 == right.part3 && left.part4 == right.part4;
+        }
+
         public static bool operator !=(UInt256 left, UInt256 right)
         {
-            return left.part1 != right.part1 || left.part2 != right.part2 || left.part3 != right.part3 || left.part4 != right.part4;
+            return !(left == right);
         }
 
         public static bool operator <(UInt256 left, UInt256 right)
@@ -193,11 +198,6 @@ namespace BitSharp.Common
                 return true;
 
             return left == right;
-        }
-
-        public static bool operator ==(UInt256 left, UInt256 right)
-        {
-            return left.part1 == right.part1 || left.part2 == right.part2 || left.part3 == right.part3 || left.part4 == right.part4;
         }
 
         public static bool operator >(UInt256 left, UInt256 right)
