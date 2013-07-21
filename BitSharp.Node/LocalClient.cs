@@ -118,7 +118,7 @@ namespace BitSharp.Node
                 var unconnectedPeersLocal = this.unconnectedPeers.SafeToList();
 
                 // get number of connections to attempt
-                var connectCount = maxConnections - (connectedCount + pendingCount);
+                var connectCount = Math.Min(unconnectedCount, maxConnections - (connectedCount + pendingCount));
 
                 var connectTasks = new Task[connectCount];
                 for (var i = 0; i < connectCount; i++)
