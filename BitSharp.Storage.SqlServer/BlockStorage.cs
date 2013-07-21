@@ -197,7 +197,7 @@ namespace BitSharp.Storage.SqlServer
             using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = @"
-                    SELECT BlockHash, SUBSTR(RawBytes, 1, 80)
+                    SELECT BlockHash, SUBSTRING(RawBytes, 1, 80)
                     FROM Blocks";
 
                 using (var reader = cmd.ExecuteReader())
