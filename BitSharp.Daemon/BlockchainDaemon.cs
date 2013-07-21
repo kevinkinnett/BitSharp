@@ -368,10 +368,7 @@ namespace BitSharp.Daemon
                     {
                         BlockHeader blockHeader;
                         if (this.CacheContext.BlockHeaderCache.TryGetValue(blockHash, out blockHeader))
-                        {
                             unchainedGroup.Add(blockHeader);
-                        }
-
                     }
                 }
 
@@ -379,7 +376,7 @@ namespace BitSharp.Daemon
                 {
                     // cooperative loop
                     this.shutdownToken.Token.ThrowIfCancellationRequested();
-                    
+
                     // check that block hasn't become chained
                     if (this.CacheContext.ChainedBlockCache.ContainsKey(unchainedBlock.Hash))
                         break;
