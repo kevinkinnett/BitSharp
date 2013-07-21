@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Storage
 {
-    public class TransactionCache : UnboundedCache<TxKeySearch, Transaction>
+    public class TransactionCache : UnboundedCache<UInt256, Transaction>
     {
         private readonly CacheContext _cacheContext;
 
@@ -24,7 +24,7 @@ namespace BitSharp.Storage
         public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
     }
 
-    public class TransactionStorage : IUnboundedStorage<TxKeySearch, Transaction>
+    public class TransactionStorage : IUnboundedStorage<UInt256, Transaction>
     {
         private readonly CacheContext _cacheContext;
 
@@ -41,19 +41,22 @@ namespace BitSharp.Storage
         {
         }
 
-        public bool TryReadValue(TxKeySearch txKeySearch, out Transaction value)
+        public bool TryReadValue(UInt256 txHash, out Transaction value)
         {
-            TxKey txKey;
-            if (this.CacheContext.TxKeyCache.TryGetValue(txKeySearch, out txKey))
+            HashSet<TxKey> txKeySet;
+            if (this.CacheContext.TxKeyCache.TryGetValue(txHash, out txKeySet))
             {
-                Block block;
-                if (this.CacheContext.BlockCache.TryGetValue(txKey.BlockHash, out block))
+                foreach (var txKey in txKeySet)
                 {
-                    if (txKey.TxIndex >= block.Transactions.Length)
-                        throw new MissingDataException(DataType.Transaction, txKey.TxHash); //TODO should be invalid data, not missing data
+                    Block block;
+                    if (this.CacheContext.BlockCache.TryGetValue(txKey.BlockHash, out block))
+                    {
+                        if (txKey.TxIndex >= block.Transactions.Length)
+                            throw new MissingDataException(DataType.Transaction, txKey.TxHash); //TODO should be invalid data, not missing data
 
-                    value = block.Transactions[txKey.TxIndex.ToIntChecked()];
-                    return true;
+                        value = block.Transactions[txKey.TxIndex.ToIntChecked()];
+                        return true;
+                    }
                 }
             }
 
@@ -61,7 +64,7 @@ namespace BitSharp.Storage
             return false;
         }
 
-        public bool TryWriteValues(IEnumerable<KeyValuePair<TxKeySearch, WriteValue<Transaction>>> values)
+        public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<Transaction>>> values)
         {
             throw new NotSupportedException();
         }

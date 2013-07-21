@@ -82,7 +82,6 @@
     <Compile Include="TxInput.cs" />
     <Compile Include="TxOutput.cs" />
     <Compile Include="TxKey.cs" />
-    <Compile Include="TxKeySearch.cs" />
     <Compile Include="TxOutputKey.cs" />
     <Compile Include="WriterExtensionMethods.cs" />
   </ItemGroup>

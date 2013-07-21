@@ -22,5 +22,10 @@ namespace BitSharp.Storage
         public CacheContext CacheContext { get { return this._cacheContext; } }
 
         public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
+
+        protected override void BeforeCreateOrUpdate(UInt256 blockHash, Block block, bool isCreate)
+        {
+            this.CacheContext.TxKeyCache.InvalidateBlock(block);
+        }
     }
 }

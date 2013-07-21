@@ -26,7 +26,7 @@ namespace BitSharp.Storage.Firebird
             : base(storageContext)
         { }
 
-        public bool TryReadValue(TxKeySearch txKeySearch, out TxKey txKey)
+        public bool TryReadValue(UInt256 txHash, out HashSet<TxKey> txKeySet)
         {
             using (var conn = this.OpenConnection())
             using (var cmd = conn.CreateCommand())
@@ -36,29 +36,26 @@ namespace BitSharp.Storage.Firebird
                     FROM TransactionLocators
                     WHERE TransactionHash = @txHash";
 
-                cmd.Parameters.SetValue("@txHash", FbDbType.Char, FbCharset.Octets, 32).Value = txKeySearch.TxHash.ToDbByteArray();
+                cmd.Parameters.SetValue("@txHash", FbDbType.Char, FbCharset.Octets, 32).Value = txHash.ToDbByteArray();
 
                 using (var reader = cmd.ExecuteReader())
                 {
+                    txKeySet = new HashSet<TxKey>();
+
                     while (reader.Read())
                     {
                         var blockHash = reader.GetUInt256(0);
                         var txIndex = reader.GetUInt32(1);
 
-                        if (txKeySearch.BlockHashes.Contains(blockHash))
-                        {
-                            txKey = new TxKey(txKeySearch.TxHash, blockHash, txIndex);
-                            return true;
-                        }
+                        txKeySet.Add(new TxKey(txHash, blockHash, txIndex));
                     }
 
-                    txKey = default(TxKey);
-                    return false;
+                    return txKeySet.Count > 0;
                 }
-            }
+            } 
         }
 
-        public bool TryWriteValues(IEnumerable<KeyValuePair<TxKeySearch, WriteValue<TxKey>>> txKeys)
+        public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<HashSet<TxKey>>>> txKeys)
         {
             throw new NotSupportedException();
         }

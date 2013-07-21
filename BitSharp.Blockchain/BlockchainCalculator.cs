@@ -606,7 +606,7 @@ namespace BitSharp.Blockchain
                             foreach (var inputTxHash in inputTxHashList)
                             {
                                 Transaction inputTx;
-                                if (this.CacheContext.TransactionCache.TryGetValue(new TxKeySearch(inputTxHash, blockchainHashes), out inputTx, saveInCache: false))
+                                if (this.CacheContext.TransactionCache.TryGetValue(inputTxHash /*TODO, blockchainHashes*/, out inputTx, saveInCache: false))
                                 {
                                     transactionsBuilder.Add(inputTxHash, inputTx);
                                 }

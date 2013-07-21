@@ -658,16 +658,16 @@ namespace BitSharp.Daemon
             }
         }
 
-        public bool TryGetTransaction(TxKeySearch txKeySearch, out Transaction transaction, bool saveInCache = true)
+        public bool TryGetTransaction(UInt256 txHash, out Transaction transaction, bool saveInCache = true)
         {
-            if (this.CacheContext.TransactionCache.TryGetValue(txKeySearch, out transaction))
+            if (this.CacheContext.TransactionCache.TryGetValue(txHash, out transaction))
             {
-                this.missingTransactions.TryRemove(txKeySearch.TxHash);
+                this.missingTransactions.TryRemove(txHash);
                 return true;
             }
             else
             {
-                this.missingTransactions.TryAdd(txKeySearch.TxHash);
+                this.missingTransactions.TryAdd(txHash);
                 transaction = default(Transaction);
                 return false;
             }

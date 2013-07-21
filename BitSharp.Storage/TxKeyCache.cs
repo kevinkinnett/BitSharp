@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Storage
 {
-    public class TxKeyCache : UnboundedCache<TxKeySearch, TxKey>
+    public class TxKeyCache : UnboundedCache<UInt256, HashSet<TxKey>>
     {
         private readonly CacheContext _cacheContext;
 
@@ -20,5 +20,13 @@ namespace BitSharp.Storage
         public CacheContext CacheContext { get { return this._cacheContext; } }
 
         public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
+
+        internal void InvalidateBlock(Block block)
+        {
+            foreach (var tx in block.Transactions)
+            {
+                DecacheValue(tx.Hash);
+            }
+        }
     }
 }

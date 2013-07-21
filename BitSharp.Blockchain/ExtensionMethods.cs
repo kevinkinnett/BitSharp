@@ -46,12 +46,12 @@ namespace BitSharp.Blockchain.ExtensionMethods
             return chainedBlock;
         }
 
-        public static Transaction GetTransaction(this CacheContext cacheContext, TxKeySearch txKeySearch, bool saveInCache = true)
+        public static Transaction GetTransaction(this CacheContext cacheContext, UInt256 txHash, bool saveInCache = true)
         {
             Transaction transaction;
-            if (!cacheContext.TransactionCache.TryGetValue(txKeySearch, out transaction, saveInCache))
+            if (!cacheContext.TransactionCache.TryGetValue(txHash, out transaction, saveInCache))
             {
-                throw new MissingDataException(DataType.Transaction, txKeySearch.TxHash);
+                throw new MissingDataException(DataType.Transaction, txHash);
             }
 
             return transaction;

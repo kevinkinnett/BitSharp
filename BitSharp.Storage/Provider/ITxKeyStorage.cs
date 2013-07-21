@@ -1,4 +1,5 @@
-﻿using BitSharp.Data;
+﻿using BitSharp.Common;
+using BitSharp.Data;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Storage
 {
-    public interface ITxKeyStorage : IUnboundedStorage<TxKeySearch, TxKey>
+    public interface ITxKeyStorage : IUnboundedStorage<UInt256, HashSet<TxKey>>
     {
     }
 }
