@@ -226,7 +226,7 @@ namespace BitSharp.Blockchain.Test
             //TODO when there is a tie this method is not deterministic, causing TestSimpleBlockchainSplit to fail
 
             var leafChainedBlocks =
-                this.StorageContext.ChainedBlockStorage.FindLeafChained()
+                this.CacheContext.ChainedBlockCache.FindLeafChainedBlocks()
                  .ToDictionary(x => x.BlockHash, x => x);
 
             while (true)
@@ -234,7 +234,7 @@ namespace BitSharp.Blockchain.Test
                 var newWinner = this._rules.SelectWinningChainedBlock(leafChainedBlocks.Values.ToList());
                 if (newWinner.IsDefault)
                     break;
-                
+
                 leafChainedBlocks.Remove(newWinner.BlockHash);
                 try
                 {
