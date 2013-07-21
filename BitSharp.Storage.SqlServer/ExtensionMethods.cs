@@ -128,13 +128,12 @@ namespace BitSharp.Storage.SqlServer.ExtensionMethods
 
         public static bool IsDeadlock(this SqlException e)
         {
-            return e.ErrorCode == 1205;
+            return e.Number == 1205;
         }
 
         public static bool IsTimeout(this SqlException e)
         {
-            throw new NotImplementedException();
-            return e.ErrorCode == 1205;
+            return e.Number == -2;
         }
     }
 }
