@@ -591,32 +591,35 @@ namespace BitSharp.Blockchain
 
         public IEnumerable<Tuple<Block, ChainedBlock, ImmutableDictionary<UInt256, Transaction>>> BlockAndTxLookAhead(IList<UInt256> blockHashes, ImmutableHashSet<UInt256> blockchainHashes)
         {
-            var blockLookAhead = LookAheadMethods.ParallelLookupLookAhead<UInt256, Tuple<Block, ImmutableDictionary<UInt256, Transaction>>>(
-                blockHashes, blockHash =>
-                {
-                    var block = this.CacheContext.GetBlock(blockHash, saveInCache: false);
-
-                    var transactionsBuilder = ImmutableDictionary.CreateBuilder<UInt256, Transaction>();
-                    if (blockchainHashes != null)
+            var blockLookAhead = LookAheadMethods.LookAhead(
+                () => blockHashes.Select(
+                    blockHash =>
                     {
-                        var inputTxHashList = block.Transactions.Skip(1).SelectMany(x => x.Inputs).Select(x => x.PreviousTxOutputKey.TxHash).Distinct();
+                        var block = this.CacheContext.GetBlock(blockHash, saveInCache: false);
 
-                        // pre-cache input transactions
-                        foreach (var inputTxHash in inputTxHashList)
+                        var transactionsBuilder = ImmutableDictionary.CreateBuilder<UInt256, Transaction>();
+                        if (blockchainHashes != null)
                         {
-                            Transaction inputTx;
-                            if (this.CacheContext.TransactionCache.TryGetValue(new TxKeySearch(inputTxHash, blockchainHashes), out inputTx, saveInCache: false))
+                            var inputTxHashList = block.Transactions.Skip(1).SelectMany(x => x.Inputs).Select(x => x.PreviousTxOutputKey.TxHash).Distinct();
+
+                            // pre-cache input transactions
+                            foreach (var inputTxHash in inputTxHashList)
                             {
-                                transactionsBuilder.Add(inputTxHash, inputTx);
+                                Transaction inputTx;
+                                if (this.CacheContext.TransactionCache.TryGetValue(new TxKeySearch(inputTxHash, blockchainHashes), out inputTx, saveInCache: false))
+                                {
+                                    transactionsBuilder.Add(inputTxHash, inputTx);
+                                }
                             }
                         }
-                    }
 
-                    return Tuple.Create(block, transactionsBuilder.ToImmutable());
-                }, this.shutdownToken);
+                        return Tuple.Create(block, transactionsBuilder.ToImmutable());
+                    }),
+                this.shutdownToken);
 
-            var chainedBlockLookAhead = LookAheadMethods.ParallelLookupLookAhead<UInt256, ChainedBlock>(
-                blockHashes, blockHash => this.CacheContext.GetChainedBlock(blockHash, saveInCache: false), this.shutdownToken);
+            var chainedBlockLookAhead = LookAheadMethods.LookAhead(
+                () => blockHashes.Select(blockHash => this.CacheContext.GetChainedBlock(blockHash, saveInCache: false)),
+                this.shutdownToken);
 
             return blockLookAhead.Zip(chainedBlockLookAhead, (block, chainedBlock) => Tuple.Create(block.Item1, chainedBlock, block.Item2));
         }
