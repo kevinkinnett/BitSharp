@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Linq;
 using BitSharp.Common.ExtensionMethods;
+using BitSharp.Common.Test;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Globalization;
+using System.Numerics;
 
 namespace BitSharp.Common.Test
 {
@@ -12,13 +14,40 @@ namespace BitSharp.Common.Test
         [TestMethod]
         public void TestUInt256Equality()
         {
-            var expected = UInt256.Parse(TestData.HEX_STRING_64, NumberStyles.HexNumber);
-            var actual = new UInt256(expected.ToByteArray());
+            var part1 = 0UL;
+            var part2 = 1UL;
+            var part3 = 2UL;
+            var part4 = 3UL;
 
-            Assert.AreEqual(expected, actual);
-            Assert.IsTrue(expected == actual);
-            Assert.IsFalse(expected != actual);
-            CollectionAssert.AreEqual(expected.ToByteArray(), actual.ToByteArray());
+            var expectedBigInt = (new BigInteger(part1) << 96) + (new BigInteger(part2) << 64) + (new BigInteger(part3) << 32) + new BigInteger(part4);
+
+            var expected = new UInt256(expectedBigInt);
+
+            var same = new UInt256(expectedBigInt);
+            var differentPart1 = new UInt256((new BigInteger(~part1) << 96) + (new BigInteger(part2) << 64) + (new BigInteger(part3) << 32) + new BigInteger(part4));
+            var differentPart2 = new UInt256((new BigInteger(part1) << 96) + (new BigInteger(~part2) << 64) + (new BigInteger(part3) << 32) + new BigInteger(part4));
+            var differentPart3 = new UInt256((new BigInteger(part1) << 96) + (new BigInteger(part2) << 64) + (new BigInteger(~part3) << 32) + new BigInteger(part4));
+            var differentPart4 = new UInt256((new BigInteger(part1) << 96) + (new BigInteger(part2) << 64) + (new BigInteger(part3) << 32) + new BigInteger(~part4));
+
+            Assert.IsTrue(expected.Equals(same));
+            Assert.IsTrue(expected == same);
+            Assert.IsFalse(expected != same);
+
+            Assert.IsFalse(expected.Equals(differentPart1));
+            Assert.IsFalse(expected == differentPart1);
+            Assert.IsTrue(expected != differentPart1);
+
+            Assert.IsFalse(expected.Equals(differentPart2));
+            Assert.IsFalse(expected == differentPart2);
+            Assert.IsTrue(expected != differentPart2);
+
+            Assert.IsFalse(expected.Equals(differentPart3));
+            Assert.IsFalse(expected == differentPart3);
+            Assert.IsTrue(expected != differentPart3);
+
+            Assert.IsFalse(expected.Equals(differentPart4));
+            Assert.IsFalse(expected == differentPart4);
+            Assert.IsTrue(expected != differentPart4);
         }
 
         [TestMethod]
