@@ -89,6 +89,7 @@
   </Choose>
   <ItemGroup>
     <Compile Include="BlockCache.cs" />
+    <Compile Include="BlockHeaderStorage.cs" />
     <Compile Include="ChainedBlockCache.cs" />
     <Compile Include="BlockHeaderCache.cs" />
     <Compile Include="IUnboundedStorage.cs" />
