@@ -12,7 +12,7 @@ namespace BitSharp.Data.Test
     public class BlockTest
     {
         [TestMethod]
-        public void TestIsDefault()
+        public void TestBlockIsDefault()
         {
             var defaultBlock = default(Block);
             Assert.IsTrue(defaultBlock.IsDefault);
@@ -22,7 +22,7 @@ namespace BitSharp.Data.Test
         }
 
         [TestMethod]
-        public void TestEquality()
+        public void TestBlockEquality()
         {
             var randomBlock = RandomData.RandomBlock();
 
