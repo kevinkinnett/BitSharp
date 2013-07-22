@@ -91,7 +91,7 @@ namespace BitSharp.Data
 
         public static bool operator ==(BlockHeader left, BlockHeader right)
         {
-            return left.Hash == right.Hash;
+            return left.Hash == right.Hash && left.Version == right.Version && left.PreviousBlock == right.PreviousBlock && left.MerkleRoot == right.MerkleRoot && left.Time == right.Time && left.Bits == right.Bits && left.Nonce == right.Nonce;
         }
 
         public static bool operator !=(BlockHeader left, BlockHeader right)

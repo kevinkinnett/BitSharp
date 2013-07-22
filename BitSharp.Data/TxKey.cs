@@ -12,6 +12,8 @@ namespace BitSharp.Data
         private readonly UInt256 _txHash;
         private readonly UInt256 _blockHash;
         private readonly UInt32 _txIndex;
+
+        private readonly bool notDefault;
         private readonly int hashCode;
 
         public TxKey(UInt256 txHash, UInt256 blockHash, UInt32 txIndex)
@@ -19,8 +21,12 @@ namespace BitSharp.Data
             this._txHash = txHash;
             this._blockHash = blockHash;
             this._txIndex = txIndex;
+
+            this.notDefault = true;
             this.hashCode = txHash.GetHashCode() ^ blockHash.GetHashCode() ^ txIndex.GetHashCode();
         }
+
+        public bool IsDefault { get { return !this.notDefault; } }
 
         public UInt256 TxHash { get { return this._txHash; } }
 
@@ -33,8 +39,7 @@ namespace BitSharp.Data
             if (!(obj is TxKey))
                 return false;
 
-            var other = (TxKey)obj;
-            return other == this;
+            return (TxKey)obj == this;
         }
 
         public override int GetHashCode()

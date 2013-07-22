@@ -16,6 +16,7 @@ namespace BitSharp.Data
         private readonly ImmutableList<ChainedBlock> _blockList;
         private readonly ImmutableHashSet<UInt256> _blockListHashes;
         private readonly ImmutableHashSet<TxOutputKey> _utxo;
+
         private readonly bool notDefault;
 
         public Blockchain(ImmutableList<ChainedBlock> blockList, ImmutableHashSet<UInt256> blockListHashes, ImmutableHashSet<TxOutputKey> utxo)
@@ -44,5 +45,24 @@ namespace BitSharp.Data
         public ChainedBlock RootBlock { get { return this.BlockList[this.BlockList.Count - 1]; } }
 
         public UInt256 RootBlockHash { get { return this.RootBlock.BlockHash; } }
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is Blockchain))
+                return false;
+
+            return (Blockchain)obj == this;
+        }
+
+        public static bool operator ==(Blockchain left, Blockchain right)
+        {
+            return left.BlockList.SequenceEqual(right.BlockList) && left.BlockListHashes.SetEquals(right.BlockListHashes) && left.BlockListHashes.SetEquals(right.BlockListHashes);
+        }
+
+        public static bool operator !=(Blockchain left, Blockchain right)
+        {
+            return !(left == right);
+        }
+
     }
 }

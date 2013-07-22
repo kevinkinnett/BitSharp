@@ -26,5 +26,24 @@ namespace BitSharp.Data
         public UInt256 RootBlockHash { get { return this._rootBlockHash; } }
 
         public BigInteger TotalWork { get { return this._totalWork; } }
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is BlockchainMetadata))
+                return false;
+
+            return (BlockchainMetadata)obj == this;
+        }
+
+        public static bool operator ==(BlockchainMetadata left, BlockchainMetadata right)
+        {
+            return left.Guid == right.Guid && left.RootBlockHash == right.RootBlockHash && left.TotalWork == right.TotalWork;
+        }
+
+        public static bool operator !=(BlockchainMetadata left, BlockchainMetadata right)
+        {
+            return !(left == right);
+        }
+
     }
 }

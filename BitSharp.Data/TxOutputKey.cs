@@ -11,14 +11,20 @@ namespace BitSharp.Data
     {
         private readonly UInt256 _txHash;
         private readonly UInt32 _txOutputIndex;
+
+        private readonly bool notDefault;
         private readonly int hashCode;
 
         public TxOutputKey(UInt256 txHash, UInt32 txOutputIndex)
         {
             this._txHash = txHash;
             this._txOutputIndex = txOutputIndex;
+
+            this.notDefault = true;
             this.hashCode = txHash.GetHashCode() ^ txOutputIndex.GetHashCode();
         }
+
+        public bool IsDefault { get { return !this.notDefault; } }
 
         public UInt256 TxHash { get { return this._txHash; } }
 
@@ -29,8 +35,7 @@ namespace BitSharp.Data
             if (!(obj is TxOutputKey))
                 return false;
 
-            var other = (TxOutputKey)obj;
-            return other == this;
+            return (TxOutputKey)obj == this;
         }
 
         public override int GetHashCode()

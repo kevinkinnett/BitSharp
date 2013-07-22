@@ -19,7 +19,9 @@ namespace BitSharp.Data
         private readonly UInt32 _lockTime;
         private readonly UInt256 _hash;
         private readonly long _sizeEstimate;
+
         private readonly bool notDefault;
+        private readonly int hashCode;
 
         public Transaction(UInt32 version, ImmutableArray<TxInput> inputs, ImmutableArray<TxOutput> outputs, UInt32 lockTime, UInt256? hash = null)
         {
@@ -40,6 +42,7 @@ namespace BitSharp.Data
             this._hash = hash ?? DataCalculator.CalculateTransactionHash(version, inputs, outputs, lockTime);
 
             this.notDefault = true;
+            this.hashCode = this._hash.GetHashCode();
         }
 
         public bool IsDefault { get { return !this.notDefault; } }
@@ -56,11 +59,6 @@ namespace BitSharp.Data
 
         public long SizeEstimate { get { return this._sizeEstimate; } }
 
-        public static long SizeEstimator(Transaction tx)
-        {
-            return tx.SizeEstimate;
-        }
-
         public Transaction With(UInt32? Version = null, ImmutableArray<TxInput>? Inputs = null, ImmutableArray<TxOutput>? Outputs = null, UInt32? LockTime = null)
         {
             return new Transaction
@@ -70,6 +68,34 @@ namespace BitSharp.Data
                 Outputs ?? this.Outputs,
                 LockTime ?? this.LockTime
             );
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is Transaction))
+                return false;
+
+            return (Transaction)obj == this;
+        }
+
+        public override int GetHashCode()
+        {
+            return this.hashCode;
+        }
+
+        public static bool operator ==(Transaction left, Transaction right)
+        {
+            return left.Hash == right.Hash && left.Version == right.Version && left.Inputs.SequenceEqual(right.Inputs) && left.Outputs.SequenceEqual(right.Outputs) && left.LockTime == right.LockTime;
+        }
+
+        public static bool operator !=(Transaction left, Transaction right)
+        {
+            return !(left == right);
+        }
+
+        public static long SizeEstimator(Transaction tx)
+        {
+            return tx.SizeEstimate;
         }
     }
 }
