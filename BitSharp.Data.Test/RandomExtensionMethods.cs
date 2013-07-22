@@ -19,7 +19,7 @@ namespace BitSharp.Data.Test
 
         public static UInt64 NextUInt64(this Random random)
         {
-            return (random.NextUInt32() << 32) + random.NextUInt64();
+            return (random.NextUInt32() << 32) + random.NextUInt32();
         }
 
         public static UInt256 NextUInt256(this Random random)
