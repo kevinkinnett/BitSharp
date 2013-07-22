@@ -37,30 +37,30 @@ namespace BitSharp.Data.Test
 
             Assert.IsTrue(randomBlockHeader.Equals(sameBlockHeader));
             Assert.IsTrue(randomBlockHeader == sameBlockHeader);
-            Assert.IsTrue(!(randomBlockHeader != sameBlockHeader));
+            Assert.IsFalse(randomBlockHeader != sameBlockHeader);
 
-            Assert.IsTrue(!randomBlockHeader.Equals(differentBlockHeaderVersion));
-            Assert.IsTrue(!(randomBlockHeader == differentBlockHeaderVersion));
+            Assert.IsFalse(randomBlockHeader.Equals(differentBlockHeaderVersion));
+            Assert.IsFalse(randomBlockHeader == differentBlockHeaderVersion);
             Assert.IsTrue(randomBlockHeader != differentBlockHeaderVersion);
 
-            Assert.IsTrue(!randomBlockHeader.Equals(differentBlockHeaderPreviousBlock));
-            Assert.IsTrue(!(randomBlockHeader == differentBlockHeaderPreviousBlock));
+            Assert.IsFalse(randomBlockHeader.Equals(differentBlockHeaderPreviousBlock));
+            Assert.IsFalse(randomBlockHeader == differentBlockHeaderPreviousBlock);
             Assert.IsTrue(randomBlockHeader != differentBlockHeaderPreviousBlock);
 
-            Assert.IsTrue(!randomBlockHeader.Equals(differentBlockHeaderMerkleRoot));
-            Assert.IsTrue(!(randomBlockHeader == differentBlockHeaderMerkleRoot));
+            Assert.IsFalse(randomBlockHeader.Equals(differentBlockHeaderMerkleRoot));
+            Assert.IsFalse(randomBlockHeader == differentBlockHeaderMerkleRoot);
             Assert.IsTrue(randomBlockHeader != differentBlockHeaderMerkleRoot);
 
-            Assert.IsTrue(!randomBlockHeader.Equals(differentBlockHeaderTime));
-            Assert.IsTrue(!(randomBlockHeader == differentBlockHeaderTime));
+            Assert.IsFalse(randomBlockHeader.Equals(differentBlockHeaderTime));
+            Assert.IsFalse(randomBlockHeader == differentBlockHeaderTime);
             Assert.IsTrue(randomBlockHeader != differentBlockHeaderTime);
 
-            Assert.IsTrue(!randomBlockHeader.Equals(differentBlockHeaderBits));
-            Assert.IsTrue(!(randomBlockHeader == differentBlockHeaderBits));
+            Assert.IsFalse(randomBlockHeader.Equals(differentBlockHeaderBits));
+            Assert.IsFalse(randomBlockHeader == differentBlockHeaderBits);
             Assert.IsTrue(randomBlockHeader != differentBlockHeaderBits);
 
-            Assert.IsTrue(!randomBlockHeader.Equals(differentBlockHeaderNonce));
-            Assert.IsTrue(!(randomBlockHeader == differentBlockHeaderNonce));
+            Assert.IsFalse(randomBlockHeader.Equals(differentBlockHeaderNonce));
+            Assert.IsFalse(randomBlockHeader == differentBlockHeaderNonce);
             Assert.IsTrue(randomBlockHeader != differentBlockHeaderNonce);
         }
     }

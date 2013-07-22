@@ -36,10 +36,10 @@ namespace BitSharp.Data.Test
 
             Assert.IsTrue(randomBlock.Equals(sameBlock));
             Assert.IsTrue(randomBlock == sameBlock);
-            Assert.IsTrue(!(randomBlock != sameBlock));
+            Assert.IsFalse(randomBlock != sameBlock);
 
-            Assert.IsTrue(!randomBlock.Equals(differentBlock));
-            Assert.IsTrue(!(randomBlock == differentBlock));
+            Assert.IsFalse(randomBlock.Equals(differentBlock));
+            Assert.IsFalse(randomBlock == differentBlock);
             Assert.IsTrue(randomBlock != differentBlock);
         }
     }
