@@ -52,6 +52,18 @@ namespace BitSharp.Common
             this.notDefault = true;
         }
 
+        private UInt256(UInt64 part1, UInt64 part2, UInt64 part3, UInt64 part4)
+        {
+            this.part1 = part1;
+            this.part2 = part2;
+            this.part3 = part3;
+            this.part4 = part4;
+
+            this.hashCode = this.part1.GetHashCode() ^ this.part2.GetHashCode() ^ this.part3.GetHashCode() ^ this.part4.GetHashCode();
+
+            this.notDefault = true;
+        }
+
         public UInt256(int value)
             : this(Bits.GetBytes(value))
         {
@@ -296,6 +308,11 @@ namespace BitSharp.Common
         public static UInt256 operator /(UInt256 dividend, UInt256 divisor)
         {
             return new UInt256(dividend.ToBigInteger() / divisor.ToBigInteger());
+        }
+
+        public static UInt256 operator ~(UInt256 value)
+        {
+            return new UInt256(~value.part1, ~value.part2, ~value.part3, ~value.part4);
         }
 
         public static UInt256 DivRem(UInt256 dividend, UInt256 divisor, out UInt256 remainder)
