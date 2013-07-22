@@ -25,7 +25,7 @@ namespace BitSharp.Storage
 
         protected override void BeforeCreateOrUpdate(UInt256 blockHash, Block block, bool isCreate)
         {
-            this.CacheContext.TxKeyCache.InvalidateBlock(block);
+            this.CacheContext.TxKeyCache.CacheBlock(block);
         }
     }
 }

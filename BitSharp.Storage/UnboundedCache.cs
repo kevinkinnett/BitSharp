@@ -31,7 +31,7 @@ namespace BitSharp.Storage
         private long flushPendingSize;
 
         // memory cache
-        private readonly ReaderWriterLockSlim memoryCacheLock;
+        protected readonly ReaderWriterLockSlim memoryCacheLock;
         private readonly ConcurrentDictionary<CacheKey<TKey>, TValue> memoryCache;
         private long memoryCacheSize;
         private long cacheIndex;
@@ -55,7 +55,7 @@ namespace BitSharp.Storage
             this.flushPending = new ConcurrentDictionary<TKey, WriteValue<TValue>>();
             this.flushPendingSize = 0;
 
-            this.memoryCacheLock = new ReaderWriterLockSlim();
+            this.memoryCacheLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
             this.memoryCache = new ConcurrentDictionary<CacheKey<TKey>, TValue>();
             this.memoryCacheSize = 0;
 
@@ -113,45 +113,20 @@ namespace BitSharp.Storage
                 return true;
 
             // look in the cache next, it will be added here before being removed from pending
-            this.memoryCacheLock.EnterReadLock();
-            try
-            {
-                TValue cachedValue;
-                if (this.memoryCache.TryGetValue((CacheKey<TKey>)key, out cachedValue))
-                {
-                    value = cachedValue;
-                    return true;
-                }
-            }
-            finally
-            {
-                this.memoryCacheLock.ExitReadLock();
-            }
+            if (TryGetMemoryValue(key, out value))
+                return true;
 
             //Debug.WriteLine("{0}: Cache miss".Format2(this.name));
 
             // look in storage last
-            TValue storedValue;
-            if (dataStorage.TryReadValue(key, out storedValue))
-            {
-                // cache the retrieved value
-                if (saveInCache)
-                    CacheValue(key, storedValue);
-
-                // fire missing event
-                var handler1 = this.OnRetrieved;
-                if (handler1 != null)
-                    handler1(key, storedValue);
-
-                value = storedValue;
+            if (TryGetStorageValue(key, out value, saveInCache))
                 return true;
-            }
 
             // no value found in flush-pending, memory cache, or storage
             // fire missing event
-            var handler2 = this.OnMissing;
-            if (handler2 != null)
-                handler2(key);
+            var handler = this.OnMissing;
+            if (handler != null)
+                handler(key);
 
             value = default(TValue);
             return false;
@@ -173,6 +148,53 @@ namespace BitSharp.Storage
             if (this.flushPending.TryGetValue(key, out pendingValue))
             {
                 value = pendingValue.Value;
+                return true;
+            }
+            else
+            {
+                value = default(TValue);
+                return false;
+            }
+        }
+
+        protected bool TryGetMemoryValue(TKey key, out TValue value)
+        {
+            this.memoryCacheLock.EnterReadLock();
+            try
+            {
+                TValue cachedValue;
+                if (this.memoryCache.TryGetValue((CacheKey<TKey>)key, out cachedValue))
+                {
+                    value = cachedValue;
+                    return true;
+                }
+                else
+                {
+                    value = default(TValue);
+                    return false;
+                }
+            }
+            finally
+            {
+                this.memoryCacheLock.ExitReadLock();
+            }
+        }
+
+        protected bool TryGetStorageValue(TKey key, out TValue value, bool saveInCache)
+        {
+            TValue storedValue;
+            if (dataStorage.TryReadValue(key, out storedValue))
+            {
+                // cache the retrieved value
+                if (saveInCache)
+                    CacheValue(key, storedValue);
+
+                // fire retrieved event
+                var handler = this.OnRetrieved;
+                if (handler != null)
+                    handler(key, storedValue);
+
+                value = storedValue;
                 return true;
             }
             else
@@ -335,7 +357,7 @@ namespace BitSharp.Storage
 
             var memoryDelta = 0L;
 
-            this.memoryCacheLock.DoRead(() =>
+            this.memoryCacheLock.DoWrite(() =>
             {
                 // remove existing value
                 TValue existingValue;
@@ -366,7 +388,7 @@ namespace BitSharp.Storage
         {
             var memoryDelta = 0L;
 
-            this.memoryCacheLock.DoRead(() =>
+            this.memoryCacheLock.DoWrite(() =>
             {
                 // remove existing value
                 TValue existingValue;
@@ -468,7 +490,7 @@ namespace BitSharp.Storage
                 if (this.IsCacheExcessivelyOversized)
                     this.cacheBlockEvent.Reset();
 
-                this.memoryCacheLock.DoRead(() =>
+                this.memoryCacheLock.DoWrite(() =>
                 {
                     var stopwatch = new Stopwatch();
                     stopwatch.Start();
