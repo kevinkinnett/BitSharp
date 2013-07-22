@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -374,6 +375,20 @@ namespace BitSharp.Common.ExtensionMethods
                 list.Add(item);
 
             return list;
+        }
+
+        public static byte[] HexToByteArray(this string value)
+        {
+            if (value.Length % 2 != 0)
+                throw new ArgumentOutOfRangeException();
+
+            var bytes = new byte[value.Length / 2];
+            for (var i = 0; i < bytes.Length; i++)
+            {
+                bytes[i] = Byte.Parse(value.Substring(i * 2, 2), NumberStyles.HexNumber);
+            }
+
+            return bytes;
         }
     }
 }
