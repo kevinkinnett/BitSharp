@@ -115,7 +115,7 @@ namespace BitSharp.Daemon
                 runOnStart: true, waitTime: TimeSpan.FromMinutes(30), maxIdleTime: TimeSpan.FromMinutes(30));
 
             this.writeBlockchainWorker = new Worker("WriteBlockchainWorker", WriteBlockchainWorker,
-                runOnStart: true, waitTime: TimeSpan.FromMinutes(1), maxIdleTime: TimeSpan.FromMinutes(30));
+                runOnStart: true, waitTime: TimeSpan.FromMinutes(5), maxIdleTime: TimeSpan.FromMinutes(30));
         }
 
         public IBlockchainRules Rules { get { return this._rules; } }
