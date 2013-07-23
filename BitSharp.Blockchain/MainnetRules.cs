@@ -373,8 +373,8 @@ namespace BitSharp.Blockchain
             {
                 var scriptEngine = new ScriptEngine();
 
-                //Parallel.ForEach(previousOutputs.Values, tuple =>
-                foreach (var tuple in previousOutputs.Values)
+                Parallel.ForEach(previousOutputs.Values, (tuple, loopState) =>
+                //foreach (var tuple in previousOutputs.Values)
                 {
                     var input = tuple.Item1;
                     var inputIndex = tuple.Item2;
@@ -386,18 +386,17 @@ namespace BitSharp.Blockchain
                     {
                         if (!scriptEngine.VerifyScript(0 /*TODO blockHash*/, txIndex, prevOutput.ScriptPublicKey.ToArray(), tx, inputIndex, script.ToArray()))
                         {
-                            //TDOO fail loop immediately
                             scriptFailed = true;
+                            loopState.Break();
                         }
                     }
                     catch (Exception e)
                     {
                         Debug.WriteLine("Tx {0} threw exception: {1}\n{2}".Format2(tx.Hash.ToHexNumberString(), e.Message, e.ToString()));
-                        //TDOO fail loop immediately
                         scriptFailed = true;
+                        loopState.Break();
                     }
-                }
-                //});
+                });
             }
 
             // check if any scripts failed
