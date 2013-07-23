@@ -17,6 +17,8 @@ namespace BitSharp.Storage
             : base("BlockCache", cacheContext.StorageContext.BlockStorage, maxFlushMemorySize, maxCacheMemorySize, Block.SizeEstimator)
         {
             this._cacheContext = cacheContext;
+
+            this.OnRetrieved += (blockHash, block) => this.CacheContext.TxKeyCache.CacheBlock(block);
         }
 
         public CacheContext CacheContext { get { return this._cacheContext; } }
