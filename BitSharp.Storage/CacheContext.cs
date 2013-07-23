@@ -32,34 +32,34 @@ namespace BitSharp.Storage
             (
                 cacheContext: this,
                 maxFlushMemorySize: 1.MILLION(),
-                maxCacheMemorySize: 100.MILLION()
+                maxCacheMemorySize: 1.MILLION()
             );
 
             this._blockHeaderCache = new BlockHeaderCache
             (
                 cacheContext: this,
                 maxFlushMemorySize: 0,
-                maxCacheMemorySize: 100.MILLION()
+                maxCacheMemorySize: 1.MILLION()
             );
 
             this._chainedBlockCache = new ChainedBlockCache
             (
                 cacheContext: this,
                 maxFlushMemorySize: 1.MILLION(),
-                maxCacheMemorySize: 100.MILLION()
+                maxCacheMemorySize: 1.MILLION()
             );
 
             this._txKeyCache = new TxKeyCache
             (
                 cacheContext: this,
-                maxFlushMemorySize: 1.MILLION(),
-                maxCacheMemorySize: 100.MILLION()
+                maxFlushMemorySize: 0,
+                maxCacheMemorySize: 1.MILLION()
             );
 
             this._transactionCache = new TransactionCache
             (
                 cacheContext: this,
-                maxCacheMemorySize: 100.MILLION()
+                maxCacheMemorySize: 1.MILLION()
             );
         }
 
