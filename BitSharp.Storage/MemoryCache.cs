@@ -128,7 +128,7 @@ namespace BitSharp.Storage
 
             var memoryDelta = 0L;
 
-            this.cacheLock.DoWrite(() =>
+            this.cacheLock.DoRead(() =>
             {
                 // remove existing value
                 TValue existingValue;
@@ -159,7 +159,7 @@ namespace BitSharp.Storage
         {
             var memoryDelta = 0L;
 
-            this.cacheLock.DoWrite(() =>
+            this.cacheLock.DoRead(() =>
             {
                 // remove existing value
                 TValue existingValue;
@@ -194,7 +194,7 @@ namespace BitSharp.Storage
                 if (this.IsCacheExcessivelyOversized)
                     this.cacheBlockEvent.Reset();
 
-                this.cacheLock.DoWrite(() =>
+                this.cacheLock.DoRead(() =>
                 {
                     var stopwatch = new Stopwatch();
                     stopwatch.Start();
