@@ -19,10 +19,11 @@ namespace BitSharp.Common
             using (var resultReadEvent = new AutoResetEvent(false))
             using (var internalCancelToken = new CancellationTokenSource())
             {
-                var results = new ConcurrentDictionary<int, T>();
+                var results = new ConcurrentQueue<T>();
                 var resultReadIndex = new[] { -1 };
                 var targetIndex = new[] { 0 };
 
+                var resultsCount = 0;
                 var finalCount = -1;
 
                 var readTimes = new List<DateTime>();
@@ -46,7 +47,8 @@ namespace BitSharp.Common
                             }
 
                             // store the result and notify
-                            results.TryAdd(indexLocal, value);
+                            results.Enqueue(value);
+                            resultsCount++;
                             resultWriteEvent.Set();
 
                             // make sure look-ahead doesn't go too far ahead, based on calculated index above
@@ -66,7 +68,7 @@ namespace BitSharp.Common
                         }
 
                         // notify done
-                        finalCount = results.Count;
+                        finalCount = resultsCount;
                         resultWriteEvent.Set();
                     }
                     catch (Exception e)
@@ -90,7 +92,7 @@ namespace BitSharp.Common
 
                         // unblock loook-ahead and wait for current result to be come available
                         resultReadEvent.Set();
-                        while (i >= results.Count && (finalCount == -1 || i < finalCount) && exceptions.Count == 0)
+                        while (i >= resultsCount && (finalCount == -1 || i < finalCount) && exceptions.Count == 0)
                         {
                             // cooperative loop
                             if (cancelToken != null)
@@ -108,16 +110,14 @@ namespace BitSharp.Common
                             break;
 
                         // retrieve current result and clear reference
-                        T result = results[i];
-                        results[i] = default(T);
+                        T result;
+                        if (!results.TryDequeue(out result))
+                            throw new Exception();
 
                         // update current index and unblock look-ahead
                         resultReadIndex[0] = i;
                         resultReadEvent.Set();
                         i++;
-
-                        // yield result
-                        yield return result;
 
                         // store time the result was read
                         readTimes.Add(DateTime.UtcNow);
@@ -127,7 +127,12 @@ namespace BitSharp.Common
                         // calculate how far to look-ahead based on how quickly the results are being read
                         var firstReadTime = readTimes[0];
                         var readPerMillisecond = (float)(readTimes.Count / (DateTime.UtcNow - firstReadTime).TotalMilliseconds);
+                        if (float.IsNaN(readPerMillisecond))
+                            readPerMillisecond = 0;
                         targetIndex[0] = resultReadIndex[0] + 1 + (int)(readPerMillisecond * 1000); // look ahead 1000 milliseconds
+
+                        // yield result
+                        yield return result;
                     }
                 }
                 finally
