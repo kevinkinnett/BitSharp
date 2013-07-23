@@ -35,6 +35,8 @@ namespace BitSharp.Common
             this.shutdownToken = new CancellationTokenSource();
 
             this.workerThread = new Thread(WorkerLoop);
+            this.workerThread.Name = "Worker.{0}.WorkerLoop".Format2(name);
+
             this.notifyEvent = new AutoResetEvent(runOnStart);
             this.forceNotifyEvent = new AutoResetEvent(runOnStart);
             this.idleEvent = new ManualResetEventSlim(false);

@@ -40,7 +40,7 @@ namespace BitSharp.Storage
 
             this.sizeEstimator = sizeEstimator;
 
-            this.cacheWorker = new Worker("{0}.CacheWorker".Format2(name), CacheWorker, true, TimeSpan.FromMilliseconds(25), TimeSpan.FromSeconds(5));
+            this.cacheWorker = new Worker("MemoryCache.{0}.CacheWorker".Format2(name), CacheWorker, true, TimeSpan.FromMilliseconds(25), TimeSpan.FromSeconds(5));
             this.cacheBlockEvent = new ManualResetEventSlim(true);
 
             this.shutdownToken = new CancellationTokenSource();

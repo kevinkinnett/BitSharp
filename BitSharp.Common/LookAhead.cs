@@ -78,6 +78,7 @@ namespace BitSharp.Common
                         resultWriteEvent.Set();
                     }
                 });
+                lookAheadThread.Name = "LookAhead.{0}".Format2(typeof(T));
 
                 lookAheadThread.Start();
                 try

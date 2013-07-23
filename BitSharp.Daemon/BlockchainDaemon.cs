@@ -99,22 +99,22 @@ namespace BitSharp.Daemon
             this._cacheContext.ChainedBlockCache.OnModification += OnChainedBlockModification;
 
             // create workers
-            this.chainingWorker = new Worker("ChainingWorker", ChainingWorker,
+            this.chainingWorker = new Worker("BlockchainDaemon.ChainingWorker", ChainingWorker,
                 runOnStart: true, waitTime: TimeSpan.FromSeconds(1), maxIdleTime: TimeSpan.FromSeconds(30));
 
-            this.winnerWorker = new Worker("WinnerWorker", WinnerWorker,
+            this.winnerWorker = new Worker("BlockchainDaemon.WinnerWorker", WinnerWorker,
                 runOnStart: true, waitTime: TimeSpan.FromSeconds(1), maxIdleTime: TimeSpan.FromSeconds(30));
 
-            this.validationWorker = new Worker("ValidationWorker", ValidationWorker,
+            this.validationWorker = new Worker("BlockchainDaemon.ValidationWorker", ValidationWorker,
                 runOnStart: true, waitTime: TimeSpan.FromSeconds(10), maxIdleTime: TimeSpan.FromMinutes(5));
 
-            this.blockchainWorker = new Worker("BlockchainWorker", BlockchainWorker,
+            this.blockchainWorker = new Worker("BlockchainDaemon.BlockchainWorker", BlockchainWorker,
                 runOnStart: true, waitTime: TimeSpan.FromSeconds(1), maxIdleTime: TimeSpan.FromMinutes(5));
 
-            this.validateCurrentChainWorker = new Worker("ValidateCurrentChainWorker", ValidateCurrentChainWorker,
+            this.validateCurrentChainWorker = new Worker("BlockchainDaemon.ValidateCurrentChainWorker", ValidateCurrentChainWorker,
                 runOnStart: true, waitTime: TimeSpan.FromMinutes(30), maxIdleTime: TimeSpan.FromMinutes(30));
 
-            this.writeBlockchainWorker = new Worker("WriteBlockchainWorker", WriteBlockchainWorker,
+            this.writeBlockchainWorker = new Worker("BlockchainDaemon.WriteBlockchainWorker", WriteBlockchainWorker,
                 runOnStart: true, waitTime: TimeSpan.FromMinutes(5), maxIdleTime: TimeSpan.FromMinutes(30));
         }
 

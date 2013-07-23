@@ -65,9 +65,9 @@ namespace BitSharp.Node
                 sizeEstimator: knownAddress => 40
             );
 
-            this.connectWorker = new Worker("ConnectWorker", ConnectWorker, true, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-            this.messageWorker = new Worker("MessageWorker", MessageWorker, true, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-            this.statsWorker = new Worker("StatsWorker", StatsWorker, true, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+            this.connectWorker = new Worker("LocalClient.ConnectWorker", ConnectWorker, true, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+            this.messageWorker = new Worker("LocalClient.MessageWorker", MessageWorker, true, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+            this.statsWorker = new Worker("LocalClient.StatsWorker", StatsWorker, true, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
         }
 
         public void Start()

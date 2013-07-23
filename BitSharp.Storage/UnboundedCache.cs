@@ -52,7 +52,7 @@ namespace BitSharp.Storage
             this.dataStorage = dataStorage;
             this.sizeEstimator = sizeEstimator;
 
-            this.storageWorker = new Worker("{0}.StorageWorker".Format2(name), StorageWorker, true, TimeSpan.FromMilliseconds(25), TimeSpan.FromSeconds(60));
+            this.storageWorker = new Worker("UnboundedCache.{0}.StorageWorker".Format2(name), StorageWorker, true, TimeSpan.FromMilliseconds(25), TimeSpan.FromSeconds(60));
             this.storageBlockEvent = new ManualResetEventSlim(true);
 
             this.shutdownToken = new CancellationTokenSource();
