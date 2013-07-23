@@ -43,20 +43,17 @@ namespace BitSharp.Storage
 
         public bool TryReadValue(UInt256 txHash, out Transaction value)
         {
-            HashSet<TxKey> txKeySet;
-            if (this.CacheContext.TxKeyCache.TryGetValue(txHash, out txKeySet))
+            TxKey txKey;
+            if (this.CacheContext.TxKeyCache.TryGetValue(txHash, out txKey))
             {
-                foreach (var txKey in txKeySet)
+                Block block;
+                if (this.CacheContext.BlockCache.TryGetValue(txKey.BlockHash, out block))
                 {
-                    Block block;
-                    if (this.CacheContext.BlockCache.TryGetValue(txKey.BlockHash, out block))
-                    {
-                        if (txKey.TxIndex >= block.Transactions.Length)
-                            throw new MissingDataException(DataType.Transaction, txKey.TxHash); //TODO should be invalid data, not missing data
+                    if (txKey.TxIndex >= block.Transactions.Length)
+                        throw new MissingDataException(DataType.Transaction, txKey.TxHash); //TODO should be invalid data, not missing data
 
-                        value = block.Transactions[txKey.TxIndex.ToIntChecked()];
-                        return true;
-                    }
+                    value = block.Transactions[txKey.TxIndex.ToIntChecked()];
+                    return true;
                 }
             }
 

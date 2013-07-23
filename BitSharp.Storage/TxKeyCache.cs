@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Storage
 {
-    public class TxKeyCache : UnboundedCache<UInt256, HashSet<TxKey>>
+    public class TxKeyCache : UnboundedCache<UInt256, TxKey>
     {
         private readonly CacheContext _cacheContext;
 
@@ -27,22 +27,11 @@ namespace BitSharp.Storage
 
         internal void CacheBlock(Block block)
         {
-            this.memoryCacheLock.DoWrite(() =>
+            for (var txIndex = 0; txIndex < block.Transactions.Length; txIndex++)
             {
-                for (var txIndex = 0; txIndex < block.Transactions.Length; txIndex++)
-                {
-                    var tx = block.Transactions[txIndex];
-
-                    HashSet<TxKey> txKeySet;
-                    if (!this.TryGetMemoryValue(tx.Hash, out txKeySet))
-                    {
-                        txKeySet = new HashSet<TxKey>();
-                    }
-
-                    txKeySet.Add(new TxKey(tx.Hash, block.Hash, (UInt32)txIndex));
-                    this.CacheValue(tx.Hash, txKeySet);
-                }
-            });
+                var tx = block.Transactions[txIndex];
+                CacheValue(tx.Hash, new TxKey(tx.Hash, block.Hash, (UInt32)txIndex));
+            }
         }
     }
 }

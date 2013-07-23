@@ -31,7 +31,7 @@ namespace BitSharp.Storage
         private long flushPendingSize;
 
         // memory cache
-        protected readonly ReaderWriterLockSlim memoryCacheLock;
+        private readonly ReaderWriterLockSlim memoryCacheLock;
         private readonly ConcurrentDictionary<CacheKey<TKey>, TValue> memoryCache;
         private long memoryCacheSize;
         private long cacheIndex;

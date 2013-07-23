@@ -25,7 +25,7 @@ namespace BitSharp.Storage.SQLite
             : base(storageContext)
         { }
 
-        public bool TryReadValue(UInt256 txHash, out HashSet<TxKey> txKeySet)
+        public bool TryReadValue(UInt256 txHash, out TxKey txKey)
         {
             using (var conn = this.OpenReadConnection())
             using (var cmd = conn.CreateCommand())
@@ -39,22 +39,24 @@ namespace BitSharp.Storage.SQLite
 
                 using (var reader = cmd.ExecuteReader())
                 {
-                    txKeySet = new HashSet<TxKey>();
-
-                    while (reader.Read())
+                    if (reader.Read())
                     {
                         var blockHash = reader.GetUInt256(0);
                         var txIndex = reader.GetUInt32(1);
 
-                        txKeySet.Add(new TxKey(txHash, blockHash, txIndex));
+                        txKey = new TxKey(txHash, blockHash, txIndex);
+                        return true;
                     }
-
-                    return txKeySet.Count > 0;
+                    else
+                    {
+                        txKey = default(TxKey);
+                        return false;
+                    }
                 }
             }
         }
 
-        public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<HashSet<TxKey>>>> txKeys)
+        public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<TxKey>>> txKeys)
         {
             throw new NotSupportedException();
         }

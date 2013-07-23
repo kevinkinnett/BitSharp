@@ -25,19 +25,23 @@ namespace BitSharp.Storage.Test
         {
         }
 
-        public bool TryReadValue(UInt256 key, out HashSet<TxKey> value)
+        public bool TryReadValue(UInt256 key, out TxKey value)
         {
-            value = new HashSet<TxKey>();
-            foreach (var txBlock in this.StorageContext.BlockStorage.Storage.AsParallel().Where(x => x.Value.Transactions.Any(tx => tx.Hash == key)))
+            var txBlock = this.StorageContext.BlockStorage.Storage.AsParallel().FirstOrDefault(x => x.Value.Transactions.Any(tx => tx.Hash == key));
+            if (!txBlock.Value.IsDefault)
             {
                 var txIndex = txBlock.Value.Transactions.ToList().FindIndex(tx => tx.Hash == key);
-                value.Add(new TxKey(key, txBlock.Value.Hash, (UInt32)txIndex));
+                value = new TxKey(key, txBlock.Value.Hash, (UInt32)txIndex);
+                return true;
             }
-
-            return value.Count > 0;
+            else
+            {
+                value = default(TxKey);
+                return false;
+            }
         }
 
-        public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<HashSet<TxKey>>>> values)
+        public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<TxKey>>> values)
         {
             throw new NotSupportedException();
         }
