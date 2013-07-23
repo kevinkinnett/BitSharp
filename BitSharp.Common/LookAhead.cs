@@ -28,25 +28,16 @@ namespace BitSharp.Common
                 var readTimes = new List<DateTime>();
                 readTimes.Add(DateTime.UtcNow);
 
+                var exceptions = new ConcurrentBag<Exception>();
+
                 var lookAheadThread = new Thread(() =>
                 {
-                    // look-ahead loop
-                    var indexLocal = 0;
-                    var valuesLocal = values();
-                    foreach (var value in valuesLocal)
+                    try
                     {
-                        // cooperative loop
-                        if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
-                        {
-                            return;
-                        }
-
-                        // store the result and notify
-                        results.TryAdd(indexLocal, value);
-                        resultWriteEvent.Set();
-
-                        // make sure look-ahead doesn't go too far ahead, based on calculated index above
-                        while (indexLocal > targetIndex[0])
+                        // look-ahead loop
+                        var indexLocal = 0;
+                        var valuesLocal = values();
+                        foreach (var value in valuesLocal)
                         {
                             // cooperative loop
                             if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
@@ -54,16 +45,36 @@ namespace BitSharp.Common
                                 return;
                             }
 
-                            // wait for a result to be read
-                            resultReadEvent.WaitOne(TimeSpan.FromMilliseconds(10));
+                            // store the result and notify
+                            results.TryAdd(indexLocal, value);
+                            resultWriteEvent.Set();
+
+                            // make sure look-ahead doesn't go too far ahead, based on calculated index above
+                            while (indexLocal > targetIndex[0])
+                            {
+                                // cooperative loop
+                                if (internalCancelToken.IsCancellationRequested || (cancelToken != null && cancelToken.IsCancellationRequested))
+                                {
+                                    return;
+                                }
+
+                                // wait for a result to be read
+                                resultReadEvent.WaitOne(TimeSpan.FromMilliseconds(10));
+                            }
+
+                            indexLocal++;
                         }
 
-                        indexLocal++;
+                        // notify done
+                        finalCount = results.Count;
+                        resultWriteEvent.Set();
                     }
-
-                    // notify done
-                    finalCount = results.Count;
-                    resultWriteEvent.Set();
+                    catch (Exception e)
+                    {
+                        // notify the enumerator loop of any exceptions
+                        exceptions.Add(e);
+                        resultWriteEvent.Set();
+                    }
                 });
 
                 lookAheadThread.Start();
@@ -79,7 +90,7 @@ namespace BitSharp.Common
 
                         // unblock loook-ahead and wait for current result to be come available
                         resultReadEvent.Set();
-                        while (i >= results.Count && (finalCount == -1 || i < finalCount))
+                        while (i >= results.Count && (finalCount == -1 || i < finalCount) && exceptions.Count == 0)
                         {
                             // cooperative loop
                             if (cancelToken != null)
@@ -87,6 +98,10 @@ namespace BitSharp.Common
 
                             resultWriteEvent.WaitOne(TimeSpan.FromMilliseconds(10));
                         }
+
+                        // check if any exceptions occurred in the look-ahead loop
+                        if (exceptions.Count > 0)
+                            throw new AggregateException(exceptions);
 
                         // check if enumration is finished
                         if (finalCount != -1 && i >= finalCount)
