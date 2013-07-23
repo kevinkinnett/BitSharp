@@ -35,7 +35,6 @@ namespace BitSharp.Storage
             this.OnModification += (key, value) => AddKnownKey(key);
             this.OnRetrieved += (key, value) => AddKnownKey(key);
             this.OnMissing += key => RemoveKnownKey(key);
-            this.OnClear += ClearKnownKeys;
 
             // load existing keys from storage
             LoadKeyFromStorage();

@@ -93,6 +93,7 @@
     <Compile Include="ChainedBlockCache.cs" />
     <Compile Include="BlockHeaderCache.cs" />
     <Compile Include="IUnboundedStorage.cs" />
+    <Compile Include="MemoryCache.cs" />
     <Compile Include="Provider\IBlockchainStorage.cs" />
     <Compile Include="Provider\IStorageContext.cs" />
     <Compile Include="MissingDataException.cs" />
