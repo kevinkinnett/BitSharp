@@ -52,7 +52,7 @@ namespace BitSharp.Network
         public async Task SendGetData(ImmutableArray<InventoryVector> invVectors)
         {
             var getDataPayload = Messaging.ConstructInventoryPayload(invVectors);
-            var getDataMessage = Messaging.ConstructMessage("getdata", getDataPayload, NetworkEncoder.EncodeInventoryPayload);
+            var getDataMessage = Messaging.ConstructMessage("getdata", NetworkEncoder.EncodeInventoryPayload(getDataPayload));
 
             await SendMessageAsync(getDataMessage);
         }
@@ -60,7 +60,7 @@ namespace BitSharp.Network
         public async Task SendGetBlocks(ImmutableArray<UInt256> blockLocatorHashes, UInt256 hashStop)
         {
             var getBlocksPayload = Messaging.ConstructGetBlocksPayload(blockLocatorHashes, hashStop);
-            var getBlocksMessage = Messaging.ConstructMessage("getblocks", getBlocksPayload, NetworkEncoder.EncodeGetBlocksPayload);
+            var getBlocksMessage = Messaging.ConstructMessage("getblocks", NetworkEncoder.EncodeGetBlocksPayload(getBlocksPayload));
 
             await SendMessageAsync(getBlocksMessage);
         }
@@ -68,7 +68,7 @@ namespace BitSharp.Network
         public async Task SendVersion(IPEndPoint localEndPoint, IPEndPoint remoteEndPoint, UInt64 nodeId, UInt32 startBlockHeight)
         {
             var versionPayload = Messaging.ConstructVersionPayload(localEndPoint, remoteEndPoint, nodeId, startBlockHeight);
-            var versionMessage = Messaging.ConstructMessage("version", versionPayload, NetworkEncoder.EncodeVersionPayload);
+            var versionMessage = Messaging.ConstructMessage("version", NetworkEncoder.EncodeVersionPayload(versionPayload, withRelay: false));
 
             await SendMessageAsync(versionMessage);
         }
@@ -80,7 +80,7 @@ namespace BitSharp.Network
 
         private async Task SendMessageAsync(string command)
         {
-            await SendMessageAsync(Messaging.ConstructMessage(command, payload: ImmutableArray.Create<byte>()));
+            await SendMessageAsync(Messaging.ConstructMessage(command, payload: new byte[0]));
         }
 
         private async Task SendMessageAsync(Message message)

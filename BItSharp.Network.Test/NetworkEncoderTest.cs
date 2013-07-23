@@ -196,23 +196,31 @@ namespace BitSharp.Network.Test
         }
 
         [TestMethod]
-        public void TestWireEncodeVersionPayload()
+        public void TestWireEncodeVersionPayloadWithoutRelay()
         {
-            var actual1 = NetworkEncoder.EncodeVersionPayload(VERSION_PAYLOAD_1);
-            CollectionAssert.AreEqual(VERSION_PAYLOAD_1_BYTES.ToList(), actual1.ToList());
-
-            var actual2 = NetworkEncoder.EncodeVersionPayload(VERSION_PAYLOAD_2);
-            CollectionAssert.AreEqual(VERSION_PAYLOAD_2_BYTES.ToList(), actual2.ToList());
+            var actual = NetworkEncoder.EncodeVersionPayload(VERSION_PAYLOAD_1_NO_RELAY, withRelay: false);
+            CollectionAssert.AreEqual(VERSION_PAYLOAD_1_NO_RELAY_BYTES.ToList(), actual.ToList());
         }
 
         [TestMethod]
-        public void TestWireDecodeVersionPayload()
+        public void TestWireEncodeVersionPayloadWithRelay()
         {
-            var actual1 = NetworkEncoder.EncodeVersionPayload(NetworkEncoder.DecodeVersionPayload(VERSION_PAYLOAD_1_BYTES.ToArray().ToMemoryStream()));
-            CollectionAssert.AreEqual(VERSION_PAYLOAD_1_BYTES.ToList(), actual1.ToList());
+            var actual = NetworkEncoder.EncodeVersionPayload(VERSION_PAYLOAD_2_RELAY, withRelay: true);
+            CollectionAssert.AreEqual(VERSION_PAYLOAD_2_RELAY_BYTES.ToList(), actual.ToList());
+        }
 
-            var actual2 = NetworkEncoder.EncodeVersionPayload(NetworkEncoder.DecodeVersionPayload(VERSION_PAYLOAD_2_BYTES.ToArray().ToMemoryStream()));
-            CollectionAssert.AreEqual(VERSION_PAYLOAD_2_BYTES.ToList(), actual2.ToList());
+        [TestMethod]
+        public void TestWireDecodeVersionPayloadWithoutRelay()
+        {
+            var actual = NetworkEncoder.EncodeVersionPayload(NetworkEncoder.DecodeVersionPayload(VERSION_PAYLOAD_1_NO_RELAY_BYTES.ToArray().ToMemoryStream(), VERSION_PAYLOAD_1_NO_RELAY_BYTES.Length), withRelay: false);
+            CollectionAssert.AreEqual(VERSION_PAYLOAD_1_NO_RELAY_BYTES.ToList(), actual.ToList());
+        }
+
+        [TestMethod]
+        public void TestWireDecodeVersionPayloadWithRelay()
+        {
+            var actual = NetworkEncoder.EncodeVersionPayload(NetworkEncoder.DecodeVersionPayload(VERSION_PAYLOAD_2_RELAY_BYTES.ToArray().ToMemoryStream(), VERSION_PAYLOAD_2_RELAY_BYTES.Length), withRelay: true);
+            CollectionAssert.AreEqual(VERSION_PAYLOAD_2_RELAY_BYTES.ToList(), actual.ToList());
         }
     }
 }

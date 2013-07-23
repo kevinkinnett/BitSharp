@@ -51,33 +51,15 @@ namespace BitSharp.Network
             return new IPEndPoint(GetExternalIPAddress(), Port);
         }
 
-        public static Message ConstructMessage(string command, ImmutableArray<byte> payload)
+        public static Message ConstructMessage(string command, byte[] payload)
         {
             var message = new Message
             (
                 Magic: Messaging.Magic,
                 Command: command,
                 PayloadSize: (UInt32)payload.Length,
-                PayloadChecksum: CalculatePayloadChecksum(payload.ToArray()),
-                Payload: payload
-            );
-
-            return message;
-        }
-
-        public static Message ConstructMessage<T>(string command, T payload, Action<Stream, T> payloadEncoder)
-        {
-            var stream = new MemoryStream();
-            payloadEncoder(stream, payload);
-            var payloadBytes = stream.ToArray();
-
-            var message = new Message
-            (
-                Magic: Messaging.Magic,
-                Command: command,
-                PayloadSize: (UInt32)payloadBytes.Length,
-                PayloadChecksum: CalculatePayloadChecksum(payloadBytes),
-                Payload: payloadBytes.ToImmutableArray()
+                PayloadChecksum: CalculatePayloadChecksum(payload),
+                Payload: payload.ToImmutableArray()
             );
 
             return message;

@@ -230,7 +230,7 @@ namespace BitSharp.Network
 
                 case "version":
                     {
-                        var versionPayload = NetworkEncoder.DecodeVersionPayload(payload.ToMemoryStream());
+                        var versionPayload = NetworkEncoder.DecodeVersionPayload(payload.ToMemoryStream(), payload.Length);
                         //Debug.WriteLine(string.Format("{0}, {1}", versionPayload.RemoteAddress.ToIPEndPoint(), this.socket.RemoteEndPoint));
 
                         var handler = this.OnVersion;

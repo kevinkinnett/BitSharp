@@ -125,7 +125,7 @@ namespace BitSharp.Network
                     previousTxOutputKey: new TxOutputKey
                     (
                         txHash: reader.Read32Bytes(),
-                        txOutputIndex:reader.Read4Bytes()
+                        txOutputIndex: reader.Read4Bytes()
                     ),
                     scriptSignature: reader.ReadVarBytes().ToImmutableArray(),
                     sequence: reader.Read4Bytes()
@@ -415,10 +415,12 @@ namespace BitSharp.Network
             return stream.ToArray();
         }
 
-        public static VersionPayload DecodeVersionPayload(Stream stream)
+        public static VersionPayload DecodeVersionPayload(Stream stream, int payloadLength)
         {
             using (var reader = new BinaryReader(stream, Encoding.ASCII, leaveOpen: true))
             {
+                var position = stream.Position;
+
                 var versionPayload = new VersionPayload
                 (
                     ProtocolVersion: reader.Read4Bytes(),
@@ -432,15 +434,15 @@ namespace BitSharp.Network
                     Relay: false
                 );
 
-                //TODO don't read here? this seems wrong
-                //if (versionPayload.ProtocolVersion >= RELAY_VERSION)
-                //    versionPayload = versionPayload.With(Relay: reader.ReadBool());
+                var readCount = stream.Position - position;
+                if (versionPayload.ProtocolVersion >= VersionPayload.RELAY_VERSION && payloadLength - readCount == 1)
+                    versionPayload = versionPayload.With(Relay: reader.ReadBool());
 
                 return versionPayload;
             }
         }
 
-        public static void EncodeVersionPayload(Stream stream, VersionPayload versionPayload)
+        public static void EncodeVersionPayload(Stream stream, VersionPayload versionPayload, bool withRelay)
         {
             using (var writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: true))
             {
@@ -453,16 +455,15 @@ namespace BitSharp.Network
                 writer.WriteVarString(versionPayload.UserAgent);
                 writer.Write4Bytes(versionPayload.StartBlockHeight);
 
-                //TODO don't write here? this seems wrong
-                //if (versionPayload.ProtocolVersion >= RELAY_VERSION)
-                //    writer.WriteBool(versionPayload.Relay);
+                if (withRelay)
+                    writer.WriteBool(versionPayload.Relay);
             }
         }
 
-        public static byte[] EncodeVersionPayload(VersionPayload versionPayload)
+        public static byte[] EncodeVersionPayload(VersionPayload versionPayload, bool withRelay)
         {
             var stream = new MemoryStream();
-            EncodeVersionPayload(stream, versionPayload);
+            EncodeVersionPayload(stream, versionPayload, withRelay);
             return stream.ToArray();
         }
     }
