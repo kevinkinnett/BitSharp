@@ -410,5 +410,11 @@ namespace BitSharp.Common.ExtensionMethods
                 (new BigInteger(random.NextUInt32()) << 32) +
                 new BigInteger(random.NextUInt32()));
         }
+
+        public static BigInteger NextUBigIntegerBytes(this Random random, int byteCount)
+        {
+            var bytes = random.NextBytes(byteCount).Concat(new byte[1]);
+            return new BigInteger(bytes);
+        }
     }
 }

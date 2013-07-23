@@ -56,13 +56,12 @@ namespace BitSharp.Data
 
         public static bool operator ==(Blockchain left, Blockchain right)
         {
-            return left.BlockList.SequenceEqual(right.BlockList) && left.BlockListHashes.SetEquals(right.BlockListHashes) && left.BlockListHashes.SetEquals(right.BlockListHashes);
+            return left.BlockList.SequenceEqual(right.BlockList) && left.BlockListHashes.SetEquals(right.BlockListHashes) && left.Utxo.SetEquals(right.Utxo);
         }
 
         public static bool operator !=(Blockchain left, Blockchain right)
         {
             return !(left == right);
         }
-
     }
 }

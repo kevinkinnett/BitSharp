@@ -80,11 +80,20 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="BlockchainKeyTest.cs" />
+    <Compile Include="BlockchainMetadataTest.cs" />
+    <Compile Include="BlockchainTest.cs" />
     <Compile Include="BlockTest.cs" />
     <Compile Include="BlockHeaderTest.cs" />
+    <Compile Include="ChainedBlockTest.cs" />
+    <Compile Include="TxKeyTest.cs" />
+    <Compile Include="TxOutputKeyTest.cs" />
+    <Compile Include="TxOutputTest.cs" />
     <Compile Include="DataCalculatorTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RandomData.cs" />
+    <Compile Include="TransactionTest.cs" />
+    <Compile Include="TxInputTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

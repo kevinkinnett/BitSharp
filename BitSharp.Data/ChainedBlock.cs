@@ -44,8 +44,7 @@ namespace BitSharp.Data
             if (!(obj is ChainedBlock))
                 return false;
 
-            var other = (ChainedBlock)obj;
-            return other == this;
+            return (ChainedBlock)obj == this;
         }
 
         public override int GetHashCode()
@@ -55,7 +54,7 @@ namespace BitSharp.Data
 
         public static bool operator ==(ChainedBlock left, ChainedBlock right)
         {
-            return left.BlockHash == right.BlockHash && left.PreviousBlockHash == right._blockHash && left.Height == right.Height && left.TotalWork == right.TotalWork;
+            return left.BlockHash == right.BlockHash && left.PreviousBlockHash == right.PreviousBlockHash && left.Height == right.Height && left.TotalWork == right.TotalWork;
         }
 
         public static bool operator !=(ChainedBlock left, ChainedBlock right)

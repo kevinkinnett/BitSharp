@@ -1,8 +1,10 @@
-﻿using BitSharp.Common.ExtensionMethods;
+﻿using BitSharp.Common;
+using BitSharp.Common.ExtensionMethods;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -10,6 +12,8 @@ namespace BitSharp.Data.Test
 {
     public struct RandomDataOptions
     {
+        public int? MinimumBlockCount { get; set; }
+        public int? BlockCount { get; set; }
         public int? TransactionCount { get; set; }
         public int? TxInputCount { get; set; }
         public int? TxOutputCount { get; set; }
@@ -74,6 +78,87 @@ namespace BitSharp.Data.Test
             (
                 value: random.NextUInt64(),
                 scriptPublicKey: random.NextBytes(random.Next(options.ScriptPublicKeySize ?? 100)).ToImmutableArray()
+            );
+        }
+
+        public static Blockchain RandomBlockchain(RandomDataOptions options = default(RandomDataOptions))
+        {
+            //TODO blockCount algorithm isn't exact
+            var blockCount = random.Next(options.BlockCount ?? 100) + (options.MinimumBlockCount ?? 1);
+            var blockList = new List<Block>(blockCount);
+            var chainedBlockList = new List<ChainedBlock>(blockCount);
+
+            var previousBlockHash = UInt256.Zero;
+            var totalWork = new BigInteger(0);
+            for (var i = 0; i < blockCount; i++)
+            {
+                var block = RandomData.RandomBlock(options);
+                block = block.With(Header: block.Header.With(PreviousBlock: previousBlockHash));
+                blockList.Add(block);
+
+                previousBlockHash = block.Hash;
+                totalWork += block.Header.CalculateWork();
+
+                chainedBlockList.Add(new ChainedBlock(block.Hash, block.Header.PreviousBlock, i, totalWork));
+            }
+
+            var blockListHashes = blockList.Select(x => x.Hash).ToImmutableHashSet();
+            var utxo = blockList.SelectMany(block => block.Transactions).SelectMany(tx => tx.Outputs.Select((txOutput, txOutputIndex) => new TxOutputKey(tx.Hash, (UInt32)txOutputIndex))).ToImmutableHashSet();
+
+            return new Blockchain
+            (
+                chainedBlockList.ToImmutableList(),
+                blockListHashes,
+                utxo
+            );
+        }
+
+        public static BlockchainKey RandomBlockchainKey()
+        {
+            return new BlockchainKey
+            (
+                guid: Guid.NewGuid(),
+                rootBlockHash: random.NextUInt256()
+            );
+        }
+
+        public static BlockchainMetadata RandomBlockchainMetadata()
+        {
+            return new BlockchainMetadata
+            (
+                guid: Guid.NewGuid(),
+                rootBlockHash: random.NextUInt256(),
+                totalWork: random.NextUBigIntegerBytes(64)
+            );
+        }
+
+        public static ChainedBlock RandomChainedBlock()
+        {
+            return new ChainedBlock
+            (
+                blockHash: random.NextUInt256(),
+                previousBlockHash: random.NextUInt256(),
+                height: Math.Abs(random.Next()),
+                totalWork: random.NextUBigIntegerBytes(64)
+            );
+        }
+
+        public static TxKey RandomTxKey()
+        {
+            return new TxKey
+            (
+                txHash: random.NextUInt256(),
+                blockHash: random.NextUInt256(),
+                txIndex: random.NextUInt32()
+            );
+        }
+
+        public static TxOutputKey RandomTxOutputKey()
+        {
+            return new TxOutputKey
+            (
+                txHash: random.NextUInt256(),
+                txOutputIndex: random.NextUInt32()
             );
         }
     }
