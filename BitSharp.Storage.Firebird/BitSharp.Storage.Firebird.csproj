@@ -89,12 +89,13 @@
   </Choose>
   <ItemGroup>
     <Compile Include="BlockchainStorage.cs" />
+    <Compile Include="BlockHeaderStorage.cs" />
+    <Compile Include="BlockTransactionsStorage.cs" />
     <Compile Include="FirebirdStorageContext.cs" />
-    <Compile Include="TxKeyStorage.cs" />
+    <Compile Include="TransactionStorage.cs" />
     <Compile Include="KnownAddressStorage.cs" />
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="SqlDataStorage.cs" />
-    <Compile Include="BlockStorage.cs" />
     <Compile Include="ChainedBlockStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

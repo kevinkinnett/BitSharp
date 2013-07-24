@@ -34,8 +34,6 @@ namespace BitSharp.Storage.Test
 
         IChainedBlockStorage IStorageContext.ChainedBlockStorage { get { return this._chainedBlockStorage; } }
 
-        ITxKeyStorage IStorageContext.TxKeyStorage { get { return this._txKeyStorage; } }
-
         IBlockchainStorage IStorageContext.BlockchainStorage { get { return this._blockchainStorage; } }
 
         public void Dispose()
@@ -47,6 +45,22 @@ namespace BitSharp.Storage.Test
                 this._txKeyStorage,
                 this._blockchainStorage
             }.DisposeList();
+        }
+
+
+        public IBlockHeaderStorage BlockHeaderStorage
+        {
+            get { throw new NotImplementedException(); }
+        }
+
+        public IBlockTransactionsStorage BlockTransactionsStorage
+        {
+            get { throw new NotImplementedException(); }
+        }
+
+        public ITransactionStorage TransactionStorage
+        {
+            get { throw new NotImplementedException(); }
         }
     }
 }

@@ -18,7 +18,8 @@ namespace BitSharp.Storage
         {
             this._cacheContext = cacheContext;
 
-            this.OnRetrieved += (blockHash, block) => this.CacheContext.TxKeyCache.CacheBlock(block);
+            //TODO keep this?
+            //this.OnRetrieved += (blockHash, block) => this.CacheContext.TxKeyCache.CacheBlock(block);
         }
 
         public CacheContext CacheContext { get { return this._cacheContext; } }
@@ -27,7 +28,8 @@ namespace BitSharp.Storage
 
         protected override void BeforeCreateOrUpdate(UInt256 blockHash, Block block, bool isCreate)
         {
-            this.CacheContext.TxKeyCache.CacheBlock(block);
+            //TODO keep this?
+            //this.CacheContext.TransactionCache.CacheBlock(block);
         }
     }
 }

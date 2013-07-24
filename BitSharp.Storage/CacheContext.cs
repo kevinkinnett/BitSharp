@@ -21,7 +21,6 @@ namespace BitSharp.Storage
         private readonly BlockCache _blockCache;
         private readonly BlockHeaderCache _blockHeaderCache;
         private readonly ChainedBlockCache _chainedBlockCache;
-        private readonly TxKeyCache _txKeyCache;
         private readonly TransactionCache _transactionCache;
 
         public CacheContext(IStorageContext storageContext)
@@ -46,14 +45,7 @@ namespace BitSharp.Storage
             (
                 cacheContext: this,
                 maxFlushMemorySize: 1.MILLION(),
-                maxCacheMemorySize: 1.MILLION()
-            );
-
-            this._txKeyCache = new TxKeyCache
-            (
-                cacheContext: this,
-                maxFlushMemorySize: 0,
-                maxCacheMemorySize: 1.MILLION()
+                maxCacheMemorySize: 100.MILLION()
             );
 
             this._transactionCache = new TransactionCache
@@ -71,8 +63,6 @@ namespace BitSharp.Storage
 
         public ChainedBlockCache ChainedBlockCache { get { return this._chainedBlockCache; } }
 
-        public TxKeyCache TxKeyCache { get { return this._txKeyCache; } }
-
         public TransactionCache TransactionCache { get { return this._transactionCache; } }
 
         public void Dispose()
@@ -82,7 +72,6 @@ namespace BitSharp.Storage
                 this._blockCache,
                 this._blockHeaderCache,
                 this._chainedBlockCache,
-                this._txKeyCache,
                 this._transactionCache
             }.DisposeList();
         }

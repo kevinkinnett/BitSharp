@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Storage
 {
-    public interface IBlockStorage : IBoundedStorage<UInt256, Block>
+    public interface IBlockHeaderStorage : IBoundedStorage<UInt256, BlockHeader>
     {
     }
 }

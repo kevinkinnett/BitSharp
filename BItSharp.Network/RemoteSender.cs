@@ -57,6 +57,14 @@ namespace BitSharp.Network
             await SendMessageAsync(getDataMessage);
         }
 
+        public async Task SendGetHeaders(ImmutableArray<UInt256> blockLocatorHashes, UInt256 hashStop)
+        {
+            var getHeadersPayload = Messaging.ConstructGetBlocksPayload(blockLocatorHashes, hashStop);
+            var getBlocksMessage = Messaging.ConstructMessage("getheaders", NetworkEncoder.EncodeGetBlocksPayload(getHeadersPayload));
+
+            await SendMessageAsync(getBlocksMessage);
+        }
+
         public async Task SendGetBlocks(ImmutableArray<UInt256> blockLocatorHashes, UInt256 hashStop)
         {
             var getBlocksPayload = Messaging.ConstructGetBlocksPayload(blockLocatorHashes, hashStop);

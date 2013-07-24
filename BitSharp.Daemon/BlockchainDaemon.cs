@@ -1,7 +1,6 @@
 ﻿using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Blockchain;
-using BitSharp.Storage.Firebird;
 using BitSharp.Script;
 using BitSharp.Storage;
 using BitSharp.Storage.ExtensionMethods;
@@ -71,6 +70,8 @@ namespace BitSharp.Daemon
             this._calculator = new BlockchainCalculator(this._rules, this._cacheContext, this.shutdownToken.Token);
 
             this._winningBlock = this._rules.GenesisChainedBlock;
+            this._winningBlockchain = ImmutableArray.Create(this._rules.GenesisChainedBlock);
+
             this._currentBlockchain = this._rules.GenesisBlockchain;
             this.currentBlockchainLock = new ReaderWriterLockSlim();
             //TODO
@@ -109,7 +110,7 @@ namespace BitSharp.Daemon
                 runOnStart: true, waitTime: TimeSpan.FromSeconds(10), maxIdleTime: TimeSpan.FromMinutes(5));
 
             this.blockchainWorker = new Worker("BlockchainDaemon.BlockchainWorker", BlockchainWorker,
-                runOnStart: true, waitTime: TimeSpan.FromSeconds(1), maxIdleTime: TimeSpan.FromMinutes(5));
+                runOnStart: true, waitTime: TimeSpan.FromSeconds(15), maxIdleTime: TimeSpan.FromMinutes(5));
 
             this.validateCurrentChainWorker = new Worker("BlockchainDaemon.ValidateCurrentChainWorker", ValidateCurrentChainWorker,
                 runOnStart: true, waitTime: TimeSpan.FromMinutes(30), maxIdleTime: TimeSpan.FromMinutes(30));
@@ -312,7 +313,7 @@ namespace BitSharp.Daemon
             var chainedBlocks = new List<ChainedBlock>();
             var chainedBlocksSet = new HashSet<UInt256>();
 
-            var unchainedBlocks = new HashSet<UInt256>(this.CacheContext.BlockCache.GetAllKeys());
+            var unchainedBlocks = new HashSet<UInt256>(this.CacheContext.BlockHeaderCache.GetAllKeys());
             unchainedBlocks.ExceptWith(this.CacheContext.ChainedBlockCache.GetAllKeys());
 
             var unchainedByPrevious = new Dictionary<UInt256, List<BlockHeader>>();
@@ -444,6 +445,9 @@ namespace BitSharp.Daemon
                     && winningBlock.BlockHash != this.WinningBlock.BlockHash
                     && this.CacheContext.ChainedBlockCache.TryGetChain(winningBlock, out winningChain))
                 {
+                    var missingChainBlocks = winningChain.Select(x => x.BlockHash).Except(this.CacheContext.BlockCache.GetAllKeys());
+                    this.missingBlocks.UnionWith(missingChainBlocks);
+
                     UpdateWinningBlock(winningBlock, winningChain.ToImmutableArray());
                 }
             }
@@ -508,7 +512,8 @@ namespace BitSharp.Daemon
         {
             try
             {
-                var winningBlockLocal = this.WinningBlock;
+                var winningBlockchainLocal = this.WinningBlockchain;
+                var winningBlockLocal = winningBlockchainLocal.Last();
 
                 // check if the winning blockchain has changed
                 if (this._currentBlockchain.RootBlockHash != winningBlockLocal.BlockHash)
@@ -551,7 +556,7 @@ namespace BitSharp.Daemon
                     }
 
                     // whenever the chain is successfully advanced, keep looking for more
-                    this.blockchainWorker.NotifyWork();
+                    //this.blockchainWorker.NotifyWork();
 
                     // kick off a blockchain revalidate after update
                     this.validateCurrentChainWorker.NotifyWork();

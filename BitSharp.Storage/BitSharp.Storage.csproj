@@ -89,16 +89,18 @@
   </Choose>
   <ItemGroup>
     <Compile Include="BlockCache.cs" />
-    <Compile Include="BlockHeaderStorage.cs" />
+    <Compile Include="BlockStorage.cs" />
     <Compile Include="ChainedBlockCache.cs" />
     <Compile Include="BlockHeaderCache.cs" />
     <Compile Include="IUnboundedStorage.cs" />
     <Compile Include="MemoryCache.cs" />
+    <Compile Include="Provider\IBlockHeaderStorage.cs" />
+    <Compile Include="Provider\ITransactionStorage.cs" />
+    <Compile Include="Provider\IBlockTransactionsStorage.cs" />
     <Compile Include="Provider\IBlockchainStorage.cs" />
     <Compile Include="Provider\IStorageContext.cs" />
     <Compile Include="MissingDataException.cs" />
     <Compile Include="TransactionCache.cs" />
-    <Compile Include="TxKeyCache.cs" />
     <Compile Include="UnboundedCache.cs" />
     <Compile Include="Provider\IBlockStorage.cs" />
     <Compile Include="Provider\IChainedBlockStorage.cs" />

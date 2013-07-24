@@ -139,7 +139,7 @@ namespace BitSharp.Storage.SqlServer
             }
             catch (SqlException e)
             {
-                if (e.IsDeadlock())
+                if (e.IsDeadlock() || e.IsTimeout())
                     return false;
                 else
                     throw;

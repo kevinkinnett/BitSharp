@@ -1,23 +1,24 @@
 ﻿using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
-using BitSharp.Storage;
+using BitSharp.Storage.SqlServer;
 using BitSharp.Storage.SqlServer.ExtensionMethods;
+using BitSharp.Storage;
+using BitSharp.Network;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using BitSharp.Blockchain;
 using BitSharp.Data;
 using System.Data.SqlClient;
-using System.Data;
 
 namespace BitSharp.Storage.SqlServer
 {
-    public class ChainedBlockStorage : SqlDataStorage, IChainedBlockStorage
+    public class BlockHeaderStorage : SqlDataStorage, IBlockHeaderStorage
     {
-        public ChainedBlockStorage(SqlServerStorageContext storageContext)
+        public BlockHeaderStorage(SqlServerStorageContext storageContext)
             : base(storageContext)
         { }
 
@@ -28,7 +29,7 @@ namespace BitSharp.Storage.SqlServer
             {
                 cmd.CommandText = @"
                     SELECT BlockHash
-                    FROM ChainedBlocks";
+                    FROM BlockHeaders";
 
                 using (var reader = cmd.ExecuteReader())
                 {
@@ -41,51 +42,36 @@ namespace BitSharp.Storage.SqlServer
             }
         }
 
-        public IEnumerable<KeyValuePair<UInt256, ChainedBlock>> ReadAllValues()
+        public IEnumerable<KeyValuePair<UInt256, BlockHeader>> ReadAllValues()
         {
-            Debug.WriteLine(new string('*', 80));
-            Debug.WriteLine("EXPENSIVE OPERATION: ChainedBlockSqlStorage.GetAllValues");
-            Debug.WriteLine(new string('*', 80));
-
             using (var conn = this.OpenConnection())
             using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = @"
-                    SELECT BlockHash, PreviousBlockHash, Height, TotalWork
-                    FROM ChainedBlocks";
+                    SELECT BlockHash, HeaderBytes
+                    FROM BlockHeaders";
 
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
                     {
                         var blockHash = reader.GetUInt256(0);
-                        var previousBlockHash = reader.GetUInt256(1);
-                        var height = reader.GetInt32(2);
-                        var totalWork = reader.GetBigInteger(3);
+                        var headerBytes = reader.GetBytes(1);
 
-                        yield return new KeyValuePair<UInt256, ChainedBlock>
-                        (
-                            blockHash,
-                            new ChainedBlock
-                            (
-                                blockHash,
-                                previousBlockHash,
-                                height,
-                                totalWork
-                            ));
+                        yield return new KeyValuePair<UInt256, BlockHeader>(blockHash, StorageEncoder.DecodeBlockHeader(headerBytes.ToMemoryStream(), blockHash));
                     }
                 }
             }
         }
 
-        public bool TryReadValue(UInt256 blockHash, out ChainedBlock chainedBlock)
+        public bool TryReadValue(UInt256 blockHash, out BlockHeader blockHeader)
         {
             using (var conn = this.OpenConnection())
             using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = @"
-                    SELECT PreviousBlockHash, Height, TotalWork
-                    FROM ChainedBlocks
+                    SELECT HeaderBytes
+                    FROM BlockHeaders
                     WHERE BlockHash = @blockHash";
 
                 cmd.Parameters.SetValue("@blockHash", SqlDbType.Binary, 32).Value = blockHash.ToDbByteArray();
@@ -94,29 +80,21 @@ namespace BitSharp.Storage.SqlServer
                 {
                     if (reader.Read())
                     {
-                        var previousBlockHash = reader.GetUInt256(0);
-                        var height = reader.GetInt32(1);
-                        var totalWork = reader.GetBigInteger(2);
+                        var headerBytes = reader.GetBytes(0);
 
-                        chainedBlock = new ChainedBlock
-                        (
-                            blockHash,
-                            previousBlockHash,
-                            height,
-                            totalWork
-                        );
+                        blockHeader = StorageEncoder.DecodeBlockHeader(headerBytes.ToMemoryStream(), blockHash);
                         return true;
                     }
                     else
                     {
-                        chainedBlock = default(ChainedBlock);
+                        blockHeader = default(BlockHeader);
                         return false;
                     }
                 }
             }
         }
 
-        public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<ChainedBlock>>> values)
+        public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<BlockHeader>>> values)
         {
             try
             {
@@ -135,25 +113,34 @@ namespace BitSharp.Storage.SqlServer
                     cmd.Transaction = trans;
 
                     cmd.Parameters.Add(new SqlParameter { ParameterName = "@blockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
-                    cmd.Parameters.Add(new SqlParameter { ParameterName = "@previousBlockHash", SqlDbType = SqlDbType.Binary, Size = 32 });
-                    cmd.Parameters.Add(new SqlParameter { ParameterName = "@height", SqlDbType = SqlDbType.Int });
-                    cmd.Parameters.Add(new SqlParameter { ParameterName = "@totalWork", SqlDbType = SqlDbType.Binary, Size = 64 });
+                    cmd.Parameters.Add(new SqlParameter { ParameterName = "@headerBytes", SqlDbType = SqlDbType.Binary, Size = 80 });
 
-                    foreach (var keyPair in values)
+                    cmd.CommandText = CREATE_QUERY;
+                    foreach (var keyPair in values.Where(x => x.Value.IsCreate))
                     {
-                        cmd.CommandText = keyPair.Value.IsCreate ? CREATE_QUERY : UPDATE_QUERY;
+                        var blockHeader = keyPair.Value.Value;
 
-                        var chainedBlock = keyPair.Value.Value;
+                        var blockBytes = StorageEncoder.EncodeBlockHeader(blockHeader);
+                        cmd.Parameters["@blockHash"].Value = blockHeader.Hash.ToDbByteArray();
+                        cmd.Parameters["@headerBytes"].Value = blockBytes;
 
-                        cmd.Parameters["@blockHash"].Value = chainedBlock.BlockHash.ToDbByteArray();
-                        cmd.Parameters["@previousBlockHash"].Value = chainedBlock.PreviousBlockHash.ToDbByteArray();
-                        cmd.Parameters["@height"].Value = chainedBlock.Height;
-                        cmd.Parameters["@totalWork"].Value = chainedBlock.TotalWork.ToDbByteArray();
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    cmd.CommandText = UPDATE_QUERY;
+                    foreach (var keyPair in values.Where(x => !x.Value.IsCreate))
+                    {
+                        var blockHeader = keyPair.Value.Value;
+
+                        var blockBytes = StorageEncoder.EncodeBlockHeader(blockHeader);
+                        cmd.Parameters["@blockHash"].Value = blockHeader.Hash.ToDbByteArray();
+                        cmd.Parameters["@headerBytes"].Value = blockBytes;
 
                         cmd.ExecuteNonQuery();
                     }
 
                     trans.Commit();
+
                     return true;
                 }
             }
@@ -172,31 +159,31 @@ namespace BitSharp.Storage.SqlServer
             using (var trans = conn.BeginTransaction())
             using (var cmd = conn.CreateCommand())
             {
-                cmd.Transaction = trans;
-
                 cmd.CommandText = @"
-                    DELETE FROM ChainedBlocks";
+                    DELETE FROM BlockHeaders";
 
                 cmd.ExecuteNonQuery();
+
+                trans.Commit();
             }
         }
 
         private const string CREATE_QUERY = @"
-            MERGE ChainedBlocks AS target
+            MERGE BlockHeaders AS target
             USING (SELECT @blockHash) AS source (BlockHash)
             ON (target.BlockHash = source.BlockHash)
-	        WHEN NOT MATCHED THEN	
-	            INSERT (BlockHash, PreviousBlockHash, Height, TotalWork)
-	            VALUES (@blockHash, @previousBlockHash, @height, @totalWork);";
+	        WHEN NOT MATCHED THEN
+	            INSERT (BlockHash, HeaderBytes)
+	            VALUES (@blockHash, @headerBytes);";
 
         private const string UPDATE_QUERY = @"
-            MERGE ChainedBlocks AS target
+            MERGE BlockHeaders AS target
             USING (SELECT @blockHash) AS source (BlockHash)
             ON (target.BlockHash = source.BlockHash)
-	        WHEN NOT MATCHED THEN	
-	            INSERT (BlockHash, PreviousBlockHash, Height, TotalWork)
-	            VALUES (@blockHash, @previousBlockHash, @height, @totalWork)
+	        WHEN NOT MATCHED THEN
+	            INSERT (BlockHash, HeaderBytes)
+	            VALUES (@blockHash, @headerBytes)
             WHEN MATCHED THEN
-                UPDATE SET PreviousBlockHash = @previousBlockHash, Height = @height, TotalWork = @totalWork;";
+                UPDATE SET HeaderBytes = @headerBytes;";
     }
 }

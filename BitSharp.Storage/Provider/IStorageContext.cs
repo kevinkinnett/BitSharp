@@ -10,9 +10,13 @@ namespace BitSharp.Storage
     {
         IBlockStorage BlockStorage { get; }
 
-        IChainedBlockStorage ChainedBlockStorage { get; }
+        IBlockHeaderStorage BlockHeaderStorage { get; }
 
-        ITxKeyStorage TxKeyStorage { get; }
+        IBlockTransactionsStorage BlockTransactionsStorage { get; }
+
+        ITransactionStorage TransactionStorage { get; }
+
+        IChainedBlockStorage ChainedBlockStorage { get; }
 
         IBlockchainStorage BlockchainStorage { get; }
     }

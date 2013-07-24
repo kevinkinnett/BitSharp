@@ -151,19 +151,26 @@ namespace BitSharp.Node
 
         private void MessageWorker()
         {
+            var connectedPeersLocal = this.connectedPeers.Values.SafeToList();
+            if (connectedPeersLocal.Count == 0)
+                return;
+
             // send out requests for any missing blocks
             foreach (var missingBlock in this.blockchainDaemon.MissingBlocks)
             {
                 // cooperative loop
                 this.shutdownToken.Token.ThrowIfCancellationRequested();
 
-                RequestBlock(missingBlock);
+                RequestBlock(connectedPeersLocal.RandomOrDefault(), missingBlock);
             }
 
-            // send out request for unknown blocks
-            var remoteNode = this.connectedPeers.Values.SafeToList().RandomOrDefault();
-            if (remoteNode != null)
-                SendGetBlocks(remoteNode).Forget();
+            //// send out request for unknown block hashes
+            //var remoteNode = this.connectedPeers.Values.SafeToList().RandomOrDefault();
+            //if (remoteNode != null)
+            //    SendGetBlocks(remoteNode).Forget();
+
+            // send out request for unknown block headers
+            SendGetHeaders(connectedPeersLocal.RandomOrDefault()).Forget();
         }
 
         private void StatsWorker()
@@ -281,7 +288,14 @@ namespace BitSharp.Node
         {
             await remoteNode.Sender.RequestKnownAddressesAsync();
 
-            await SendGetBlocks(remoteNode);
+            //await SendGetHeaders(remoteNode);
+        }
+
+        private async Task SendGetHeaders(RemoteNode remoteNode)
+        {
+            var blockLocatorHashes = CalculateBlockLocatorHashes(this.blockchainDaemon.WinningBlockchain);
+
+            await remoteNode.Sender.SendGetHeaders(blockLocatorHashes, hashStop: 0);
         }
 
         private async Task SendGetBlocks(RemoteNode remoteNode)
@@ -396,6 +410,7 @@ namespace BitSharp.Node
             remoteNode.Receiver.OnMessage += OnMessage;
             remoteNode.Receiver.OnInventoryVectors += OnInventoryVectors;
             remoteNode.Receiver.OnBlock += OnBlock;
+            remoteNode.Receiver.OnBlockHeader += OnBlockHeader;
             remoteNode.Receiver.OnReceivedAddresses += OnReceivedAddresses;
             remoteNode.OnDisconnect += OnDisconnect;
         }
@@ -404,7 +419,8 @@ namespace BitSharp.Node
         {
             remoteNode.Receiver.OnMessage -= OnMessage;
             remoteNode.Receiver.OnInventoryVectors -= OnInventoryVectors;
-            remoteNode.Receiver.OnBlock += OnBlock;
+            remoteNode.Receiver.OnBlock -= OnBlock;
+            remoteNode.Receiver.OnBlockHeader -= OnBlockHeader;
             remoteNode.Receiver.OnReceivedAddresses -= OnReceivedAddresses;
             remoteNode.OnDisconnect -= OnDisconnect;
         }
@@ -416,23 +432,24 @@ namespace BitSharp.Node
 
         private void OnInventoryVectors(ImmutableArray<InventoryVector> invVectors)
         {
+            var connectedPeersLocal = this.connectedPeers.Values.SafeToList();
+            if (connectedPeersLocal.Count == 0)
+                return;
+
             foreach (var invVector in invVectors)
             {
                 if (
                     invVector.Type == InventoryVector.TYPE_MESSAGE_BLOCK
-                    && !this.blockchainDaemon.CacheContext.BlockCache.ContainsKey(invVector.Hash))
+                    && !this.blockchainDaemon.CacheContext.BlockCache.ContainsKey(invVector.Hash)
+                    && this.blockchainDaemon.MissingBlocks.Contains(invVector.Hash))
                 {
-                    RequestBlock(invVector.Hash);
+                    RequestBlock(connectedPeersLocal.RandomOrDefault(), invVector.Hash);
                 }
             }
         }
 
-        private void RequestBlock(UInt256 blockHash)
+        private void RequestBlock(RemoteNode remoteNode, UInt256 blockHash)
         {
-            var remoteNode = this.connectedPeers.Values.SafeToList().RandomOrDefault();
-            if (remoteNode == null)
-                return;
-
             var invVectors = ImmutableArray.Create<InventoryVector>(new InventoryVector(InventoryVector.TYPE_MESSAGE_BLOCK, blockHash));
             var now = DateTime.UtcNow;
 
@@ -462,8 +479,17 @@ namespace BitSharp.Node
             DateTime ignore;
             this.requestedBlocks.TryRemove(block.Hash, out ignore);
 
-            //Debug.WriteLine("Received block {0}".Format2(block.Hash.ToHexNumberString());
+            //Debug.WriteLine("Received block {0}".Format2(block.Hash);
             this.blockchainDaemon.CacheContext.BlockCache.CreateValue(block.Hash, block);
+        }
+
+        private void OnBlockHeader(BlockHeader blockHeader)
+        {
+            //Debug.WriteLine("Received block header {0}".Format2(blockHeader.Hash);
+            if (!this.blockchainDaemon.CacheContext.BlockHeaderCache.ContainsKey(blockHeader.Hash))
+            {
+                this.blockchainDaemon.CacheContext.BlockHeaderCache.CreateValue(blockHeader.Hash, blockHeader);
+            }
         }
 
         private void OnReceivedAddresses(ImmutableArray<NetworkAddressWithTime> addresses)
