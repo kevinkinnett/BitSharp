@@ -557,10 +557,13 @@ namespace BitSharp.Node
                 // setup task to wait for version
                 var versionTask = remoteNode.Receiver.WaitForMessage(x => x.Command == "version", HANDSHAKE_TIMEOUT_MS);
 
+                // start listening for messages after tasks have been setup
+                remoteNode.Receiver.Listen();
+
                 // send our local version
                 var nodeId = (((UInt64)random.Next()) << 32) + (UInt64)random.Next(); //TODO should be generated and verified on version message
                 var currentHeight = (UInt32)this.blockchainDaemon.CurrentBlockchain.Height;
-                await remoteNode.Sender.SendVersion(Messaging.GetExternalIPEndPoint(), remoteNode.RemoteEndPoint, nodeId, currentHeight);
+                await remoteNode.Sender.SendVersion(Messaging.GetExternalIPEndPoint(), remoteNode.RemoteEndPoint, nodeId, UInt32.MaxValue);
 
                 // wait for our local version to be acknowledged by the remote peer
                 // wait for remote peer to send their version

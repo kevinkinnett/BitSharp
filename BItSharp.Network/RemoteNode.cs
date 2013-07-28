@@ -85,8 +85,6 @@ namespace BitSharp.Network
 
                         this.localEndPoint = (IPEndPoint)this.socket.LocalEndPoint;
 
-                        this.receiver.Listen();
-
                         this.isConnected = true;
                     }
                 }
