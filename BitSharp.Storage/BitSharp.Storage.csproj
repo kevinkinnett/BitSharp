@@ -102,7 +102,6 @@
     <Compile Include="MissingDataException.cs" />
     <Compile Include="TransactionCache.cs" />
     <Compile Include="UnboundedCache.cs" />
-    <Compile Include="Provider\IBlockStorage.cs" />
     <Compile Include="Provider\IChainedBlockStorage.cs" />
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="IBoundedStorage.cs" />

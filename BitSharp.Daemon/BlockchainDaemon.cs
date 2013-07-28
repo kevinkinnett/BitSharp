@@ -478,33 +478,37 @@ namespace BitSharp.Daemon
 
         private void ValidateCurrentChainWorker()
         {
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
-
-            // revalidate current blockchain
-            try
+            var currentBlockchainLocal = this._currentBlockchain;
+            if (!currentBlockchainLocal.IsDefault && !this.Rules.GenesisBlock.IsDefault)
             {
-                Calculator.RevalidateBlockchain(this._currentBlockchain, this._rules.GenesisBlock);
-            }
-            catch (ValidationException e)
-            {
-                //TODO this does not cancel a blockchain that is currently being processed
+                var stopwatch = new Stopwatch();
+                stopwatch.Start();
 
-                Debug.WriteLine("******************************");
-                Debug.WriteLine("******************************");
-                Debug.WriteLine("BLOCKCHAIN ERROR DETECTED, ROLLING BACK TO GENESIS");
-                Debug.WriteLine("******************************");
-                Debug.WriteLine("******************************");
+                // revalidate current blockchain
+                try
+                {
+                    Calculator.RevalidateBlockchain(currentBlockchainLocal, this.Rules.GenesisBlock);
+                }
+                catch (ValidationException e)
+                {
+                    //TODO this does not cancel a blockchain that is currently being processed
 
-                UpdateCurrentBlockchain(this._rules.GenesisBlockchain);
-            }
-            catch (MissingDataException e)
-            {
-                HandleMissingData(e);
-            }
+                    Debug.WriteLine("******************************");
+                    Debug.WriteLine("******************************");
+                    Debug.WriteLine("BLOCKCHAIN ERROR DETECTED, ROLLING BACK TO GENESIS");
+                    Debug.WriteLine("******************************");
+                    Debug.WriteLine("******************************");
 
-            stopwatch.Stop();
-            Debug.WriteLine("ValidateCurrentChainWorker: {0:#,##0.000}s".Format2(stopwatch.ElapsedSecondsFloat()));
+                    UpdateCurrentBlockchain(this._rules.GenesisBlockchain);
+                }
+                catch (MissingDataException e)
+                {
+                    HandleMissingData(e);
+                }
+
+                stopwatch.Stop();
+                Debug.WriteLine("ValidateCurrentChainWorker: {0:#,##0.000}s".Format2(stopwatch.ElapsedSecondsFloat()));
+            }
         }
 
         private Stopwatch validateStopwatch = new Stopwatch();
@@ -513,10 +517,14 @@ namespace BitSharp.Daemon
             try
             {
                 var winningBlockchainLocal = this.WinningBlockchain;
+                if (winningBlockchainLocal.IsDefault)
+                    return;
+
                 var winningBlockLocal = winningBlockchainLocal.Last();
+                var currentBlockchainLocal = this.CurrentBlockchain;
 
                 // check if the winning blockchain has changed
-                if (this._currentBlockchain.RootBlockHash != winningBlockLocal.BlockHash)
+                if (currentBlockchainLocal.IsDefault || (currentBlockchainLocal.RootBlockHash != winningBlockLocal.BlockHash))
                 {
                     var lastCurrentBlockchainWriteLocal = this.lastCurrentBlockchainWrite;
                     using (var cancelToken = new CancellationTokenSource())
@@ -525,7 +533,7 @@ namespace BitSharp.Daemon
                         List<MissingDataException> missingData;
 
                         // try to advance the blockchain with the new winning block
-                        var newBlockchain = Calculator.CalculateBlockchainFromExisting(this._currentBlockchain, winningBlockLocal, out missingData, cancelToken.Token,
+                        var newBlockchain = Calculator.CalculateBlockchainFromExisting(currentBlockchainLocal, winningBlockLocal, out missingData, cancelToken.Token,
                             progressBlockchain =>
                             {
                                 // check that nothing else has changed the current blockchain
@@ -597,7 +605,7 @@ namespace BitSharp.Daemon
             var currentBlockchainLocal = this._currentBlockchain;
 
             // don't write out genesis blockchain
-            if (currentBlockchainLocal.Height > 0)
+            if (!currentBlockchainLocal.IsDefault && currentBlockchainLocal.Height > 0)
             {
                 //TODO
                 this.StorageContext.BlockchainStorage.WriteBlockchain(currentBlockchainLocal);

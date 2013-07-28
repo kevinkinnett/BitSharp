@@ -18,6 +18,7 @@ namespace BitSharp.Storage
     {
         private readonly IStorageContext _storageContext;
 
+        private readonly BlockStorage _blockStorage;
         private readonly BlockCache _blockCache;
         private readonly BlockHeaderCache _blockHeaderCache;
         private readonly ChainedBlockCache _chainedBlockCache;
@@ -27,6 +28,7 @@ namespace BitSharp.Storage
         {
             this._storageContext = storageContext;
 
+            this._blockStorage = new BlockStorage(this);
             this._blockCache = new BlockCache
             (
                 cacheContext: this,
@@ -56,6 +58,8 @@ namespace BitSharp.Storage
         }
 
         public IStorageContext StorageContext { get { return this._storageContext; } }
+
+        public BlockStorage BlockStorage { get { return this._blockStorage; } }
 
         public BlockCache BlockCache { get { return this._blockCache; } }
 

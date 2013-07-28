@@ -8,8 +8,6 @@ namespace BitSharp.Storage
 {
     public interface IStorageContext : IDisposable
     {
-        IBlockStorage BlockStorage { get; }
-
         IBlockHeaderStorage BlockHeaderStorage { get; }
 
         IBlockTransactionsStorage BlockTransactionsStorage { get; }

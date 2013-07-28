@@ -9,16 +9,18 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Storage
 {
-    public class BlockStorage : IBlockStorage
+    public class BlockStorage : IBoundedStorage<UInt256, Block>
     {
-        private readonly IStorageContext _storageContext;
+        private readonly CacheContext _cacheContext;
 
-        public BlockStorage(IStorageContext storageContext)
+        public BlockStorage(CacheContext cacheContext)
         {
-            this._storageContext = storageContext;
+            this._cacheContext = cacheContext;
         }
 
-        public IStorageContext StorageContext { get { return this._storageContext; } }
+        public CacheContext CacheContext { get { return this._cacheContext; } }
+
+        public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
 
         public void Dispose()
         {
@@ -31,7 +33,7 @@ namespace BitSharp.Storage
 
         public IEnumerable<KeyValuePair<UInt256, Block>> ReadAllValues()
         {
-            foreach (var blockHeader in this.StorageContext.BlockHeaderStorage.ReadAllValues())
+            foreach (var blockHeader in this.CacheContext.BlockHeaderCache.StreamAllValues())
             {
                 ImmutableArray<Transaction> blockTransactions;
                 if (this.StorageContext.BlockTransactionsStorage.TryReadValue(blockHeader.Value.Hash, out blockTransactions))
@@ -47,7 +49,7 @@ namespace BitSharp.Storage
         public bool TryReadValue(UInt256 key, out Block value)
         {
             BlockHeader blockHeader;
-            if (this.StorageContext.BlockHeaderStorage.TryReadValue(key, out blockHeader))
+            if (this.CacheContext.BlockHeaderCache.TryGetValue(key, out blockHeader))
             {
                 ImmutableArray<Transaction> blockTransactions;
                 if (this.StorageContext.BlockTransactionsStorage.TryReadValue(blockHeader.Hash, out blockTransactions))
@@ -66,17 +68,19 @@ namespace BitSharp.Storage
 
         public bool TryWriteValues(IEnumerable<KeyValuePair<UInt256, WriteValue<Block>>> values)
         {
-            var writeBlockHeaders = new List<KeyValuePair<UInt256, WriteValue<BlockHeader>>>();
             var writeBlockTransactions = new List<KeyValuePair<UInt256, WriteValue<ImmutableArray<Transaction>>>>();
 
             foreach (var value in values)
             {
-                writeBlockHeaders.Add(new KeyValuePair<UInt256, WriteValue<BlockHeader>>(value.Key, new WriteValue<BlockHeader>(value.Value.Value.Header, value.Value.IsCreate)));
+                if (value.Value.IsCreate)
+                    this.CacheContext.BlockHeaderCache.CreateValue(value.Key, value.Value.Value.Header);
+                else
+                    this.CacheContext.BlockHeaderCache.UpdateValue(value.Key, value.Value.Value.Header);
+
                 writeBlockTransactions.Add(new KeyValuePair<UInt256, WriteValue<ImmutableArray<Transaction>>>(value.Key, new WriteValue<ImmutableArray<Transaction>>(value.Value.Value.Transactions, value.Value.IsCreate)));
             }
 
-            return this.StorageContext.BlockHeaderStorage.TryWriteValues(writeBlockHeaders)
-                && this.StorageContext.BlockTransactionsStorage.TryWriteValues(writeBlockTransactions);
+            return this.StorageContext.BlockTransactionsStorage.TryWriteValues(writeBlockTransactions);
         }
     }
 }

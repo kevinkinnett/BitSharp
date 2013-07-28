@@ -19,7 +19,6 @@ namespace BitSharp.Storage.SqlServer
 
         public SqlServerStorageContext()
         {
-            this._blockStorage = new BlockStorage(this);
             this._blockHeaderStorage = new BlockHeaderStorage(this);
             this._blockTransactionsStorage = new BlockTransactionsStorage(this);
             this._transactionStorage = new TransactionStorage(this);
@@ -38,8 +37,6 @@ namespace BitSharp.Storage.SqlServer
         public ChainedBlockStorage ChainedBlockStorage { get { return this._chainedBlockStorage; } }
 
         public BlockchainStorage BlockchainStorage { get { return this._blockchainStorage; } }
-
-        IBlockStorage IStorageContext.BlockStorage { get { return this._blockStorage; } }
 
         IBlockHeaderStorage IStorageContext.BlockHeaderStorage { get { return this._blockHeaderStorage; } }
 

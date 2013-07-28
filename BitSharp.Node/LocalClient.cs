@@ -19,6 +19,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using BitSharp.Data;
 using System.IO;
+using System.Globalization;
 
 namespace BitSharp.Node
 {
@@ -197,19 +198,9 @@ namespace BitSharp.Node
                 RequestBlock(connectedPeersLocal.RandomOrDefault(), missingBlock);
             }
 
-            switch (this.Type)
-            {
-                case LocalClientType.MainNet:
-                case LocalClientType.TestNet3:
-                    // send out request for unknown block headers
-                    SendGetHeaders(connectedPeersLocal.RandomOrDefault()).Forget();
-                    break;
-
-                case LocalClientType.ComparisonToolTestNet:
-                    // send out request for unknown block hashes
-                    SendGetBlocks(connectedPeersLocal.RandomOrDefault()).Forget();
-                    break;
-            }
+            // send out request for unknown block headers
+            if (this.Type != LocalClientType.ComparisonToolTestNet)
+                SendGetHeaders(connectedPeersLocal.RandomOrDefault()).Forget();
         }
 
         private void StatsWorker()
@@ -327,7 +318,8 @@ namespace BitSharp.Node
         {
             await remoteNode.Sender.RequestKnownAddressesAsync();
 
-            //await SendGetHeaders(remoteNode);
+            if (this.Type != LocalClientType.ComparisonToolTestNet)
+                await SendGetHeaders(remoteNode);
         }
 
         private async Task SendGetHeaders(RemoteNode remoteNode)
@@ -552,14 +544,44 @@ namespace BitSharp.Node
 
         private void OnGetBlocks(RemoteNode remoteNode, GetBlocksPayload payload)
         {
-            var invPayload = NetworkEncoder.EncodeInventoryPayload(new InventoryPayload(InventoryVectors: ImmutableArray.Create<InventoryVector>()));
-
-            remoteNode.Sender.SendMessageAsync(Messaging.ConstructMessage("inv", invPayload)).Wait();
+            //TODO
         }
 
         private void OnGetHeaders(RemoteNode remoteNode, GetBlocksPayload payload)
         {
-            //TODO
+            // if in comparison mode, synchronize all work before returning current headers
+            if (this.Type == LocalClientType.ComparisonToolTestNet)
+                this.blockchainDaemon.WaitForFullUpdate();
+
+            var currentBlockchainLocal = this.blockchainDaemon.CurrentBlockchain;
+            var blockHeaders = new List<BlockHeader>(currentBlockchainLocal.BlockCount);
+            foreach (var chainedBlock in currentBlockchainLocal.BlockList)
+            {
+                BlockHeader blockHeader;
+                if (this.blockchainDaemon.CacheContext.BlockHeaderCache.TryGetValue(chainedBlock.BlockHash, out blockHeader))
+                {
+                    blockHeaders.Add(blockHeader);
+                }
+                else
+                {
+                    Debugger.Break();
+                    Debug.WriteLine("Couldn't generate getheaders response");
+                    return;
+                }
+            }
+
+            var payloadStream = new MemoryStream();
+            using (var payloadWriter = new BinaryWriter(payloadStream))
+            {
+                payloadWriter.WriteVarInt((UInt64)blockHeaders.Count);
+                foreach (var blockHeader in blockHeaders)
+                {
+                    NetworkEncoder.EncodeBlockHeader(payloadStream, blockHeader);
+                    payloadWriter.WriteVarInt(0);
+                }
+            }
+
+            remoteNode.Sender.SendMessageAsync(Messaging.ConstructMessage("headers", payloadStream.ToArray())).Wait();
         }
 
         private void OnPing(RemoteNode remoteNode, ImmutableArray<byte> payload)
@@ -598,7 +620,9 @@ namespace BitSharp.Node
 
                 // send our local version
                 var nodeId = (((UInt64)random.Next()) << 32) + (UInt64)random.Next(); //TODO should be generated and verified on version message
-                var currentHeight = (UInt32)this.blockchainDaemon.CurrentBlockchain.Height;
+
+                var currentBlockchainLocal = this.blockchainDaemon.CurrentBlockchain;
+                var currentHeight = !currentBlockchainLocal.IsDefault ? (UInt32)currentBlockchainLocal.Height : 0;
                 await remoteNode.Sender.SendVersion(Messaging.GetExternalIPEndPoint(), remoteNode.RemoteEndPoint, nodeId, currentHeight);
 
                 // wait for our local version to be acknowledged by the remote peer

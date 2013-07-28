@@ -32,7 +32,14 @@ namespace BitSharp.Client
         public MainWindowViewModel(BlockchainDaemon blockchainDaemon)
         {
             this.blockchainDaemon = blockchainDaemon;
-            this.viewBlockchain = this.blockchainDaemon.CurrentBlockchain;
+
+            var winningBlockLocal = this.blockchainDaemon.WinningBlock;
+            var currentBlockchainLocal = this.blockchainDaemon.CurrentBlockchain;
+
+            this.viewBlockchain = currentBlockchainLocal;
+            
+            this.WinningBlockchainHeight = winningBlockLocal.Height;
+            this.CurrentBlockchainHeight = currentBlockchainLocal.Height;
 
             this.blockchainDaemon.OnWinningBlockChanged +=
                 (sender, block) =>
@@ -64,8 +71,6 @@ namespace BitSharp.Client
             set
             {
                 var currentBlockchain = this.blockchainDaemon.CurrentBlockchain;
-                if (currentBlockchain.BlockList.Count == 0)
-                    return;
 
                 var height = value;
                 if (height > currentBlockchain.Height)

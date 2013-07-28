@@ -9,7 +9,6 @@ namespace BitSharp.Storage.SQLite
 {
     public class SQLiteStorageContext : IStorageContext
     {
-        private readonly BlockStorage _blockStorage;
         private readonly BlockHeaderStorage _blockHeaderStorage;
         private readonly BlockTransactionsStorage _blockTransactionsStorage;
         private readonly TransactionStorage _transactionStorage;
@@ -18,15 +17,12 @@ namespace BitSharp.Storage.SQLite
 
         public SQLiteStorageContext()
         {
-            this._blockStorage = new BlockStorage(this);
             this._blockHeaderStorage = new BlockHeaderStorage(this);
             this._blockTransactionsStorage = new BlockTransactionsStorage(this);
             this._transactionStorage = new TransactionStorage(this);
             this._chainedBlockStorage = new ChainedBlockStorage(this);
             this._blockchainStorage = new BlockchainStorage(this);
         }
-
-        public BlockStorage BlockStorage { get { return this._blockStorage; } }
 
         public BlockHeaderStorage BlockHeaderStorage { get { return this._blockHeaderStorage; } }
 
@@ -37,8 +33,6 @@ namespace BitSharp.Storage.SQLite
         public ChainedBlockStorage ChainedBlockStorage { get { return this._chainedBlockStorage; } }
 
         public BlockchainStorage BlockchainStorage { get { return this._blockchainStorage; } }
-
-        IBlockStorage IStorageContext.BlockStorage { get { return this._blockStorage; } }
 
         IBlockHeaderStorage IStorageContext.BlockHeaderStorage { get { return this._blockHeaderStorage; } }
 
@@ -54,7 +48,6 @@ namespace BitSharp.Storage.SQLite
         {
             new IDisposable[]
             {
-                this._blockStorage,
                 this._blockHeaderStorage,
                 this._blockTransactionsStorage,
                 this._transactionStorage,

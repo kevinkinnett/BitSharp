@@ -193,11 +193,9 @@ namespace BitSharp.Blockchain.Test
                 prevChainedBlock != null ? prevChainedBlock.Value.TotalWork + block.Header.CalculateWork() : block.Header.CalculateWork()
             );
 
-            this.StorageContext.BlockStorage.TryWriteValue(
-                new KeyValuePair<UInt256, WriteValue<Block>>(block.Hash, new WriteValue<Block>(block, IsCreate: true)));
+            this.CacheContext.BlockCache.CreateValue(block.Hash, block);
 
-            this.StorageContext.ChainedBlockStorage.TryWriteValue(
-                new KeyValuePair<UInt256, WriteValue<ChainedBlock>>(block.Hash, new WriteValue<ChainedBlock>(chainedBlock, IsCreate: true)));
+            this.CacheContext.ChainedBlockCache.CreateValue(block.Hash, chainedBlock);
 
             ChooseNewWinner();
 

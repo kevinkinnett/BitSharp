@@ -22,7 +22,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
-using System.Windows.Shapes;
 using BitSharp.Network;
 
 #if SQLITE
@@ -51,6 +50,13 @@ namespace BitSharp.Client
         {
             try
             {
+                var localClientType = LocalClientType.MainNet;
+
+                if (localClientType == LocalClientType.ComparisonToolTestNet)
+                {
+                    Directory.Delete(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BitSharp"), recursive: true);
+                }
+
                 //File.Delete(@"C:\Users\Paul\AppData\Local\BitSharp\BITSHARP.FDB");
 
                 //TODO
@@ -73,9 +79,20 @@ namespace BitSharp.Client
 #endif
 
                 this.cacheContext = new CacheContext(this.storageContext);
-                this.rules = new MainnetRules(this.cacheContext);
+
+                switch (localClientType)
+                {
+                    case LocalClientType.MainNet:
+                        this.rules = new MainnetRules(this.cacheContext);
+                        break;
+
+                    case LocalClientType.ComparisonToolTestNet:
+                        this.rules = new Testnet2Rules(this.cacheContext);
+                        break;
+                }
+
                 this.blockchainDaemon = new BlockchainDaemon(this.rules, this.cacheContext);
-                this.localClient = new LocalClient(LocalClientType.MainNet, this.blockchainDaemon, knownAddressStorage);
+                this.localClient = new LocalClient(localClientType, this.blockchainDaemon, knownAddressStorage);
 
                 // setup view model
                 this.viewModel = new MainWindowViewModel(this.blockchainDaemon);

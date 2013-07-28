@@ -41,6 +41,35 @@ namespace BitSharp.Blockchain
         {
             Debug.WriteLine("Winning chained block {0} at height {1}, total work: {2}".Format2(targetChainedBlock.BlockHash.ToHexNumberString(), targetChainedBlock.Height, targetChainedBlock.TotalWork.ToString("X")));
 
+            if (targetChainedBlock.Height == 0)
+            {
+                currentBlockchain = new Data.Blockchain
+                (
+                    blockList: ImmutableList.Create(targetChainedBlock),
+                    blockListHashes: ImmutableHashSet.Create(targetChainedBlock.BlockHash),
+                    utxo: ImmutableHashSet.Create<TxOutputKey>()
+                );
+            }
+            else if (currentBlockchain.IsDefault)
+            {
+                var genesisBlock = targetChainedBlock;
+                foreach (var prevBlock in PreviousChainedBlocks(targetChainedBlock))
+                {
+                    // cooperative loop
+                    this.shutdownToken.ThrowIfCancellationRequested();
+                    cancelToken.ThrowIfCancellationRequested();
+
+                    genesisBlock = prevBlock;
+                }
+
+                currentBlockchain = new Data.Blockchain
+                (
+                    blockList: ImmutableList.Create(genesisBlock),
+                    blockListHashes: ImmutableHashSet.Create(genesisBlock.BlockHash),
+                    utxo: ImmutableHashSet.Create<TxOutputKey>()
+                );
+            }
+
             missingData = new List<MissingDataException>();
 
             // take snapshots
@@ -173,7 +202,8 @@ namespace BitSharp.Blockchain
             }
             var newBlockchainHashes = newBlockchainHashesBuilder.ToImmutable();
 
-            Debug.WriteLine("Last common ancestor found at block {0}, height {1:#,##0}, begin processing winning blockchain".Format2(currentBlockchain.RootBlockHash.ToHexNumberString(), currentBlockchain.Height));
+            if (!currentBlockchain.IsDefault)
+                Debug.WriteLine("Last common ancestor found at block {0}, height {1:#,##0}, begin processing winning blockchain".Format2(currentBlockchain.RootBlockHash.ToHexNumberString(), currentBlockchain.Height));
 
             // setup statistics
             var totalTxCount = 0L;
@@ -203,7 +233,6 @@ namespace BitSharp.Blockchain
             );
 
             // start calculating new utxo
-            var index = 0;
             foreach (var tuple in BlockAndTxLookAhead(newChainBlockList, newBlockchainHashes))
             {
                 // cooperative loop
@@ -287,6 +316,9 @@ namespace BitSharp.Blockchain
                     }
                 }
             }
+
+            if (onProgress != null)
+                onProgress(newBlockchain);
 
             LogBlockchainProgress(newBlockchain, totalStopwatch, totalTxCount, totalInputCount, currentRateStopwatch, currentBlockCount, currentTxCount, currentInputCount);
 
