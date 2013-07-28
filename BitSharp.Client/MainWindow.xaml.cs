@@ -50,8 +50,6 @@ namespace BitSharp.Client
         {
             try
             {
-                //File.Delete(@"C:\Users\Paul\AppData\Local\BitSharp\BITSHARP.FDB");
-
                 //TODO
                 //MainnetRules.BypassValidation = true;
                 MainnetRules.BypassExecuteScript = false;
