@@ -20,6 +20,13 @@ using BitSharp.Data;
 
 namespace BitSharp.Node
 {
+    public enum LocalClientType
+    {
+        MainNet,
+        TestNet3,
+        ComparisonToolTestNet
+    }
+
     public class LocalClient : IDisposable
     {
         private static readonly int SERVER_BACKLOG = 100;
@@ -29,6 +36,8 @@ namespace BitSharp.Node
         private static readonly Random random = new Random();
 
         private readonly CancellationTokenSource shutdownToken;
+
+        private readonly LocalClientType _type;
 
         private readonly Worker connectWorker;
         private readonly Worker messageWorker;
@@ -51,8 +60,10 @@ namespace BitSharp.Node
 
         private Socket listenSocket;
 
-        public LocalClient(BlockchainDaemon blockchainDaemon, IBoundedStorage<NetworkAddressKey, NetworkAddressWithTime> knownAddressStorage)
+        public LocalClient(LocalClientType type, BlockchainDaemon blockchainDaemon, IBoundedStorage<NetworkAddressKey, NetworkAddressWithTime> knownAddressStorage)
         {
+            this._type = type;
+
             this.blockchainDaemon = blockchainDaemon;
             this.shutdownToken = new CancellationTokenSource();
 
@@ -68,7 +79,27 @@ namespace BitSharp.Node
             this.connectWorker = new Worker("LocalClient.ConnectWorker", ConnectWorker, true, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
             this.messageWorker = new Worker("LocalClient.MessageWorker", MessageWorker, true, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
             this.statsWorker = new Worker("LocalClient.StatsWorker", StatsWorker, true, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+
+            switch (this.Type)
+            {
+                case LocalClientType.MainNet:
+                    Messaging.Port = 8333;
+                    Messaging.Magic = Messaging.MAGIC_MAIN;
+                    break;
+
+                case LocalClientType.TestNet3:
+                    Messaging.Port = 18333;
+                    Messaging.Magic = Messaging.MAGIC_TESTNET3;
+                    break;
+
+                case LocalClientType.ComparisonToolTestNet:
+                    Messaging.Port = 18444;
+                    Messaging.Magic = Messaging.MAGIC_MAIN;
+                    break;
+            }
         }
+
+        public LocalClientType Type { get { return this._type; } }
 
         public void Start()
         {
@@ -222,12 +253,24 @@ namespace BitSharp.Node
 
         private async void StartListening()
         {
-            var externalIPAddress = Messaging.GetExternalIPAddress();
-            var localhost = Dns.GetHostEntry(Dns.GetHostName());
+            switch (this.Type)
+            {
+                case LocalClientType.MainNet:
+                case LocalClientType.TestNet3:
+                    var externalIPAddress = Messaging.GetExternalIPAddress();
+                    var localhost = Dns.GetHostEntry(Dns.GetHostName());
 
-            this.listenSocket = new Socket(externalIPAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            this.listenSocket.Bind(new IPEndPoint(localhost.AddressList.Where(x => x.AddressFamily == externalIPAddress.AddressFamily).First(), Messaging.Port));
-            this.listenSocket.Listen(SERVER_BACKLOG);
+                    this.listenSocket = new Socket(externalIPAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                    this.listenSocket.Bind(new IPEndPoint(localhost.AddressList.Where(x => x.AddressFamily == externalIPAddress.AddressFamily).First(), Messaging.Port));
+                    this.listenSocket.Listen(SERVER_BACKLOG);
+                    break;
+
+                case LocalClientType.ComparisonToolTestNet:
+                    this.listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    this.listenSocket.Bind(new IPEndPoint(IPAddress.Parse("127.0.0.1"), Messaging.Port));
+                    this.listenSocket.Listen(SERVER_BACKLOG);
+                    break;
+            }
 
             try
             {
@@ -321,43 +364,36 @@ namespace BitSharp.Node
                     }
                 };
 
-            var isMainNet = true;
-            if (isMainNet)
+            switch (this.Type)
             {
-                // mainnet
-                Messaging.Port = 8333;
-                Messaging.Magic = Messaging.MAGIC_MAIN;
+                case LocalClientType.MainNet:
+                    addSeed("archivum.info");
+                    addSeed("62.75.216.13");
+                    addSeed("69.64.34.118");
+                    addSeed("79.160.221.140");
+                    addSeed("netzbasis.de");
+                    addSeed("btc.turboadmin.com");
+                    addSeed("fallback.bitcoin.zhoutong.com");
+                    addSeed("bauhaus.csail.mit.edu");
+                    addSeed("jun.dashjr.org");
+                    addSeed("cheaperinbitcoins.com");
+                    addSeed("django.webflows.fr");
+                    addSeed("204.9.55.71");
+                    addSeed("btcnode.novit.ro");
+                    //No such host is known: addSeed("porgressbar.sk");
+                    addSeed("faucet.bitcoin.st");
+                    addSeed("bitcoin.securepayment.cc");
+                    addSeed("x.jine.se");
+                    addSeed("www.dcscdn.com");
+                    addSeed("ns2.dcscdn.com");
+                    //No such host is known: addSeed("coin.soul-dev.com");
+                    addSeed("messier.bzfx.net");
+                    break;
 
-                addSeed("archivum.info");
-                addSeed("62.75.216.13");
-                addSeed("69.64.34.118");
-                addSeed("79.160.221.140");
-                addSeed("netzbasis.de");
-                addSeed("btc.turboadmin.com");
-                addSeed("fallback.bitcoin.zhoutong.com");
-                addSeed("bauhaus.csail.mit.edu");
-                addSeed("jun.dashjr.org");
-                addSeed("cheaperinbitcoins.com");
-                addSeed("django.webflows.fr");
-                addSeed("204.9.55.71");
-                addSeed("btcnode.novit.ro");
-                //No such host is known: addSeed("porgressbar.sk");
-                addSeed("faucet.bitcoin.st");
-                addSeed("bitcoin.securepayment.cc");
-                addSeed("x.jine.se");
-                addSeed("www.dcscdn.com");
-                addSeed("ns2.dcscdn.com");
-                //No such host is known: addSeed("coin.soul-dev.com");
-                addSeed("messier.bzfx.net");
-            }
-            else
-            {
-                // testnet3
-                Messaging.Port = 18333;
-                Messaging.Magic = Messaging.MAGIC_TESTNET3;
-
-                addSeed("testnet-seed.bitcoin.petertodd.org");
-                addSeed("testnet-seed.bluematt.me");
+                case LocalClientType.TestNet3:
+                    addSeed("testnet-seed.bitcoin.petertodd.org");
+                    addSeed("testnet-seed.bluematt.me");
+                    break;
             }
         }
 

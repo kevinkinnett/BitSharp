@@ -24,9 +24,14 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using BitSharp.Network;
-using BitSharp.Storage.Firebird;
-using BitSharp.Storage.SqlServer;
+
+#if SQLITE
 using BitSharp.Storage.SQLite;
+#elif FIREBIRD
+using BitSharp.Storage.Firebird;
+#elif SQL_SERVER
+using BitSharp.Storage.SqlServer;
+#endif
 
 namespace BitSharp.Client
 {
@@ -70,7 +75,7 @@ namespace BitSharp.Client
                 this.cacheContext = new CacheContext(this.storageContext);
                 this.rules = new MainnetRules(this.cacheContext);
                 this.blockchainDaemon = new BlockchainDaemon(this.rules, this.cacheContext);
-                this.localClient = new LocalClient(this.blockchainDaemon, knownAddressStorage);
+                this.localClient = new LocalClient(LocalClientType.MainNet, this.blockchainDaemon, knownAddressStorage);
 
                 // setup view model
                 this.viewModel = new MainWindowViewModel(this.blockchainDaemon);
