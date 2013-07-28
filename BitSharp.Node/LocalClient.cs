@@ -94,7 +94,7 @@ namespace BitSharp.Node
 
                 case LocalClientType.ComparisonToolTestNet:
                     Messaging.Port = 18444;
-                    Messaging.Magic = Messaging.MAGIC_MAIN;
+                    Messaging.Magic = Messaging.MAGIC_COMPARISON_TOOL;
                     break;
             }
         }
@@ -288,26 +288,10 @@ namespace BitSharp.Node
                             var remoteNode = new RemoteNode(newSocket);
                             try
                             {
-                                this.pendingPeers.TryAdd(remoteNode.RemoteEndPoint, remoteNode);
-
-                                WireNode(remoteNode);
-
-                                var versionMessageTask = remoteNode.Receiver.WaitForMessage(x => x.Command == "version", HANDSHAKE_TIMEOUT_MS);
-
-                                remoteNode.Receiver.Listen();
-
-                                //wait for version
-                                var versionMessage = await versionMessageTask;
-
-                                await remoteNode.Sender.SendVersionAcknowledge();
-
-                                this.incomingCount++;
-
-                                RemoteNode ignore;
-                                this.pendingPeers.TryRemove(remoteNode.RemoteEndPoint, out ignore);
-                                this.connectedPeers.TryAdd(remoteNode.RemoteEndPoint, remoteNode);
-
-                                await PeerStartup(remoteNode);
+                                if (!await ConnectAndHandshake(remoteNode))
+                                {
+                                    DisconnectPeer(remoteNode.RemoteEndPoint, null);
+                                }
                             }
                             catch (Exception e)
                             {

@@ -16,6 +16,8 @@ namespace BitSharp.Network
     {
         public static readonly UInt32 MAGIC_TESTNET3 = 0x0709110B;
         public static readonly UInt32 MAGIC_MAIN = 0xD9B4BEF9;
+        public static readonly UInt32 MAGIC_COMPARISON_TOOL = 0xDAB5BFFA;
+
         public static readonly UInt64 SERVICES_BITFIELD = 1; // 1 (NODE_NETWORK services)
         public static readonly UInt32 PROTOCOL_VERSION = 70002;
         public static readonly string USER_AGENT = "/BitSharp:0.0.0/";
