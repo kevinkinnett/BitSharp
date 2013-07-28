@@ -86,12 +86,12 @@ namespace BitSharp.Network
             await SendMessageAsync("verack");
         }
 
-        private async Task SendMessageAsync(string command)
+        public async Task SendMessageAsync(string command)
         {
             await SendMessageAsync(Messaging.ConstructMessage(command, payload: new byte[0]));
         }
 
-        private async Task SendMessageAsync(Message message)
+        public async Task SendMessageAsync(Message message)
         {
             try
             {

@@ -15,6 +15,8 @@ namespace BitSharp.Network
 {
     public class RemoteNode : IDisposable
     {
+        public event Action<RemoteNode, GetBlocksPayload> OnGetBlocks;
+        public event Action<RemoteNode, GetBlocksPayload> OnGetHeaders;
         public event Action<RemoteNode> OnDisconnect;
 
         private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
@@ -37,6 +39,20 @@ namespace BitSharp.Network
 
             this.receiver.OnFailed += HandleFailed;
             this.sender.OnFailed += HandleFailed;
+
+            this.receiver.OnGetBlocks += (payload) =>
+            {
+                var handler = this.OnGetBlocks;
+                if (handler != null)
+                    handler(this, payload);
+            };
+
+            this.receiver.OnGetHeaders += (payload) =>
+            {
+                var handler = this.OnGetHeaders;
+                if (handler != null)
+                    handler(this, payload);
+            };
         }
 
         public RemoteNode(Socket socket)

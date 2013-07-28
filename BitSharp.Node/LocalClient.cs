@@ -3,6 +3,7 @@ using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
 using BitSharp.Daemon;
 using BitSharp.Network;
+using BitSharp.Network.ExtensionMethods;
 using BitSharp.Node.ExtensionMethods;
 using BitSharp.Script;
 using BitSharp.Storage;
@@ -17,6 +18,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using BitSharp.Data;
+using System.IO;
 
 namespace BitSharp.Node
 {
@@ -195,13 +197,20 @@ namespace BitSharp.Node
                 RequestBlock(connectedPeersLocal.RandomOrDefault(), missingBlock);
             }
 
-            //// send out request for unknown block hashes
-            //var remoteNode = this.connectedPeers.Values.SafeToList().RandomOrDefault();
-            //if (remoteNode != null)
-            //    SendGetBlocks(remoteNode).Forget();
 
-            // send out request for unknown block headers
-            SendGetHeaders(connectedPeersLocal.RandomOrDefault()).Forget();
+            switch (this.Type)
+            {
+                case LocalClientType.MainNet:
+                case LocalClientType.TestNet3:
+                    // send out request for unknown block headers
+                    SendGetHeaders(connectedPeersLocal.RandomOrDefault()).Forget();
+                    break;
+
+                case LocalClientType.ComparisonToolTestNet:
+                    // send out request for unknown block hashes
+                    SendGetBlocks(connectedPeersLocal.RandomOrDefault()).Forget();
+                    break;
+            }
         }
 
         private void StatsWorker()
@@ -288,7 +297,11 @@ namespace BitSharp.Node
                             var remoteNode = new RemoteNode(newSocket);
                             try
                             {
-                                if (!await ConnectAndHandshake(remoteNode))
+                                if (await ConnectAndHandshake(remoteNode, isIncoming: true))
+                                {
+                                    Interlocked.Increment(ref this.incomingCount);
+                                }
+                                else
                                 {
                                     DisconnectPeer(remoteNode.RemoteEndPoint, null);
                                 }
@@ -404,7 +417,7 @@ namespace BitSharp.Node
 
                 WireNode(remoteNode);
 
-                var success = await ConnectAndHandshake(remoteNode);
+                var success = await ConnectAndHandshake(remoteNode, isIncoming: false);
                 if (success)
                 {
                     await PeerStartup(remoteNode);
@@ -432,6 +445,8 @@ namespace BitSharp.Node
             remoteNode.Receiver.OnBlock += OnBlock;
             remoteNode.Receiver.OnBlockHeader += OnBlockHeader;
             remoteNode.Receiver.OnReceivedAddresses += OnReceivedAddresses;
+            remoteNode.OnGetBlocks += OnGetBlocks;
+            remoteNode.OnGetHeaders += OnGetHeaders;
             remoteNode.OnDisconnect += OnDisconnect;
         }
 
@@ -442,6 +457,8 @@ namespace BitSharp.Node
             remoteNode.Receiver.OnBlock -= OnBlock;
             remoteNode.Receiver.OnBlockHeader -= OnBlockHeader;
             remoteNode.Receiver.OnReceivedAddresses -= OnReceivedAddresses;
+            remoteNode.OnGetBlocks -= OnGetBlocks;
+            remoteNode.OnGetHeaders -= OnGetHeaders;
             remoteNode.OnDisconnect -= OnDisconnect;
         }
 
@@ -534,12 +551,24 @@ namespace BitSharp.Node
             }
         }
 
+        private void OnGetBlocks(RemoteNode remoteNode, GetBlocksPayload payload)
+        {
+            var invPayload = NetworkEncoder.EncodeInventoryPayload(new InventoryPayload(InventoryVectors: ImmutableArray.Create<InventoryVector>()));
+
+            remoteNode.Sender.SendMessageAsync(Messaging.ConstructMessage("inv", invPayload)).Wait();
+        }
+
+        private void OnGetHeaders(RemoteNode remoteNode, GetBlocksPayload payload)
+        {
+            //TODO
+        }
+
         private void OnDisconnect(RemoteNode remoteNode)
         {
             DisconnectPeer(remoteNode.RemoteEndPoint, null);
         }
 
-        private async Task<bool> ConnectAndHandshake(RemoteNode remoteNode)
+        private async Task<bool> ConnectAndHandshake(RemoteNode remoteNode, bool isIncoming)
         {
             // connect
             await remoteNode.ConnectAsync();
@@ -563,7 +592,7 @@ namespace BitSharp.Node
                 // send our local version
                 var nodeId = (((UInt64)random.Next()) << 32) + (UInt64)random.Next(); //TODO should be generated and verified on version message
                 var currentHeight = (UInt32)this.blockchainDaemon.CurrentBlockchain.Height;
-                await remoteNode.Sender.SendVersion(Messaging.GetExternalIPEndPoint(), remoteNode.RemoteEndPoint, nodeId, UInt32.MaxValue);
+                await remoteNode.Sender.SendVersion(Messaging.GetExternalIPEndPoint(), remoteNode.RemoteEndPoint, nodeId, currentHeight);
 
                 // wait for our local version to be acknowledged by the remote peer
                 // wait for remote peer to send their version
@@ -584,7 +613,8 @@ namespace BitSharp.Node
                     )
                 );
 
-                this.knownAddressCache.UpdateValue(remoteAddressWithTime.GetKey(), remoteAddressWithTime);
+                if (!isIncoming)
+                    this.knownAddressCache.UpdateValue(remoteAddressWithTime.GetKey(), remoteAddressWithTime);
 
                 // acknowledge their version
                 await remoteNode.Sender.SendVersionAcknowledge();
