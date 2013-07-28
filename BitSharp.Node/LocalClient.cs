@@ -415,8 +415,6 @@ namespace BitSharp.Node
                 this.unconnectedPeers.TryRemove(remoteEndPoint);
                 this.pendingPeers.TryAdd(remoteNode.RemoteEndPoint, remoteNode);
 
-                WireNode(remoteNode);
-
                 var success = await ConnectAndHandshake(remoteNode, isIncoming: false);
                 if (success)
                 {
@@ -478,7 +476,7 @@ namespace BitSharp.Node
                 if (
                     invVector.Type == InventoryVector.TYPE_MESSAGE_BLOCK
                     && !this.blockchainDaemon.CacheContext.BlockCache.ContainsKey(invVector.Hash)
-                    && this.blockchainDaemon.MissingBlocks.Contains(invVector.Hash))
+                    && (/*TODO properly handle comparison blockchain*/ this.Type == LocalClientType.ComparisonToolTestNet || this.blockchainDaemon.MissingBlocks.Contains(invVector.Hash)))
                 {
                     RequestBlock(connectedPeersLocal.RandomOrDefault(), invVector.Hash);
                 }
@@ -570,6 +568,9 @@ namespace BitSharp.Node
 
         private async Task<bool> ConnectAndHandshake(RemoteNode remoteNode, bool isIncoming)
         {
+            // wire node
+            WireNode(remoteNode);
+
             // connect
             await remoteNode.ConnectAsync();
 

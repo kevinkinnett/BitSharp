@@ -29,6 +29,8 @@ namespace BitSharp.Network
         public event Action<BlockHeader> OnBlockHeader;
         public event Action<Transaction> OnTransaction;
         public event Action<ImmutableArray<NetworkAddressWithTime>> OnReceivedAddresses;
+        public event Action<GetBlocksPayload> OnGetBlocks;
+        public event Action<GetBlocksPayload> OnGetHeaders;
 
         private readonly Socket socket;
         private readonly bool persistent;
@@ -193,9 +195,19 @@ namespace BitSharp.Network
                     {
                         var getBlocksPayload = NetworkEncoder.DecodeGetBlocksPayload(payload.ToMemoryStream());
 
-                        //var handler = this.OnGetBlocks;
-                        //if (handler != null)
-                        //    handler(getBlocksPayload);
+                        var handler = this.OnGetBlocks;
+                        if (handler != null)
+                            handler(getBlocksPayload);
+                    }
+                    break;
+
+                case "getheaders":
+                    {
+                        var getHeadersPayload = NetworkEncoder.DecodeGetBlocksPayload(payload.ToMemoryStream());
+
+                        var handler = this.OnGetHeaders;
+                        if (handler != null)
+                            handler(getHeadersPayload);
                     }
                     break;
 
@@ -270,6 +282,9 @@ namespace BitSharp.Network
                     break;
 
                 default:
+                    {
+                        Debug.WriteLine("Unhandled incoming message: {0}".Format2(message.Command));
+                    }
                     break;
             }
 
