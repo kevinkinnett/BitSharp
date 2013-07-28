@@ -4,7 +4,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{14F4EA11-179A-4438-9F62-2589805A854C}</ProjectGuid>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>BitSharp.Node.Test</RootNamespace>
     <AssemblyName>BitSharp.Node.Test</AssemblyName>
@@ -128,7 +128,11 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="bitcoinj.log.properties" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="bitcoinj.jar" />
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">
