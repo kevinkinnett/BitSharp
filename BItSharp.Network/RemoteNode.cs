@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using BitSharp.Common.ExtensionMethods;
+using System.Collections.Immutable;
 
 namespace BitSharp.Network
 {
@@ -17,6 +18,7 @@ namespace BitSharp.Network
     {
         public event Action<RemoteNode, GetBlocksPayload> OnGetBlocks;
         public event Action<RemoteNode, GetBlocksPayload> OnGetHeaders;
+        public event Action<RemoteNode, ImmutableArray<byte>> OnPing;
         public event Action<RemoteNode> OnDisconnect;
 
         private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1);
@@ -37,22 +39,7 @@ namespace BitSharp.Network
             this.receiver = new RemoteReceiver(this.socket, persistent: false);
             this.sender = new RemoteSender(this.socket);
 
-            this.receiver.OnFailed += HandleFailed;
-            this.sender.OnFailed += HandleFailed;
-
-            this.receiver.OnGetBlocks += (payload) =>
-            {
-                var handler = this.OnGetBlocks;
-                if (handler != null)
-                    handler(this, payload);
-            };
-
-            this.receiver.OnGetHeaders += (payload) =>
-            {
-                var handler = this.OnGetHeaders;
-                if (handler != null)
-                    handler(this, payload);
-            };
+            WireNode();
         }
 
         public RemoteNode(Socket socket)
@@ -66,8 +53,7 @@ namespace BitSharp.Network
             this.receiver = new RemoteReceiver(this.socket, persistent: false);
             this.sender = new RemoteSender(this.socket);
 
-            this.receiver.OnFailed += HandleFailed;
-            this.sender.OnFailed += HandleFailed;
+            WireNode();
         }
 
         ~RemoteNode() { ((IDisposable)this).Dispose(); }
@@ -114,8 +100,7 @@ namespace BitSharp.Network
 
         public void Disconnect()
         {
-            this.receiver.OnFailed -= HandleFailed;
-            this.sender.OnFailed -= HandleFailed;
+            UnwireNode();
 
             try
             {
@@ -135,10 +120,49 @@ namespace BitSharp.Network
             }
         }
 
+        private void WireNode()
+        {
+            this.receiver.OnFailed += HandleFailed;
+            this.sender.OnFailed += HandleFailed;
+            this.receiver.OnGetBlocks += HandleGetBlocks;
+            this.receiver.OnGetHeaders += HandleGetHeaders;
+            this.receiver.OnPing += HandlePing;
+        }
+
+        private void UnwireNode()
+        {
+            this.receiver.OnFailed -= HandleFailed;
+            this.sender.OnFailed -= HandleFailed;
+            this.receiver.OnGetBlocks -= HandleGetBlocks;
+            this.receiver.OnGetHeaders -= HandleGetHeaders;
+            this.receiver.OnPing -= HandlePing;
+        }
+
         private void HandleFailed(Exception e)
         {
             //Debug.WriteLine(string.Format("Remote peer {0} failed, disconnecting: {1}", this.remoteEndPoint, e.Message));
             Disconnect();
+        }
+
+        private void HandleGetBlocks(GetBlocksPayload payload)
+        {
+            var handler = this.OnGetBlocks;
+            if (handler != null)
+                handler(this, payload);
+        }
+
+        private void HandleGetHeaders(GetBlocksPayload payload)
+        {
+            var handler = this.OnGetHeaders;
+            if (handler != null)
+                handler(this, payload);
+        }
+
+        private void HandlePing(ImmutableArray<byte> payload)
+        {
+            var handler = this.OnPing;
+            if (handler != null)
+                handler(this, payload);
         }
     }
 }

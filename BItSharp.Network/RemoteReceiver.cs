@@ -31,6 +31,7 @@ namespace BitSharp.Network
         public event Action<ImmutableArray<NetworkAddressWithTime>> OnReceivedAddresses;
         public event Action<GetBlocksPayload> OnGetBlocks;
         public event Action<GetBlocksPayload> OnGetHeaders;
+        public event Action<ImmutableArray<byte>> OnPing;
 
         private readonly Socket socket;
         private readonly bool persistent;
@@ -249,6 +250,14 @@ namespace BitSharp.Network
                         var handler = this.OnNotFound;
                         if (handler != null)
                             handler(invPayload.InventoryVectors);
+                    }
+                    break;
+
+                case "ping":
+                    {
+                        var handler = this.OnPing;
+                        if (handler != null)
+                            handler(payload.ToImmutableArray());
                     }
                     break;
 

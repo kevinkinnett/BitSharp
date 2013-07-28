@@ -197,7 +197,6 @@ namespace BitSharp.Node
                 RequestBlock(connectedPeersLocal.RandomOrDefault(), missingBlock);
             }
 
-
             switch (this.Type)
             {
                 case LocalClientType.MainNet:
@@ -445,6 +444,7 @@ namespace BitSharp.Node
             remoteNode.Receiver.OnReceivedAddresses += OnReceivedAddresses;
             remoteNode.OnGetBlocks += OnGetBlocks;
             remoteNode.OnGetHeaders += OnGetHeaders;
+            remoteNode.OnPing += OnPing;
             remoteNode.OnDisconnect += OnDisconnect;
         }
 
@@ -457,6 +457,7 @@ namespace BitSharp.Node
             remoteNode.Receiver.OnReceivedAddresses -= OnReceivedAddresses;
             remoteNode.OnGetBlocks -= OnGetBlocks;
             remoteNode.OnGetHeaders -= OnGetHeaders;
+            remoteNode.OnPing -= OnPing;
             remoteNode.OnDisconnect -= OnDisconnect;
         }
 
@@ -559,6 +560,11 @@ namespace BitSharp.Node
         private void OnGetHeaders(RemoteNode remoteNode, GetBlocksPayload payload)
         {
             //TODO
+        }
+
+        private void OnPing(RemoteNode remoteNode, ImmutableArray<byte> payload)
+        {
+            remoteNode.Sender.SendMessageAsync(Messaging.ConstructMessage("pong", payload.ToArray())).Wait();
         }
 
         private void OnDisconnect(RemoteNode remoteNode)
