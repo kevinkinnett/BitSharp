@@ -28,7 +28,7 @@ namespace BitSharp.Storage.Test
 
         public IEnumerable<Tuple<BlockchainKey, BlockchainMetadata>> ListBlockchains()
         {
-            throw new NotImplementedException();
+            yield break;
         }
 
         public Blockchain ReadBlockchain(BlockchainKey chainedBlock)

@@ -4,7 +4,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{14F4EA11-179A-4438-9F62-2589805A854C}</ProjectGuid>
-    <OutputType>Library</OutputType>
+    <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>BitSharp.Node.Test</RootNamespace>
     <AssemblyName>BitSharp.Node.Test</AssemblyName>
@@ -56,6 +56,9 @@
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>ManagedMinimumRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="BouncyCastle.Crypto">
       <HintPath>..\packages\BouncyCastle.1.7.0\lib\Net40-Client\BouncyCastle.Crypto.dll</HintPath>
@@ -83,12 +86,21 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="BitcoinjComparisonTool.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\BitSharp.Blockchain\BitSharp.Blockchain.csproj">
+      <Project>{fddffcb8-4445-4699-9ddc-e2d40b5c1697}</Project>
+      <Name>BitSharp.Blockchain</Name>
+    </ProjectReference>
     <ProjectReference Include="..\BitSharp.Common.Test\BitSharp.Common.Test.csproj">
       <Project>{299d32ed-61a5-4c8d-8ae1-8f502cfa6b99}</Project>
       <Name>BitSharp.Common.Test</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Daemon\BitSharp.Daemon.csproj">
+      <Project>{bcba029f-f866-45ea-89dd-fb5bec60a3b6}</Project>
+      <Name>BitSharp.Daemon</Name>
     </ProjectReference>
     <ProjectReference Include="..\BitSharp.Node\BitSharp.Node.csproj">
       <Project>{b76235bf-6037-45b8-9341-957e6407f8e1}</Project>
@@ -105,6 +117,14 @@
     <ProjectReference Include="..\BitSharp.Script\BitSharp.Script.csproj">
       <Project>{b5419c45-7f0f-4dae-84bc-b6c206d8d753}</Project>
       <Name>BitSharp.Script</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Storage.Test\BitSharp.Storage.Test.csproj">
+      <Project>{b63ceb56-b2f4-4c0a-9324-b24ed2c3ea9b}</Project>
+      <Name>BitSharp.Storage.Test</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Storage\BitSharp.Storage.csproj">
+      <Project>{1955dd75-ab8a-46df-9060-5b0af06338f2}</Project>
+      <Name>BitSharp.Storage</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
