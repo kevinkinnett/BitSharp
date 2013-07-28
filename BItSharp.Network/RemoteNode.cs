@@ -42,6 +42,7 @@ namespace BitSharp.Network
         public RemoteNode(Socket socket)
         {
             this.socket = socket;
+            this.isConnected = true;
 
             this.localEndPoint = (IPEndPoint)socket.LocalEndPoint;
             this.remoteEndPoint = (IPEndPoint)socket.RemoteEndPoint;
