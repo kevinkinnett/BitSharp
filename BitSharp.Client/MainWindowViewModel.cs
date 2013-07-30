@@ -28,6 +28,7 @@ namespace BitSharp.Client
 
         private long _winningBlockchainHeight;
         private long _currentBlockchainHeight;
+        private long _downloadedBlockCount;
 
         public MainWindowViewModel(BlockchainDaemon blockchainDaemon)
         {
@@ -37,9 +38,14 @@ namespace BitSharp.Client
             var currentBlockchainLocal = this.blockchainDaemon.CurrentBlockchain;
 
             this.viewBlockchain = currentBlockchainLocal;
-            
+
             this.WinningBlockchainHeight = winningBlockLocal.Height;
             this.CurrentBlockchainHeight = currentBlockchainLocal.Height;
+            this.DownloadedBlockCount = this.blockchainDaemon.CacheContext.BlockCache.Count;
+
+            this.blockchainDaemon.CacheContext.BlockCache.OnAddition +=
+                blockHash =>
+                    DownloadedBlockCount = this.blockchainDaemon.CacheContext.BlockCache.Count;
 
             this.blockchainDaemon.OnWinningBlockChanged +=
                 (sender, block) =>
@@ -60,6 +66,12 @@ namespace BitSharp.Client
         {
             get { return this._currentBlockchainHeight; }
             set { SetValue(ref this._currentBlockchainHeight, value); }
+        }
+
+        public long DownloadedBlockCount
+        {
+            get { return this._downloadedBlockCount; }
+            set { SetValue(ref this._downloadedBlockCount, value); }
         }
 
         public long ViewBlockchainHeight
