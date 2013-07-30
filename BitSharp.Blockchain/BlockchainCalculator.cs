@@ -77,7 +77,7 @@ namespace BitSharp.Blockchain
 
             // take snapshots
             var newChainedBlock = targetChainedBlock;
-            var newChainBlockList = new[] { newChainedBlock.BlockHash }.ToList();
+            var newChainBlockList = new List<UInt256>();
 
             // check height difference between chains, they will be roll backed before checking for the last common ancestor
             var heightDelta = (int)targetChainedBlock.Height - currentBlockchain.Height;
@@ -151,19 +151,6 @@ namespace BitSharp.Blockchain
                 }
             }
 
-            // look up the remainder of the blockchain for transaction lookup
-            var newBlockchainHashesBuilder = ImmutableHashSet.CreateBuilder<UInt256>();
-            newBlockchainHashesBuilder.UnionWith(newChainBlockList);
-            foreach (var prevBlock in PreviousChainedBlocks(newChainedBlock))
-            {
-                // cooperative loop
-                this.shutdownToken.ThrowIfCancellationRequested();
-                cancelToken.ThrowIfCancellationRequested();
-
-                newBlockchainHashesBuilder.Add(prevBlock.BlockHash);
-            }
-            var newBlockchainHashes = newBlockchainHashesBuilder.ToImmutable();
-
             if (!currentBlockchain.IsDefault)
                 Debug.WriteLine("Last common ancestor found at block {0}, height {1:#,##0}, begin processing winning blockchain".Format2(currentBlockchain.RootBlockHash.ToHexNumberString(), currentBlockchain.Height));
 
@@ -182,8 +169,6 @@ namespace BitSharp.Blockchain
 
             // work list will have last items added first, reverse
             newChainBlockList.Reverse();
-            // skip the first item which will be the last common ancestor
-            //newChainBlockList.RemoveAt(0);
 
             // with last common ancestor found and utxo rolled back to that point, calculate the new blockchain
             // use ImmutableList for BlockList during modification
