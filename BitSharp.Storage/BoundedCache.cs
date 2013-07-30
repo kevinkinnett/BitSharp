@@ -156,7 +156,7 @@ namespace BitSharp.Storage
         {
             var wasAdded = false;
 
-            this.knownKeysLock.DoWrite(() =>
+            this.knownKeysLock.DoRead(() =>
             {
                 // add to the list of known keys
                 wasAdded = this.knownKeys.TryAdd(key);
@@ -173,7 +173,7 @@ namespace BitSharp.Storage
         private void RemoveKnownKey(TKey key)
         {
             // remove from the list of known keys
-            this.knownKeysLock.DoWrite(() =>
+            this.knownKeysLock.DoRead(() =>
             {
                 this.knownKeys.TryRemove(key);
             });
