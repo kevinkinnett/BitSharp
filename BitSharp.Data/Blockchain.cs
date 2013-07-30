@@ -21,6 +21,8 @@ namespace BitSharp.Data
 
         public Blockchain(ImmutableList<ChainedBlock> blockList, ImmutableHashSet<UInt256> blockListHashes, ImmutableHashSet<TxOutputKey> utxo)
         {
+            Debug.Assert(blockList.Last().Height == blockList.Count - 1);
+
             this._blockList = blockList;
             this._blockListHashes = blockListHashes;
             this._utxo = utxo;
