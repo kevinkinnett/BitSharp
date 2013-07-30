@@ -75,6 +75,12 @@ namespace BitSharp.Storage
                 yield return key;
         }
 
+        public override void CreateValue(TKey key, TValue value)
+        {
+            if (!this.ContainsKey(key))
+                base.CreateValue(key, value);
+        }
+
         public void FillCache()
         {
             foreach (var value in StreamAllValues())
