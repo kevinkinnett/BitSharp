@@ -72,12 +72,9 @@ namespace BitSharp.Storage
 
             foreach (var value in values)
             {
-                if (value.Value.IsCreate)
-                    this.CacheContext.BlockHeaderCache.CreateValue(value.Key, value.Value.Value.Header);
-                else
-                    this.CacheContext.BlockHeaderCache.UpdateValue(value.Key, value.Value.Value.Header);
-
-                writeBlockTransactions.Add(new KeyValuePair<UInt256, WriteValue<ImmutableArray<Transaction>>>(value.Key, new WriteValue<ImmutableArray<Transaction>>(value.Value.Value.Transactions, value.Value.IsCreate)));
+                writeBlockTransactions.Add(
+                    new KeyValuePair<UInt256, WriteValue<ImmutableArray<Transaction>>>(value.Key,
+                        new WriteValue<ImmutableArray<Transaction>>(value.Value.Value.Transactions, value.Value.IsCreate)));
             }
 
             return this.StorageContext.BlockTransactionsStorage.TryWriteValues(writeBlockTransactions);

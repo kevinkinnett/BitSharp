@@ -26,10 +26,20 @@ namespace BitSharp.Storage
 
         public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
 
-        protected override void BeforeCreateOrUpdate(UInt256 blockHash, Block block, bool isCreate)
+        public override void CreateValue(UInt256 blockHash, Block block)
         {
-            //TODO keep this?
-            //this.CacheContext.TransactionCache.CacheBlock(block);
+            this.CacheContext.BlockHeaderCache.CreateValue(blockHash, block.Header);
+            base.CreateValue(blockHash, block);
+
+            this.CacheContext.TransactionCache.CacheBlock(block);
+        }
+
+        public override void UpdateValue(UInt256 blockHash, Block block)
+        {
+            this.CacheContext.BlockHeaderCache.UpdateValue(blockHash, block.Header);
+            base.UpdateValue(blockHash, block);
+
+            this.CacheContext.TransactionCache.CacheBlock(block);
         }
     }
 }

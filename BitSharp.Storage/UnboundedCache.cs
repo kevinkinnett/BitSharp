@@ -120,12 +120,12 @@ namespace BitSharp.Storage
             return false;
         }
 
-        public void CreateValue(TKey key, TValue value)
+        public virtual void CreateValue(TKey key, TValue value)
         {
             CreateOrUpdateValue(key, value, isCreate: true);
         }
 
-        public void UpdateValue(TKey key, TValue value)
+        public virtual void UpdateValue(TKey key, TValue value)
         {
             CreateOrUpdateValue(key, value, isCreate: false);
         }
@@ -196,9 +196,6 @@ namespace BitSharp.Storage
             get { return this.flushPendingSize > this.MaxFlushMemorySize * 1.25; }
         }
 
-        protected virtual void BeforeCreateOrUpdate(TKey key, TValue value, bool isCreate)
-        { }
-
         // create a new value, will be cached and flushed out to storage
         private void CreateOrUpdateValue(TKey key, TValue value, bool isCreate)
         {
@@ -214,8 +211,6 @@ namespace BitSharp.Storage
                 while (!this.storageBlockEvent.Wait(TimeSpan.FromMilliseconds(50)) && !this.shutdownToken.IsCancellationRequested)
                 { }
             }
-
-            BeforeCreateOrUpdate(key, value, isCreate);
 
             // init
             var memoryDelta = 0L;

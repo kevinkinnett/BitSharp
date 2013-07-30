@@ -24,5 +24,13 @@ namespace BitSharp.Storage
         public CacheContext CacheContext { get { return this._cacheContext; } }
 
         public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
+
+        internal void CacheBlock(Block block)
+        {
+            foreach (var tx in block.Transactions)
+            {
+                CacheValue(tx.Hash, tx);
+            }
+        }
     }
 }
