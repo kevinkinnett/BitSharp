@@ -121,8 +121,9 @@ namespace BitSharp.Storage.Firebird
             using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText = @"
-                    SELECT DISTINCT BlockHash
-                    FROM BlockTransactions";
+                    SELECT BlockHash
+                    FROM BlockHeaders
+                    WHERE EXISTS(SELECT * FROM BlockTransactions WHERE BlockTransactions.BlockHash = BlockHeaders.BlockHash)";
 
                 using (var reader = cmd.ExecuteReader())
                 {
