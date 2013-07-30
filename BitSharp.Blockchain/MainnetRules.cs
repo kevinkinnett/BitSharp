@@ -5,6 +5,7 @@ using BitSharp.Data;
 using BitSharp.Script;
 using BitSharp.Storage;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -292,6 +293,8 @@ namespace BitSharp.Blockchain
                 throw;
             }
 
+            ValidateTransactionScripts(block, transactions);
+
             // calculate the expected reward in coinbase
             var expectedReward = (long)(50 * SATOSHI_PER_BTC);
             if (blockchain.Height / 210000 <= 32)
@@ -367,44 +370,6 @@ namespace BitSharp.Blockchain
                 throw new ValidationException("Failing tx {0}: Transaction output value is greater than input value".Format2(tx.Hash.ToHexNumberString()));
             }
 
-            // verify scripts
-            var scriptFailed = false;
-            if (!BypassExecuteScript)
-            {
-                var scriptEngine = new ScriptEngine();
-
-                Parallel.ForEach(previousOutputs.Values, (tuple, loopState) =>
-                //foreach (var tuple in previousOutputs.Values)
-                {
-                    var input = tuple.Item1;
-                    var inputIndex = tuple.Item2;
-                    var prevOutput = tuple.Item3;
-
-                    // create the transaction script from the input and output
-                    var script = input.ScriptSignature.AddRange(prevOutput.ScriptPublicKey);
-                    try
-                    {
-                        if (!scriptEngine.VerifyScript(0 /*TODO blockHash*/, txIndex, prevOutput.ScriptPublicKey.ToArray(), tx, inputIndex, script.ToArray()))
-                        {
-                            scriptFailed = true;
-                            loopState.Break();
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.WriteLine("Tx {0} threw exception: {1}\n{2}".Format2(tx.Hash.ToHexNumberString(), e.Message, e.ToString()));
-                        scriptFailed = true;
-                        loopState.Break();
-                    }
-                });
-            }
-
-            // check if any scripts failed
-            if (scriptFailed)
-            {
-                throw new ValidationException("Failing tx {0}: Transaction script failed verification".Format2(tx.Hash.ToHexNumberString()));
-            }
-
             // calculate unspent value
             unspentValue = (long)(txInputValue - txOutputValue);
 
@@ -415,6 +380,71 @@ namespace BitSharp.Blockchain
             }
 
             // all validation has passed
+        }
+
+        public virtual void ValidateTransactionScripts(Block block, ImmutableDictionary<UInt256, Transaction> transactions)
+        {
+            if (BypassExecuteScript)
+                return;
+
+            // lookup all previous outputs
+            var prevOutputMissing = false;
+            var previousOutputs = new Dictionary<TxOutputKey, Tuple<Transaction, TxInput, int, TxOutput>>();
+            foreach (var tx in block.Transactions.Skip(1))
+            {
+                for (var inputIndex = 0; inputIndex < tx.Inputs.Length; inputIndex++)
+                {
+                    var input = tx.Inputs[inputIndex];
+
+                    // find previous transaction
+                    if (!transactions.ContainsKey(input.PreviousTxOutputKey.TxHash))
+                        throw new MissingDataException(DataType.Transaction, input.PreviousTxOutputKey.TxHash);
+                    var prevTx = transactions[input.PreviousTxOutputKey.TxHash];
+
+                    // find previous transaction output
+                    if (input.PreviousTxOutputKey.TxOutputIndex >= prevTx.Outputs.Length)
+                        throw new ValidationException();
+                    var prevOutput = prevTx.Outputs[input.PreviousTxOutputKey.TxOutputIndex.ToIntChecked()];
+
+                    previousOutputs.Add(input.PreviousTxOutputKey, Tuple.Create(tx, input, inputIndex, prevOutput));
+                }
+            }
+
+            if (prevOutputMissing)
+            {
+                throw new ValidationException();
+            }
+
+            var exceptions = new ConcurrentBag<Exception>();
+
+            var scriptEngine = new ScriptEngine();
+
+            Parallel.ForEach(previousOutputs.Values, (tuple, loopState) =>
+            {
+                try
+                {
+                    var tx = tuple.Item1;
+                    var input = tuple.Item2;
+                    var inputIndex = tuple.Item3;
+                    var prevOutput = tuple.Item4;
+
+                    // create the transaction script from the input and output
+                    var script = input.ScriptSignature.AddRange(prevOutput.ScriptPublicKey);
+                    if (!scriptEngine.VerifyScript(0 /*TODO blockHash*/, 0 /*TODO txIndex*/, prevOutput.ScriptPublicKey.ToArray(), tx, inputIndex, script.ToArray()))
+                    {
+                        exceptions.Add(new ValidationException());
+                        loopState.Break();
+                    }
+                }
+                catch (Exception e)
+                {
+                    exceptions.Add(e);
+                    loopState.Break();
+                }
+            });
+
+            if (exceptions.Count > 0)
+                throw new AggregateException(exceptions.ToArray());
         }
 
         public virtual ChainedBlock SelectWinningChainedBlock(IList<ChainedBlock> leafChainedBlocks)
