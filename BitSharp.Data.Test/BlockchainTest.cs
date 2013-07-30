@@ -33,9 +33,11 @@ namespace BitSharp.Data.Test
                 utxo: ImmutableHashSet.Create(randomBlockchain.Utxo.ToArray())
             );
 
+            var newChainedBlock = randomBlockchain.BlockList.Last();
+            newChainedBlock = new ChainedBlock(newChainedBlock.BlockHash, newChainedBlock.PreviousBlockHash, newChainedBlock.Height + 1, newChainedBlock.TotalWork);
             var differentBlockchainBlockList = new Blockchain
             (
-                blockList: randomBlockchain.BlockList.Add(randomBlockchain.BlockList.Last()),
+                blockList: randomBlockchain.BlockList.Add(newChainedBlock),
                 blockListHashes: randomBlockchain.BlockListHashes,
                 utxo: randomBlockchain.Utxo
             );
