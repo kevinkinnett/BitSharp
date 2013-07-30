@@ -43,10 +43,6 @@ namespace BitSharp.Storage.SQLite
 
         public IEnumerable<KeyValuePair<UInt256, ChainedBlock>> ReadAllValues()
         {
-            Debug.WriteLine(new string('*', 80));
-            Debug.WriteLine("EXPENSIVE OPERATION: ChainedBlockSqlStorage.GetAllValues");
-            Debug.WriteLine(new string('*', 80));
-
             using (var conn = this.OpenReadConnection())
             using (var cmd = conn.CreateCommand())
             {
