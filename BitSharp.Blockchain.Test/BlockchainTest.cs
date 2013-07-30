@@ -156,14 +156,13 @@ namespace BitSharp.Blockchain.Test
             var block1 = blockchain1.MineAndAddEmptyBlock(blockchain1.GenesisChainedBlock);
             var block2 = blockchain1.MineAndAddEmptyBlock(block1.Item2);
 
-            // introduce a split
+            // introduce a split, do more work on 3a
             blockchain1.Rules.SetHighestTarget(UnitTestRules.Target1);
             var block3a = blockchain1.MineAndAddEmptyBlock(block2.Item2);
             blockchain1.Rules.SetHighestTarget(UnitTestRules.Target0);
             var block3b = blockchain1.MineAndAddEmptyBlock(block2.Item2);
 
-            // check that 3a is current as it was introduced first
-            // TODO this must be based on difficulty in some way
+            // check that 3a is current as it has more work
             Assert.AreEqual(3, blockchain1.CurrentBlockchain.Height);
             Assert.AreEqual(block3a.Item1.Hash, blockchain1.CurrentBlockchain.RootBlockHash);
             //TODO Assert.AreEqual(3, blockchain1.CurrentBlockchain.Utxo.Count);
@@ -215,6 +214,36 @@ namespace BitSharp.Blockchain.Test
             var expectedUtxo = blockchain2.CurrentBlockchain.Utxo;
 
             Assert.IsTrue(expectedUtxo.SequenceEqual(actualUtxo));
+        }
+
+        [TestMethod]
+        public void TestShorterChainWins()
+        {
+            //TODO MemoryBlockchain.ChooseNewWinner non-determinism is causing this to fail
+
+            // create the first blockchain
+            var blockchain = new MemoryBlockchain();
+
+            // add some simple blocks
+            var block1 = blockchain.MineAndAddEmptyBlock(blockchain.GenesisChainedBlock);
+            var block2 = blockchain.MineAndAddEmptyBlock(block1.Item2);
+            var block3a = blockchain.MineAndAddEmptyBlock(block2.Item2);
+            var block4a = blockchain.MineAndAddEmptyBlock(block3a.Item2);
+            var block5a = blockchain.MineAndAddEmptyBlock(block4a.Item2);
+
+            // check
+            Assert.AreEqual(5, blockchain.CurrentBlockchain.Height);
+            Assert.AreEqual(block5a.Item1.Hash, blockchain.CurrentBlockchain.RootBlockHash);
+            //TODO Assert.AreEqual(5, blockchain.CurrentBlockchain.Utxo.Count);
+
+            // create a split with 3b, but do more work than current height 5 chain
+            blockchain.Rules.SetHighestTarget(UnitTestRules.Target2);
+            var block3b = blockchain.MineAndAddEmptyBlock(block2.Item2);
+
+            // check that blockchain reorganized to shorter chain
+            Assert.AreEqual(3, blockchain.CurrentBlockchain.Height);
+            Assert.AreEqual(block3b.Item1.Hash, blockchain.CurrentBlockchain.RootBlockHash);
+            //TODO Assert.AreEqual(5, blockchain.CurrentBlockchain.Utxo.Count);
         }
     }
 }
