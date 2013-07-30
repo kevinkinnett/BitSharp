@@ -319,6 +319,9 @@ namespace BitSharp.Daemon
             var unchainedByPrevious = new Dictionary<UInt256, List<BlockHeader>>();
             foreach (var unchainedBlock in unchainedBlocks.ToList())
             {
+                // cooperative loop
+                this.shutdownToken.Token.ThrowIfCancellationRequested();
+
                 BlockHeader unchainedBlockHeader;
                 if (this.CacheContext.BlockHeaderCache.TryGetValue(unchainedBlock, out unchainedBlockHeader))
                 {
@@ -367,6 +370,9 @@ namespace BitSharp.Daemon
                     unchainedGroup = new List<BlockHeader>();
                     foreach (var blockHash in this.CacheContext.ChainedBlockCache.FindByPreviousBlockHash(chainedBlock.BlockHash))
                     {
+                        // cooperative loop
+                        this.shutdownToken.Token.ThrowIfCancellationRequested();
+
                         BlockHeader blockHeader;
                         if (this.CacheContext.BlockHeaderCache.TryGetValue(blockHash, out blockHeader))
                             unchainedGroup.Add(blockHeader);
