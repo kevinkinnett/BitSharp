@@ -29,10 +29,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Blockchain", "BitS
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Blockchain.Test", "BitSharp.Blockchain.Test\BitSharp.Blockchain.Test.csproj", "{8E888DF3-C2F2-440C-BA5D-FB8AC33FB891}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Storage.Firebird", "BitSharp.Storage.Firebird\BitSharp.Storage.Firebird.csproj", "{75D07A65-0889-405D-8A21-3CC55F136D21}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitSharp.Storage.Firebird.Test", "BitSharp.Storage.Firebird.Test\BitSharp.Storage.Firebird.Test.csproj", "{322A42B6-E8EF-4FAB-8013-3022387878ED}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{E583E23D-50AA-4018-AD1E-E883602D87B6}"
 	ProjectSection(SolutionItems) = preProject
 		.nuget\NuGet.Config = .nuget\NuGet.Config
@@ -192,22 +188,6 @@ Global
 		{8E888DF3-C2F2-440C-BA5D-FB8AC33FB891}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8E888DF3-C2F2-440C-BA5D-FB8AC33FB891}.Release|x64.ActiveCfg = Release|x64
 		{8E888DF3-C2F2-440C-BA5D-FB8AC33FB891}.Release|x64.Build.0 = Release|x64
-		{75D07A65-0889-405D-8A21-3CC55F136D21}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{75D07A65-0889-405D-8A21-3CC55F136D21}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{75D07A65-0889-405D-8A21-3CC55F136D21}.Debug|x64.ActiveCfg = Debug|x64
-		{75D07A65-0889-405D-8A21-3CC55F136D21}.Debug|x64.Build.0 = Debug|x64
-		{75D07A65-0889-405D-8A21-3CC55F136D21}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{75D07A65-0889-405D-8A21-3CC55F136D21}.Release|Any CPU.Build.0 = Release|Any CPU
-		{75D07A65-0889-405D-8A21-3CC55F136D21}.Release|x64.ActiveCfg = Release|x64
-		{75D07A65-0889-405D-8A21-3CC55F136D21}.Release|x64.Build.0 = Release|x64
-		{322A42B6-E8EF-4FAB-8013-3022387878ED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{322A42B6-E8EF-4FAB-8013-3022387878ED}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{322A42B6-E8EF-4FAB-8013-3022387878ED}.Debug|x64.ActiveCfg = Debug|x64
-		{322A42B6-E8EF-4FAB-8013-3022387878ED}.Debug|x64.Build.0 = Debug|x64
-		{322A42B6-E8EF-4FAB-8013-3022387878ED}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{322A42B6-E8EF-4FAB-8013-3022387878ED}.Release|Any CPU.Build.0 = Release|Any CPU
-		{322A42B6-E8EF-4FAB-8013-3022387878ED}.Release|x64.ActiveCfg = Release|x64
-		{322A42B6-E8EF-4FAB-8013-3022387878ED}.Release|x64.Build.0 = Release|x64
 		{BCBA029F-F866-45EA-89DD-FB5BEC60A3B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{BCBA029F-F866-45EA-89DD-FB5BEC60A3B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BCBA029F-F866-45EA-89DD-FB5BEC60A3B6}.Debug|x64.ActiveCfg = Debug|x64
