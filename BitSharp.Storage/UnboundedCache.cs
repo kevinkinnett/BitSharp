@@ -27,7 +27,10 @@ namespace BitSharp.Storage
 
         // flush pending list
         private readonly ConcurrentDictionary<TKey, WriteValue<TValue>> flushPending;
+        private readonly ReaderWriterLockSlim flushPendingLock;
         private long flushPendingSize;
+        private readonly List<float> flushRates;
+        private readonly ReaderWriterLockSlim flushRatesLock;
 
         private CancellationTokenSource shutdownToken;
 
@@ -44,7 +47,10 @@ namespace BitSharp.Storage
             this.MaxFlushMemorySize = maxFlushMemorySize;
 
             this.flushPending = new ConcurrentDictionary<TKey, WriteValue<TValue>>();
+            this.flushPendingLock = new ReaderWriterLockSlim();
             this.flushPendingSize = 0;
+            this.flushRates = new List<float>();
+            this.flushRatesLock = new ReaderWriterLockSlim();
 
             this.memoryCache = new MemoryCache<TKey, TValue>(name, maxCacheMemorySize, sizeEstimator);
             this.MaxCacheMemorySize = maxCacheMemorySize;
@@ -52,7 +58,7 @@ namespace BitSharp.Storage
             this.dataStorage = dataStorage;
             this.sizeEstimator = sizeEstimator;
 
-            this.storageWorker = new Worker("UnboundedCache.{0}.StorageWorker".Format2(name), StorageWorker, true, TimeSpan.FromMilliseconds(25), TimeSpan.FromSeconds(60));
+            this.storageWorker = new Worker("UnboundedCache.{0}.StorageWorker".Format2(name), StorageWorker, true, TimeSpan.FromMilliseconds(0), TimeSpan.FromSeconds(60));
             this.storageBlockEvent = new ManualResetEventSlim(true);
 
             this.shutdownToken = new CancellationTokenSource();
@@ -83,6 +89,8 @@ namespace BitSharp.Storage
             {
                 this.storageWorker,
                 this.memoryCache,
+                this.flushPendingLock,
+                this.flushRatesLock,
                 this.shutdownToken
             }.DisposeList();
         }
@@ -94,7 +102,7 @@ namespace BitSharp.Storage
         }
 
         // try to get a value
-        public bool TryGetValue(TKey key, out TValue value, bool saveInCache = true)
+        public virtual bool TryGetValue(TKey key, out TValue value, bool saveInCache = true)
         {
             // check in flush-pending list first
             if (TryGetPendingValue(key, out value))
@@ -152,26 +160,33 @@ namespace BitSharp.Storage
 
         protected bool TryGetStorageValue(TKey key, out TValue value, bool saveInCache)
         {
-            TValue storedValue;
-            if (dataStorage.TryReadValue(key, out storedValue))
+            TValue valueLocal = default(TValue);
+            var result = new MethodTimer(false && this.Name == "BlockCache").Time(() =>
             {
-                // cache the retrieved value
-                if (saveInCache)
-                    CacheValue(key, storedValue);
+                TValue storedValue;
+                if (dataStorage.TryReadValue(key, out storedValue))
+                {
+                    // cache the retrieved value
+                    if (saveInCache)
+                        CacheValue(key, storedValue);
 
-                // fire retrieved event
-                var handler = this.OnRetrieved;
-                if (handler != null)
-                    handler(key, storedValue);
+                    // fire retrieved event
+                    var handler = this.OnRetrieved;
+                    if (handler != null)
+                        handler(key, storedValue);
 
-                value = storedValue;
-                return true;
-            }
-            else
-            {
-                value = default(TValue);
-                return false;
-            }
+                    valueLocal = storedValue;
+                    return true;
+                }
+                else
+                {
+                    valueLocal = default(TValue);
+                    return false;
+                }
+            });
+
+            value = valueLocal;
+            return result;
         }
 
         protected void CacheValue(TKey key, TValue value)
@@ -193,85 +208,101 @@ namespace BitSharp.Storage
 
         private bool IsPendingExcessivelyOversized
         {
-            get { return this.flushPendingSize > this.MaxFlushMemorySize * 1.25; }
+            get { return this.flushPendingSize > this.MaxFlushMemorySize * 2; }
         }
 
         // create a new value, will be cached and flushed out to storage
         private void CreateOrUpdateValue(TKey key, TValue value, bool isCreate)
         {
-            // force a storage flush if it is currently oversize
-            if (this.IsPendingOversized)
+            this.flushPendingLock.DoWrite(() =>
             {
-                if (this.IsPendingExcessivelyOversized)
+                var flushRateHz = this.flushRatesLock.DoRead(() =>
+                {
+                    if (this.flushRates.Count > 0)
+                        return this.flushRates.Max();
+                    else
+                        return 0;
+                });
+
+                var maxFlushSize = (int)(flushRateHz * 1);
+
+                // force a storage flush if it is currently oversize
+                //if (this.IsPendingOversized)
+                if (this.flushPending.Count > 0
+                    && this.flushPendingSize /*+ this.sizeEstimator(value)*/ > maxFlushSize)
+                {
+                    //if (this.IsPendingExcessivelyOversized)
                     this.storageBlockEvent.Reset();
 
-                this.storageWorker.ForceWork();
+                    this.storageWorker.ForceWork();
 
-                // block if flush list is excessively oversized
-                while (!this.storageBlockEvent.Wait(TimeSpan.FromMilliseconds(50)) && !this.shutdownToken.IsCancellationRequested)
-                { }
-            }
-
-            // init
-            var memoryDelta = 0L;
-            var flushValue = new WriteValue<TValue>(value, isCreate);
-
-            var wasChanged = false;
-
-            // create
-            if (isCreate)
-            {
-                // only add to flush pending list, don't replace
-                if (this.flushPending.TryAdd(key, flushValue))
-                {
-                    // add size of new value to memory size delta
-                    memoryDelta += sizeEstimator(value);
-                    wasChanged = true;
-                }
-            }
-            // update
-            else
-            {
-                // remove an existing value
-                WriteValue<TValue> existingValue;
-                if (this.flushPending.TryRemove(key, out existingValue))
-                {
-                    // remove size of existing value from memory size delta
-                    memoryDelta -= this.sizeEstimator(existingValue.Value);
-                    wasChanged = true;
+                    // block if flush list is excessively oversized
+                    while (!this.storageBlockEvent.Wait(TimeSpan.FromMilliseconds(50)) && !this.shutdownToken.IsCancellationRequested)
+                    { }
                 }
 
-                // add new value
-                if (this.flushPending.TryAdd(key, flushValue))
-                {
-                    // add size of new value to memory size delta
-                    memoryDelta += sizeEstimator(value);
-                    wasChanged = true;
-                }
-            }
+                // init
+                var memoryDelta = 0L;
+                var flushValue = new WriteValue<TValue>(value, isCreate);
 
-            // update memory size
-            Interlocked.Add(ref this.flushPendingSize, memoryDelta);
+                var wasChanged = false;
 
-            // notify storage worker
-            this.storageWorker.NotifyWork();
-
-            // fire addition or modification event
-            if (wasChanged)
-            {
+                // create
                 if (isCreate)
                 {
-                    var handler = this.OnAddition;
-                    if (handler != null)
-                        handler(key);
+                    // only add to flush pending list, don't replace
+                    if (!this.memoryCache.ContainsKey(key)
+                        && this.flushPending.TryAdd(key, flushValue))
+                    {
+                        // add size of new value to memory size delta
+                        memoryDelta += sizeEstimator(value);
+                        wasChanged = true;
+                    }
                 }
+                // update
                 else
                 {
-                    var handler = this.OnModification;
-                    if (handler != null)
-                        handler(key, value);
+                    // remove an existing value
+                    WriteValue<TValue> existingValue;
+                    if (this.flushPending.TryRemove(key, out existingValue))
+                    {
+                        // remove size of existing value from memory size delta
+                        memoryDelta -= this.sizeEstimator(existingValue.Value);
+                        wasChanged = true;
+                    }
+
+                    // add new value
+                    if (this.flushPending.TryAdd(key, flushValue))
+                    {
+                        // add size of new value to memory size delta
+                        memoryDelta += sizeEstimator(value);
+                        wasChanged = true;
+                    }
                 }
-            }
+
+                // update memory size
+                Interlocked.Add(ref this.flushPendingSize, memoryDelta);
+
+                // notify storage worker
+                this.storageWorker.NotifyWork();
+
+                // fire addition or modification event
+                if (wasChanged)
+                {
+                    if (isCreate)
+                    {
+                        var handler = this.OnAddition;
+                        if (handler != null)
+                            handler(key);
+                    }
+                    else
+                    {
+                        var handler = this.OnModification;
+                        if (handler != null)
+                            handler(key, value);
+                    }
+                }
+            });
         }
 
         // wait for all pending values to be flushed to storage
@@ -283,8 +314,11 @@ namespace BitSharp.Storage
         // storage worker thread, flush values to storage
         private void StorageWorker()
         {
+            // grab a snapshot
+            var flushPendingLocal = this.flushPending.ToDictionary(x => x.Key, x => x.Value);
+
             // check for pending data
-            if (this.flushPending.Count > 0)
+            if (flushPendingLocal.Count > 0)
             {
                 // block threads on an excess storage flush
                 if (this.IsPendingExcessivelyOversized)
@@ -294,9 +328,6 @@ namespace BitSharp.Storage
                 stopwatch.Start();
 
                 var sizeDelta = 0L;
-
-                // grab a snapshot
-                var flushPendingLocal = this.flushPending.ToDictionary(x => x.Key, x => x.Value);
 
                 // try to flush to storage
                 bool result;
@@ -349,12 +380,22 @@ namespace BitSharp.Storage
                 Interlocked.Add(ref this.flushPendingSize, sizeDelta);
 
                 stopwatch.Stop();
-                //Debug.WriteLine("{0,25} StorageWorker flushed {1,3:#,##0} items, {2,6:#,##0} KB in {3,6:#,##0} ms".Format2(this.Name + ":", flushPendingLocal.Count, (float)-sizeDelta / 1.THOUSAND(), stopwatch.ElapsedMilliseconds));
+                Debug.WriteLineIf(this.Name == "BlockCache", "{0,25} StorageWorker flushed {1,3:#,##0} items, {2,6:#,##0} KB in {3,6:#,##0} ms".Format2(this.Name + ":", flushPendingLocal.Count, (float)-sizeDelta / 1.THOUSAND(), stopwatch.ElapsedMilliseconds));
+
+                this.flushRatesLock.DoWrite(() =>
+                {
+                    var flushedSize = flushPendingLocal.Values.Select(x => this.sizeEstimator(x.Value)).Sum();
+
+                    this.flushRates.Add(flushedSize / stopwatch.ElapsedSecondsFloat());
+
+                    while (this.flushRates.Count > 50)
+                        this.flushRates.RemoveAt(0);
+                });
             }
 
             // unblock any threads waiting on an excess storage flush
-            if (!this.IsPendingExcessivelyOversized)
-                this.storageBlockEvent.Set();
+            //if (!this.IsPendingExcessivelyOversized)
+            this.storageBlockEvent.Set();
         }
     }
 }
