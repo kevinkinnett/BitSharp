@@ -1,6 +1,7 @@
 ﻿using BitSharp.Common;
 using BitSharp.Common.ExtensionMethods;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -103,7 +104,10 @@ namespace BitSharp.Data.Test
             }
 
             var blockListHashes = blockList.Select(x => x.Hash).ToImmutableHashSet();
-            var utxo = blockList.SelectMany(block => block.Transactions).SelectMany(tx => tx.Outputs.Select((txOutput, txOutputIndex) => new TxOutputKey(tx.Hash, (UInt32)txOutputIndex))).ToImmutableHashSet();
+            var utxo = blockList.SelectMany(block =>
+                block.Transactions.Select((tx, txIndex) =>
+                    new UnspentTx(block.Hash, (UInt32)txIndex, tx.Hash, random.NextImmutableBitArray(options.TxOutputCount ?? 100))))
+                .ToImmutableDictionary(unspentTx => unspentTx.TxHash, unspentTx => unspentTx);
 
             return new Blockchain
             (
@@ -153,6 +157,17 @@ namespace BitSharp.Data.Test
             );
         }
 
+        public static UnspentTx RandomUnspentTx(RandomDataOptions options = default(RandomDataOptions))
+        {
+            return new UnspentTx
+            (
+                txHash: random.NextUInt256(),
+                blockHash: random.NextUInt256(),
+                txIndex: random.NextUInt32(),
+                unspentOutputs: random.NextImmutableBitArray(random.Next(options.TxOutputCount ?? 100))
+            );
+        }
+
         public static TxOutputKey RandomTxOutputKey()
         {
             return new TxOutputKey
@@ -160,6 +175,15 @@ namespace BitSharp.Data.Test
                 txHash: random.NextUInt256(),
                 txOutputIndex: random.NextUInt32()
             );
+        }
+
+        public static ImmutableBitArray NextImmutableBitArray(this Random random, int length)
+        {
+            var bitArray = new BitArray(length);
+            for (var i = 0; i < length; i++)
+                bitArray[i] = random.NextBool();
+
+            return bitArray.ToImmutableBitArray();
         }
     }
 }

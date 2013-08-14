@@ -30,7 +30,7 @@ namespace BitSharp.Data.Test
             (
                 blockList: ImmutableList.Create(randomBlockchain.BlockList.ToArray()),
                 blockListHashes: ImmutableHashSet.Create(randomBlockchain.BlockListHashes.ToArray()),
-                utxo: ImmutableHashSet.Create(randomBlockchain.Utxo.ToArray())
+                utxo: randomBlockchain.Utxo.ToDictionary(x => x.Key, x => x.Value).ToImmutableDictionary(x => x.Key, x => x.Value)
             );
 
             var newChainedBlock = randomBlockchain.BlockList.Last();
@@ -53,7 +53,7 @@ namespace BitSharp.Data.Test
             (
                 blockList: randomBlockchain.BlockList,
                 blockListHashes: randomBlockchain.BlockListHashes,
-                utxo: randomBlockchain.Utxo.Remove(randomBlockchain.Utxo.Last())
+                utxo: randomBlockchain.Utxo.Remove(randomBlockchain.Utxo.Keys.Last())
             );
 
             Assert.IsTrue(randomBlockchain.Equals(sameBlockchain));

@@ -15,13 +15,13 @@ namespace BitSharp.Data
         //TODO use block hash instead of block metadata
         private readonly ImmutableList<ChainedBlock> _blockList;
         private readonly ImmutableHashSet<UInt256> _blockListHashes;
-        private readonly ImmutableHashSet<TxOutputKey> _utxo;
+        private readonly ImmutableDictionary<UInt256, UnspentTx> _utxo;
 
         private readonly bool notDefault;
 
-        public Blockchain(ImmutableList<ChainedBlock> blockList, ImmutableHashSet<UInt256> blockListHashes, ImmutableHashSet<TxOutputKey> utxo)
+        public Blockchain(ImmutableList<ChainedBlock> blockList, ImmutableHashSet<UInt256> blockListHashes, ImmutableDictionary<UInt256, UnspentTx> utxo)
         {
-            Debug.Assert(!blockList.Where((x, i) => x.Height != i).Any());
+            //Debug.Assert(!blockList.Where((x, i) => x.Height != i).Any());
 
             this._blockList = blockList;
             this._blockListHashes = blockListHashes;
@@ -36,7 +36,7 @@ namespace BitSharp.Data
 
         public ImmutableHashSet<UInt256> BlockListHashes { get { return this._blockListHashes; } }
 
-        public ImmutableHashSet<TxOutputKey> Utxo { get { return this._utxo; } }
+        public ImmutableDictionary<UInt256, UnspentTx> Utxo { get { return this._utxo; } }
 
         public int BlockCount { get { return this.BlockList.Count; } }
 
@@ -58,12 +58,25 @@ namespace BitSharp.Data
 
         public static bool operator ==(Blockchain left, Blockchain right)
         {
-            return left.BlockList.SequenceEqual(right.BlockList) && left.BlockListHashes.SetEquals(right.BlockListHashes) && left.Utxo.SetEquals(right.Utxo);
+            return left.BlockList.SequenceEqual(right.BlockList) && left.BlockListHashes.SetEquals(right.BlockListHashes) && left.Utxo.SequenceEqual(right.Utxo, new UtxoComparer());
         }
 
         public static bool operator !=(Blockchain left, Blockchain right)
         {
             return !(left == right);
+        }
+
+        private class UtxoComparer : IEqualityComparer<KeyValuePair<UInt256, UnspentTx>>
+        {
+            public bool Equals(KeyValuePair<UInt256, UnspentTx> x, KeyValuePair<UInt256, UnspentTx> y)
+            {
+                return x.Key == y.Key && x.Value == y.Value;
+            }
+
+            public int GetHashCode(KeyValuePair<UInt256, UnspentTx> obj)
+            {
+                return obj.Key.GetHashCode() ^ obj.Value.GetHashCode();
+            }
         }
     }
 }

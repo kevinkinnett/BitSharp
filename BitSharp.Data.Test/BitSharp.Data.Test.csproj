@@ -87,6 +87,7 @@
     <Compile Include="BlockHeaderTest.cs" />
     <Compile Include="ChainedBlockTest.cs" />
     <Compile Include="TxKeyTest.cs" />
+    <Compile Include="UnspentTxTest.cs" />
     <Compile Include="TxOutputKeyTest.cs" />
     <Compile Include="TxOutputTest.cs" />
     <Compile Include="DataCalculatorTest.cs" />

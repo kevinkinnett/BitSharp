@@ -32,13 +32,6 @@ namespace BitSharp.Data.Test
                 txIndex: randomTxKey.TxIndex
             );
 
-            var differentTxKeyTxHash = new TxKey
-            (
-                txHash: ~randomTxKey.TxHash,
-                blockHash: randomTxKey.BlockHash,
-                txIndex: randomTxKey.TxIndex
-            );
-
             var differentTxKeyBlockHash = new TxKey
             (
                 txHash: randomTxKey.TxHash,
@@ -53,13 +46,16 @@ namespace BitSharp.Data.Test
                 txIndex: ~randomTxKey.TxIndex
             );
 
+            var differentTxKeyTxHash = new TxKey
+            (
+                txHash: ~randomTxKey.TxHash,
+                blockHash: randomTxKey.BlockHash,
+                txIndex: randomTxKey.TxIndex
+            );
+
             Assert.IsTrue(randomTxKey.Equals(sameTxKey));
             Assert.IsTrue(randomTxKey == sameTxKey);
             Assert.IsFalse(randomTxKey != sameTxKey);
-
-            Assert.IsFalse(randomTxKey.Equals(differentTxKeyTxHash));
-            Assert.IsFalse(randomTxKey == differentTxKeyTxHash);
-            Assert.IsTrue(randomTxKey != differentTxKeyTxHash);
 
             Assert.IsFalse(randomTxKey.Equals(differentTxKeyBlockHash));
             Assert.IsFalse(randomTxKey == differentTxKeyBlockHash);
@@ -68,6 +64,10 @@ namespace BitSharp.Data.Test
             Assert.IsFalse(randomTxKey.Equals(differentTxKeyTxIndex));
             Assert.IsFalse(randomTxKey == differentTxKeyTxIndex);
             Assert.IsTrue(randomTxKey != differentTxKeyTxIndex);
+
+            Assert.IsFalse(randomTxKey.Equals(differentTxKeyTxHash));
+            Assert.IsFalse(randomTxKey == differentTxKeyTxHash);
+            Assert.IsTrue(randomTxKey != differentTxKeyTxHash);
         }
     }
 }
