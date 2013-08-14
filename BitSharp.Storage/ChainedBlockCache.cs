@@ -14,6 +14,7 @@ namespace BitSharp.Storage
     public class ChainedBlockCache : BoundedCache<UInt256, ChainedBlock>
     {
         private readonly CacheContext _cacheContext;
+        private readonly ConcurrentSetBuilder<UInt256> leafChainedBlocks;
         private readonly ConcurrentDictionary<UInt256, ConcurrentSet<UInt256>> chainedBlocksByPrevious;
 
         public ChainedBlockCache(CacheContext cacheContext, long maxFlushMemorySize, long maxCacheMemorySize)
@@ -21,6 +22,7 @@ namespace BitSharp.Storage
         {
             this._cacheContext = cacheContext;
 
+            this.leafChainedBlocks = new ConcurrentSetBuilder<UInt256>();
             this.chainedBlocksByPrevious = new ConcurrentDictionary<UInt256, ConcurrentSet<UInt256>>();
 
             this.OnAddition += blockHash => UpdatePreviousIndex(blockHash);
@@ -50,8 +52,27 @@ namespace BitSharp.Storage
 
         public bool IsChainIntact(ChainedBlock chainedBlock)
         {
-            List<ChainedBlock> chain;
-            return TryGetChain(chainedBlock, out chain);
+            // look backwards until height 0 is reached
+            var expectedHeight = chainedBlock.Height;
+            while (chainedBlock.Height != 0)
+            {
+                // if a missing link occurrs before height 0, the chain isn't intact
+                if (!this.ContainsKey(chainedBlock.PreviousBlockHash)
+                    || !TryGetValue(chainedBlock.PreviousBlockHash, out chainedBlock))
+                {
+                    return false;
+                }
+
+                expectedHeight--;
+                if (chainedBlock.Height != expectedHeight)
+                {
+                    Debugger.Break();
+                    return false;
+                }
+            }
+
+            // height 0 reached, chain is intact
+            return true;
         }
 
         public bool TryGetChain(UInt256 blockHash, out List<ChainedBlock> chain)
@@ -103,14 +124,13 @@ namespace BitSharp.Storage
 
         public IEnumerable<ChainedBlock> FindLeafChainedBlocks()
         {
-            var leafChainedBlocks = new HashSet<UInt256>(this.GetAllKeys());
-            leafChainedBlocks.ExceptWith(this.chainedBlocksByPrevious.Keys);
+            var leafChainedBlocksLocal = this.leafChainedBlocks.ToImmutable();
 
             foreach (var leafChainedBlockHash in leafChainedBlocks)
             {
                 ChainedBlock leafChainedBlock;
                 if (this.TryGetValue(leafChainedBlockHash, out leafChainedBlock)
-                    && this.IsChainIntact(leafChainedBlock))
+                    /*&& this.IsChainIntact(leafChainedBlock)*/)
                 {
                     yield return leafChainedBlock;
                 }
@@ -161,6 +181,19 @@ namespace BitSharp.Storage
                 (existingKey, existingValue) => existingValue
             )
             .Add(chainedBlock.BlockHash);
+
+            //TODO better thread safety
+            if (!this.chainedBlocksByPrevious.ContainsKey(chainedBlock.BlockHash))
+            {
+                this.leafChainedBlocks.Add(chainedBlock.BlockHash);
+                if (this.chainedBlocksByPrevious.ContainsKey(chainedBlock.BlockHash))
+                {
+                    this.leafChainedBlocks.Remove(chainedBlock.BlockHash);
+                    Debugger.Break();
+                }
+            }
+
+            this.leafChainedBlocks.Remove(chainedBlock.PreviousBlockHash);
         }
     }
 }
