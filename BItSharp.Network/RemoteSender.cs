@@ -51,6 +51,9 @@ namespace BitSharp.Network
 
         public async Task SendGetData(ImmutableArray<InventoryVector> invVectors)
         {
+            //TODO
+            await Task.Delay(0);
+
             var getDataPayload = Messaging.ConstructInventoryPayload(invVectors);
             var getDataMessage = Messaging.ConstructMessage("getdata", NetworkEncoder.EncodeInventoryPayload(getDataPayload));
 
