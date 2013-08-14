@@ -1,8 +1,10 @@
 ﻿using BitSharp.Common;
+using BitSharp.Common.ExtensionMethods;
 using BitSharp.Data;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -42,6 +44,10 @@ namespace BitSharp.Storage
                     {
                         yield return new KeyValuePair<UInt256, Block>(blockHeader.Value.Hash, new Block(blockHeader.Value, blockTransactions));
                     }
+                    else
+                    {
+                        Debugger.Break();
+                    }
                 }
             }
         }
@@ -58,6 +64,10 @@ namespace BitSharp.Storage
                     {
                         value = new Block(blockHeader, blockTransactions);
                         return true;
+                    }
+                    else
+                    {
+                        Debugger.Break();
                     }
                 }
             }

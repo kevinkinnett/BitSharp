@@ -11,7 +11,6 @@ namespace BitSharp.Storage.SQLite
     {
         private readonly BlockHeaderStorage _blockHeaderStorage;
         private readonly BlockTransactionsStorage _blockTransactionsStorage;
-        private readonly TransactionStorage _transactionStorage;
         private readonly ChainedBlockStorage _chainedBlockStorage;
         private readonly BlockchainStorage _blockchainStorage;
 
@@ -19,7 +18,6 @@ namespace BitSharp.Storage.SQLite
         {
             this._blockHeaderStorage = new BlockHeaderStorage(this);
             this._blockTransactionsStorage = new BlockTransactionsStorage(this);
-            this._transactionStorage = new TransactionStorage(this);
             this._chainedBlockStorage = new ChainedBlockStorage(this);
             this._blockchainStorage = new BlockchainStorage(this);
         }
@@ -28,8 +26,6 @@ namespace BitSharp.Storage.SQLite
 
         public BlockTransactionsStorage BlockTransactionsStorage { get { return this._blockTransactionsStorage; } }
 
-        public TransactionStorage TransactionStorage { get { return this._transactionStorage; } }
-
         public ChainedBlockStorage ChainedBlockStorage { get { return this._chainedBlockStorage; } }
 
         public BlockchainStorage BlockchainStorage { get { return this._blockchainStorage; } }
@@ -37,8 +33,6 @@ namespace BitSharp.Storage.SQLite
         IBlockHeaderStorage IStorageContext.BlockHeaderStorage { get { return this._blockHeaderStorage; } }
 
         IBlockTransactionsStorage IStorageContext.BlockTransactionsStorage { get { return this._blockTransactionsStorage; } }
-
-        ITransactionStorage IStorageContext.TransactionStorage { get { return this._transactionStorage; } }
 
         IChainedBlockStorage IStorageContext.ChainedBlockStorage { get { return this._chainedBlockStorage; } }
 
@@ -50,7 +44,6 @@ namespace BitSharp.Storage.SQLite
             {
                 this._blockHeaderStorage,
                 this._blockTransactionsStorage,
-                this._transactionStorage,
                 this._chainedBlockStorage,
                 this._blockchainStorage
             }.DisposeList();

@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Storage
 {
-    public interface ITxKeyStorage : IUnboundedStorage<UInt256, TxKey>
+    public interface ITxKeyStorage : IUnboundedStorage<UInt256, UnspentTx>
     {
     }
 }

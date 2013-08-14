@@ -102,7 +102,6 @@
     <Compile Include="ChainedBlockStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SQLiteStorageContext.cs" />
-    <Compile Include="TransactionStorage.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BitSharp.Common\BitSharp.Common.csproj">

@@ -12,5 +12,7 @@ namespace BitSharp.Storage
     public interface IBlockTransactionsStorage : IUnboundedStorage<UInt256, ImmutableArray<Transaction>>
     {
         IEnumerable<UInt256> ReadAllBlockHashes();
+
+        bool TryReadTransaction(TxKey txKey, out Transaction transaction);
     }
 }

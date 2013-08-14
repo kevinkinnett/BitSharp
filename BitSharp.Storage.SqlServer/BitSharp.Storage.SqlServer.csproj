@@ -71,6 +71,7 @@
     <Reference Include="System.Configuration" />
     <Reference Include="System.Data" />
     <Reference Include="System.Numerics" />
+    <Reference Include="System.XML" />
   </ItemGroup>
   <Choose>
     <When Condition="('$(VisualStudioVersion)' == '10.0' or '$(VisualStudioVersion)' == '') and '$(TargetFrameworkVersion)' == 'v3.5'">
@@ -88,7 +89,6 @@
     <Compile Include="BlockchainStorage.cs" />
     <Compile Include="BlockHeaderStorage.cs" />
     <Compile Include="BlockTransactionsStorage.cs" />
-    <Compile Include="TransactionStorage.cs" />
     <Compile Include="SqlServerStorageContext.cs" />
     <Compile Include="KnownAddressStorage.cs" />
     <Compile Include="ExtensionMethods.cs" />
@@ -132,6 +132,9 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Sql\CreateBlockchainDatabase.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Sql\CreateDatabases.sql" />
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">

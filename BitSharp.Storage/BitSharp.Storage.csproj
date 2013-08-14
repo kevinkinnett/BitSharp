@@ -95,7 +95,7 @@
     <Compile Include="IUnboundedStorage.cs" />
     <Compile Include="MemoryCache.cs" />
     <Compile Include="Provider\IBlockHeaderStorage.cs" />
-    <Compile Include="Provider\ITransactionStorage.cs" />
+    <Compile Include="TransactionStorage.cs" />
     <Compile Include="Provider\IBlockTransactionsStorage.cs" />
     <Compile Include="Provider\IBlockchainStorage.cs" />
     <Compile Include="Provider\IStorageContext.cs" />
@@ -124,6 +124,10 @@
     <ProjectReference Include="..\BitSharp.Data\BitSharp.Data.csproj">
       <Project>{3099c2ee-055d-4856-9d86-f9f495f9c761}</Project>
       <Name>BitSharp.Data</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BitSharp.Network\BitSharp.Network.csproj">
+      <Project>{4d92a9b1-577f-4d24-9153-088ced047b68}</Project>
+      <Name>BitSharp.Network</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup />

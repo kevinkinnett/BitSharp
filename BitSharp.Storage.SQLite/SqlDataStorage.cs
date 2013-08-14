@@ -13,6 +13,7 @@ using BitSharp.Storage;
 using System.Threading;
 using System.Diagnostics;
 using System.Data.SQLite;
+using BitSharp.Common;
 
 namespace BitSharp.Storage.SQLite
 {
@@ -34,7 +35,7 @@ namespace BitSharp.Storage.SQLite
         {
             dbFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BitSharp");
             dbPath = Path.Combine(dbFolderPath, "BitSharp.sqlite");
-            connString = @"Data Source=""{0}""; Journal Mode=WAL;".Format2(dbPath);
+            connString = @"Data Source=""{0}""; Journal Mode=WAL; PRAGMA cache_size=-100000".Format2(dbPath);
 
             dbLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
             connSemaphore = new SemaphoreSlim(1);
@@ -83,7 +84,8 @@ namespace BitSharp.Storage.SQLite
 
         protected WriteConnection OpenWriteConnection()
         {
-            return new WriteConnection(conn, dbLock);
+            //return new WriteConnection(conn, dbLock);
+            return new WriteConnection(OpenConnection(), dbLock);
         }
 
         private SQLiteConnection OpenConnection()
@@ -143,7 +145,7 @@ namespace BitSharp.Storage.SQLite
                 this.conn = conn;
                 this.dbLock = dbLock;
                 this.disposed = false;
-                this.dbLock.EnterReadLock();
+                //this.dbLock.EnterReadLock();
             }
 
             public SQLiteCommand CreateCommand()
@@ -155,7 +157,7 @@ namespace BitSharp.Storage.SQLite
             {
                 if (!this.disposed)
                 {
-                    this.dbLock.ExitReadLock();
+                    //this.dbLock.ExitReadLock();
                     this.disposed = true;
                 }
             }
@@ -163,6 +165,8 @@ namespace BitSharp.Storage.SQLite
 
         public class WriteConnection : IDisposable
         {
+            private static DateTime lastLockTime = DateTime.MinValue;
+
             private readonly SQLiteConnection conn;
             private readonly SQLiteTransaction trans;
             private readonly ReaderWriterLockSlim dbLock;
@@ -170,17 +174,30 @@ namespace BitSharp.Storage.SQLite
 
             public WriteConnection(SQLiteConnection conn, ReaderWriterLockSlim dbLock)
             {
+                var stopwatch = new Stopwatch();
+                stopwatch.Start();
+
+                //var lastLockTime = WriteConnection.lastLockTime;
+                //var now = DateTime.UtcNow;
+                //var delta = now - lastLockTime;
+                //var minWait = TimeSpan.FromMilliseconds(50);
+                //if (delta < minWait)
+                //    Thread.Sleep(minWait - delta);
+
                 this.conn = conn;
                 this.dbLock = dbLock;
                 this.disposed = false;
-                this.dbLock.EnterWriteLock();
+                //this.dbLock.EnterWriteLock();
                 try
                 {
+                    stopwatch.Stop();
+                    //Debug.WriteLine("waited: {0:#,##0.000000}s".Format2(stopwatch.ElapsedSecondsFloat()));
+
                     this.trans = this.conn.BeginTransaction();
                 }
                 catch (Exception)
                 {
-                    this.dbLock.ExitWriteLock();
+                    //this.dbLock.ExitWriteLock();
                     throw;
                 }
             }
@@ -217,10 +234,12 @@ namespace BitSharp.Storage.SQLite
                     try
                     {
                         this.trans.Dispose();
+                        this.conn.Dispose();
                     }
                     finally
                     {
-                        this.dbLock.ExitWriteLock();
+                        lastLockTime = DateTime.UtcNow;
+                        //this.dbLock.ExitWriteLock();
                         this.disposed = true;
                     }
                 }

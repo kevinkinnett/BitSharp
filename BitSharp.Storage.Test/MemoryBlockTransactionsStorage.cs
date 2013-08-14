@@ -22,5 +22,10 @@ namespace BitSharp.Storage.Test
         {
             return this.Storage.Keys;
         }
+
+        public bool TryReadTransaction(TxKey txKey, out Transaction transaction)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

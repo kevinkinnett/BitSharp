@@ -86,7 +86,7 @@ namespace BitSharp.Storage.SqlServer
             CheckDatabaseFolder();
 
             var blockListBuilder = ImmutableList.CreateBuilder<ChainedBlock>();
-            var utxoBuilder = ImmutableHashSet.CreateBuilder<TxOutputKey>();
+            var utxoBuilder = ImmutableDictionary.CreateBuilder<UInt256, UnspentTx>();
 
             var connString = @"Server=localhost; Database=BitSharp_Blockchains; Trusted_Connection=true;";
             using (var conn = new SqlConnection(connString))
@@ -148,7 +148,7 @@ namespace BitSharp.Storage.SqlServer
                                     outputs[i] = new TxOutputKey(prevTxHash, prevTxOutputIndex);
                                 }
 
-                                utxoBuilder.UnionWith(outputs);
+                                //TODO utxoBuilder.UnionWith(outputs);
                             }
                         }
                     }
@@ -250,8 +250,8 @@ namespace BitSharp.Storage.SqlServer
                                             throw new Exception();
 
                                         var output = utxoEnumerator.Current;
-                                        chunkWriter.Write32Bytes(output.TxHash);
-                                        chunkWriter.Write4Bytes((UInt32)output.TxOutputIndex);
+                                        //TODO chunkWriter.Write32Bytes(output.TxHash);
+                                        //TODO chunkWriter.Write4Bytes((UInt32)output.TxOutputIndex);
                                     }
 
                                     cmd.Parameters["@utxoChunkBytes"].Size = chunkBytes.Length;

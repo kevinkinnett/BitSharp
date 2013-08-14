@@ -23,6 +23,7 @@ namespace BitSharp.Storage.SqlServer
 
         public SqlDataStorage(SqlServerStorageContext storageContext)
         {
+            this._storageContext = storageContext;
             this.connString = @"Server=localhost; Database=BitSharp; Trusted_Connection=true;";
         }
 
