@@ -81,6 +81,19 @@ namespace BitSharp.Storage
                 base.CreateValue(key, value);
         }
 
+        public override bool TryGetValue(TKey key, out TValue value, bool saveInCache = true)
+        {
+            if (this.ContainsKey(key))
+            {
+                return base.TryGetValue(key, out value, saveInCache);
+            }
+            else
+            {
+                value = default(TValue);
+                return false;
+            }
+        }
+
         public void FillCache()
         {
             foreach (var value in StreamAllValues())
