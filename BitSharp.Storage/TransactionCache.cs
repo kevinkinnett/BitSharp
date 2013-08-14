@@ -11,12 +11,12 @@ using System.Threading.Tasks;
 
 namespace BitSharp.Storage
 {
-    public class TransactionCache : UnboundedCache<UInt256, Transaction>
+    public class TransactionCache : UnboundedCache<TxKey, Transaction>
     {
         private readonly CacheContext _cacheContext;
 
         public TransactionCache(CacheContext cacheContext, long maxCacheMemorySize)
-            : base("TransactionCache", cacheContext.StorageContext.TransactionStorage, 0, maxCacheMemorySize, Transaction.SizeEstimator)
+            : base("TransactionCache", new TransactionStorage(cacheContext), 0, maxCacheMemorySize, Transaction.SizeEstimator)
         {
             this._cacheContext = cacheContext;
         }
@@ -25,11 +25,13 @@ namespace BitSharp.Storage
 
         public IStorageContext StorageContext { get { return this.CacheContext.StorageContext; } }
 
-        internal void CacheBlock(Block block)
+        //TODO public?
+        public void CacheBlock(Block block)
         {
-            foreach (var tx in block.Transactions)
+            for (var txIndex = 0; txIndex < block.Transactions.Length; txIndex++)
             {
-                CacheValue(tx.Hash, tx);
+                var tx = block.Transactions[txIndex];
+                CacheValue(new TxKey(block.Hash, (UInt32)txIndex, tx.Hash), tx);
             }
         }
     }
