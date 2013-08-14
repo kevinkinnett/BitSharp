@@ -73,7 +73,7 @@ namespace BitSharp.Common
                 action();
 
                 stopwatch.Stop();
-                WriteLine(stopwatch.ElapsedMilliseconds, stopwatch.ElapsedTicks, timerName, filterTime, memberName, lineNumber);
+                WriteLine(stopwatch, timerName, filterTime, memberName, lineNumber);
             }
             else
             {
@@ -91,7 +91,7 @@ namespace BitSharp.Common
                 var result = func();
 
                 stopwatch.Stop();
-                WriteLine(stopwatch.ElapsedMilliseconds, stopwatch.ElapsedTicks, timerName, filterTime, memberName, lineNumber);
+                WriteLine(stopwatch, timerName, filterTime, memberName, lineNumber);
 
                 return result;
             }
@@ -101,14 +101,14 @@ namespace BitSharp.Common
             }
         }
 
-        private void WriteLine(long elapsedMilliseconds, long elapsedTicks, string timerName, long filterTime, string memberName, int lineNumber)
+        private void WriteLine(Stopwatch stopwatch, string timerName, long filterTime, string memberName, int lineNumber)
         {
             if (IsEnabled)
             {
                 if (timerName != null)
-                    Debug.WriteLineIf(elapsedMilliseconds > filterTime, "\t[TIMING] {0}:{1}:{2} took {3:#,##0.000} ms".Format2(timerName, memberName, lineNumber, (float)elapsedTicks / Stopwatch.Frequency * 1000));
+                    Debug.WriteLineIf(stopwatch.ElapsedMilliseconds > filterTime, "\t[TIMING] {0}:{1}:{2} took {3:#,##0.000000} s".Format2(timerName, memberName, lineNumber, stopwatch.ElapsedSecondsFloat()));
                 else
-                    Debug.WriteLineIf(elapsedMilliseconds > filterTime, "\t[TIMING] {1}:{2} took {3:#,##0.000} ms".Format2(timerName, memberName, lineNumber, (float)elapsedTicks / Stopwatch.Frequency * 1000));
+                    Debug.WriteLineIf(stopwatch.ElapsedMilliseconds > filterTime, "\t[TIMING] {1}:{2} took {3:#,##0.000000} s".Format2(timerName, memberName, lineNumber, stopwatch.ElapsedSecondsFloat()));
             }
         }
     }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -415,6 +416,16 @@ namespace BitSharp.Common.ExtensionMethods
         {
             var bytes = random.NextBytes(byteCount).Concat(new byte[1]);
             return new BigInteger(bytes);
+        }
+
+        public static bool NextBool(this Random random)
+        {
+            return random.Next(2) == 0;
+        }
+
+        public static ImmutableBitArray ToImmutableBitArray(this BitArray bitArray)
+        {
+            return new ImmutableBitArray(bitArray);
         }
     }
 }
