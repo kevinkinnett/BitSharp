@@ -111,7 +111,7 @@ namespace BitSharp.Blockchain
                 (
                     blockList: ImmutableList.Create(this._genesisChainedBlock),
                     blockListHashes: ImmutableHashSet.Create(this._genesisBlock.Hash),
-                    utxo: ImmutableHashSet.Create<TxOutputKey>() // genesis block coinbase is not included in utxo, it is unspendable
+                    utxo: ImmutableDictionary.Create<UInt256, UnspentTx>() // genesis block coinbase is not included in utxo, it is unspendable
                 );
         }
 
@@ -227,7 +227,7 @@ namespace BitSharp.Blockchain
             }
         }
 
-        public virtual void ValidateBlock(Block block, Data.Blockchain blockchain, ImmutableDictionary<UInt256, Transaction> transactions)
+        public virtual void ValidateBlock(Block block, Data.Blockchain blockchain, ImmutableDictionary<UInt256, UnspentTx> utxo, ImmutableDictionary<UInt256, ImmutableHashSet<int>> newTransactions/*, ImmutableDictionary<UInt256, Transaction> transactions*/)
         {
             //TODO
             if (BypassValidation)
@@ -274,7 +274,8 @@ namespace BitSharp.Blockchain
                     var tx = block.Transactions[txIndex];
 
                     long unspentValueInner;
-                    ValidateTransaction(blockchain.Height, tx, txIndex, out unspentValueInner, transactions);
+                    //TODO utxo will not be correct at transaction if a tx hash is reused within the same block
+                    ValidateTransaction(blockchain.Height, block, tx, txIndex, utxo, newTransactions, out unspentValueInner);
 
                     Interlocked.Add(ref unspentValue, unspentValueInner);
                 });
@@ -293,7 +294,8 @@ namespace BitSharp.Blockchain
                 throw;
             }
 
-            ValidateTransactionScripts(block, transactions);
+            //TODO utxo will not be correct at transaction if a tx hash is reused within the same block
+            ValidateTransactionScripts(block, utxo, newTransactions);
 
             // calculate the expected reward in coinbase
             var expectedReward = (long)(50 * SATOSHI_PER_BTC);
@@ -315,7 +317,8 @@ namespace BitSharp.Blockchain
             // all validation has passed
         }
 
-        public virtual void ValidateTransaction(long blockHeight, Transaction tx, int txIndex, out long unspentValue, ImmutableDictionary<UInt256, Transaction> transactions)
+        //TODO utxo needs to be as-at transaction, with regards to a transaction being fully spent and added back in in the same block
+        public virtual void ValidateTransaction(long blockHeight, Block block, Transaction tx, int txIndex, ImmutableDictionary<UInt256, UnspentTx> utxo, ImmutableDictionary<UInt256, ImmutableHashSet<int>> newTransactions, out long unspentValue /*, ImmutableDictionary<UInt256, Transaction> transactions*/)
         {
             unspentValue = -1;
 
@@ -327,9 +330,7 @@ namespace BitSharp.Blockchain
                 var input = tx.Inputs[inputIndex];
 
                 // find previous transaction
-                if (!transactions.ContainsKey(input.PreviousTxOutputKey.TxHash))
-                    throw new MissingDataException(DataType.Transaction, input.PreviousTxOutputKey.TxHash);
-                var prevTx = transactions[input.PreviousTxOutputKey.TxHash];
+                var prevTx = GetPreviousTransaction(block, txIndex, input.PreviousTxOutputKey, utxo, newTransactions);
 
                 // find previous transaction output
                 if (input.PreviousTxOutputKey.TxOutputIndex >= prevTx.Outputs.Length)
@@ -382,7 +383,8 @@ namespace BitSharp.Blockchain
             // all validation has passed
         }
 
-        public virtual void ValidateTransactionScripts(Block block, ImmutableDictionary<UInt256, Transaction> transactions)
+        //TODO utxo needs to be as-at transaction, with regards to a transaction being fully spent and added back in in the same block
+        public virtual void ValidateTransactionScripts(Block block, ImmutableDictionary<UInt256, UnspentTx> utxo, ImmutableDictionary<UInt256, ImmutableHashSet<int>> newTransactions)
         {
             if (BypassExecuteScript)
                 return;
@@ -390,16 +392,15 @@ namespace BitSharp.Blockchain
             // lookup all previous outputs
             var prevOutputMissing = false;
             var previousOutputs = new Dictionary<TxOutputKey, Tuple<Transaction, TxInput, int, TxOutput>>();
-            foreach (var tx in block.Transactions.Skip(1))
+            for (var txIndex = 1; txIndex < block.Transactions.Length; txIndex++)
             {
+                var tx = block.Transactions[txIndex];
                 for (var inputIndex = 0; inputIndex < tx.Inputs.Length; inputIndex++)
                 {
                     var input = tx.Inputs[inputIndex];
 
                     // find previous transaction
-                    if (!transactions.ContainsKey(input.PreviousTxOutputKey.TxHash))
-                        throw new MissingDataException(DataType.Transaction, input.PreviousTxOutputKey.TxHash);
-                    var prevTx = transactions[input.PreviousTxOutputKey.TxHash];
+                    var prevTx = GetPreviousTransaction(block, txIndex, input.PreviousTxOutputKey, utxo, newTransactions);
 
                     // find previous transaction output
                     if (input.PreviousTxOutputKey.TxOutputIndex >= prevTx.Outputs.Length)
@@ -458,6 +459,39 @@ namespace BitSharp.Blockchain
             {
                 return default(ChainedBlock);
             }
+        }
+
+        private Transaction GetPreviousTransaction(Block block, int txIndex, TxOutputKey prevTxOutputKey, ImmutableDictionary<UInt256, UnspentTx> utxo, ImmutableDictionary<UInt256, ImmutableHashSet<int>> newTransactions)
+        {
+            if (newTransactions.ContainsKey(prevTxOutputKey.TxHash))
+            {
+                var eligible = newTransactions[prevTxOutputKey.TxHash].Where(x => x < txIndex).ToList();
+                if (eligible.Count > 0)
+                {
+                    var max = eligible.Max();
+
+                    if (max >= block.Transactions.Length)
+                        throw new Exception();
+
+                    var prevTx1 = block.Transactions[max];
+                    if (prevTx1.Hash != prevTxOutputKey.TxHash)
+                        throw new Exception();
+
+                    return prevTx1;
+                }
+            }
+
+            // find previous transaction
+            if (!utxo.ContainsKey(prevTxOutputKey.TxHash))
+                throw new MissingDataException(DataType.Transaction, prevTxOutputKey.TxHash);
+
+            var prevTxKey = utxo[prevTxOutputKey.TxHash].ToTxKey();
+
+            var prevTx2 = this.CacheContext.GetTransaction(prevTxKey);
+            if (prevTx2.Hash != prevTxOutputKey.TxHash)
+                throw new Exception();
+
+            return prevTx2;
         }
     }
 }
