@@ -43,7 +43,8 @@ namespace BitSharp.Node
         private readonly LocalClientType _type;
 
         private readonly Worker connectWorker;
-        private readonly Worker messageWorker;
+        private readonly Worker requestBlocksWorker;
+        private readonly Worker requestHeadersWorker;
         private readonly Worker statsWorker;
 
         private readonly BlockchainDaemon blockchainDaemon;
@@ -59,7 +60,12 @@ namespace BitSharp.Node
         private ConcurrentDictionary<IPEndPoint, RemoteNode> pendingPeers = new ConcurrentDictionary<IPEndPoint, RemoteNode>();
         private ConcurrentDictionary<IPEndPoint, RemoteNode> connectedPeers = new ConcurrentDictionary<IPEndPoint, RemoteNode>();
 
-        private readonly ConcurrentDictionary<UInt256, DateTime> requestedBlocks = new ConcurrentDictionary<UInt256, DateTime>();
+        private readonly ConcurrentQueue<UInt256> requestBlocks = new ConcurrentQueue<UInt256>();
+        private readonly ConcurrentSet<UInt256> requestedBlocks = new ConcurrentSet<UInt256>();
+        private readonly ConcurrentDictionary<UInt256, Tuple<DateTime, DateTime?>> requestedBlockTimes = new ConcurrentDictionary<UInt256, Tuple<DateTime, DateTime?>>();
+        private List<UInt256> newChainBlockList;
+        private UInt256 lastCurrentBlockchain;
+        private UInt256 lastTargetChainedBlock;
 
         private Socket listenSocket;
 
@@ -80,8 +86,11 @@ namespace BitSharp.Node
             );
 
             this.connectWorker = new Worker("LocalClient.ConnectWorker", ConnectWorker, true, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-            this.messageWorker = new Worker("LocalClient.MessageWorker", MessageWorker, true, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+            this.requestBlocksWorker = new Worker("LocalClient.RequestBlocksWorker", RequestBlocksWorker, true, TimeSpan.FromMilliseconds(200), TimeSpan.FromMilliseconds(5000));
+            this.requestHeadersWorker = new Worker("LocalClient.RequestHeadersWorker", RequestHeadersWorker, true, TimeSpan.FromMilliseconds(200), TimeSpan.FromMilliseconds(5000));
             this.statsWorker = new Worker("LocalClient.StatsWorker", StatsWorker, true, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+
+            this.blockchainDaemon.OnWinningBlockChanged += OnWinningBlockChanged;
 
             switch (this.Type)
             {
@@ -110,7 +119,8 @@ namespace BitSharp.Node
 
             this.connectWorker.Start();
 
-            this.messageWorker.Start();
+            this.requestBlocksWorker.Start();
+            this.requestHeadersWorker.Start();
 
             this.messageStopwatch.Start();
             this.messageCount = 0;
@@ -119,18 +129,26 @@ namespace BitSharp.Node
 
         public void Dispose()
         {
+            this.blockchainDaemon.OnWinningBlockChanged -= OnWinningBlockChanged;
+
             this.shutdownToken.Cancel();
 
             Shutdown();
 
             new IDisposable[]
             {
-                this.messageWorker,
+                this.requestBlocksWorker,
+                this.requestHeadersWorker,
                 this.connectWorker,
                 this.statsWorker,
                 this.knownAddressCache,
                 this.shutdownToken
             }.DisposeList();
+        }
+
+        private void OnWinningBlockChanged(object sender, ChainedBlock winningChainedBlock)
+        {
+            this.requestHeadersWorker.NotifyWork();
         }
 
         private void ConnectWorker()
@@ -183,20 +201,178 @@ namespace BitSharp.Node
             }
         }
 
-        private void MessageWorker()
+        private void RequestBlocksWorker()
         {
+            //var stopwatch = new Stopwatch();
+            //stopwatch.Start();
+
+            var now = DateTime.UtcNow;
+
+            //Debug.WriteLine("a: {0:#,##0.000} s".Format2(stopwatch.ElapsedSecondsFloat()));
+
+            foreach (var keyPair in this.requestedBlockTimes)
+            {
+                if ((keyPair.Value.Item2 != null && now - keyPair.Value.Item2 > TimeSpan.FromSeconds(60))
+                    || now - keyPair.Value.Item1 > TimeSpan.FromMinutes(10))
+                {
+                    Tuple<DateTime, DateTime?> ignore;
+                    this.requestedBlockTimes.TryRemove(keyPair.Key, out ignore);
+                }
+            }
+
+            foreach (var keyPair in this.requestedBlockTimes)
+            {
+                if (now - keyPair.Value.Item1 > TimeSpan.FromSeconds(15))
+                {
+                    this.requestedBlocks.TryRemove(keyPair.Key);
+                }
+            }
+
+            var receiveTimes = this.requestedBlockTimes.Where(x => x.Value.Item2 != null).ToList();
+
+            var receiveRateHz = 0d;
+            if (receiveTimes.Count > 0)
+            {
+                var minStartTime = new DateTime(receiveTimes.Min(x => x.Value.Item1.Ticks));
+                var maxFinishTime = new DateTime(receiveTimes.Max(x => x.Value.Item2.Value.Ticks));
+
+                if (maxFinishTime > minStartTime)
+                    receiveRateHz = receiveTimes.Count / (maxFinishTime - minStartTime).TotalSeconds;
+            }
+
+            //var fulfilledRatio = (float)receiveTimes.Count / this.requestedBlockTimes.Count;
+            //if (float.IsNaN(fulfilledRatio) || float.IsInfinity(fulfilledRatio) || fulfilledRatio <= 0.1f)
+            //    fulfilledRatio = 0.1f;
+            //else if (fulfilledRatio > 1.0f)
+            //    fulfilledRatio = 1.0f;
+
+            //TODO
+            // request 60 seconds download worth of blocks
+            var requestAmount = 1 + (int)(receiveRateHz * 60);
+
+
+            //Debug.WriteLine("b: {0:#,##0.000} s".Format2(stopwatch.ElapsedSecondsFloat()));
+
+            //Debug.WriteLine("{0:#,##0}%".Format2(fulfilledRatio * 100));
+            Debug.WriteLine("{0,5}".Format2(this.requestedBlocks.Count));
+            Debug.WriteLine("{0,5}".Format2(requestAmount));
+            Debug.WriteLine("{0:#,##0.000}/s".Format2(receiveRateHz));
+            if (this.requestedBlocks.Count > requestAmount)
+                return;
+
             var connectedPeersLocal = this.connectedPeers.Values.SafeToList();
             if (connectedPeersLocal.Count == 0)
                 return;
 
-            // send out requests for any missing blocks
-            foreach (var missingBlock in this.blockchainDaemon.MissingBlocks)
+            var requestTasks = new List<Task>();
+
+            var currentBlockchain = this.blockchainDaemon.CurrentBlockchain;
+            var targetChainedBlock = this.blockchainDaemon.WinningBlock;
+            //if (this.requestBlocks.IsEmpty) // && targetChainedBlock.BlockHash != this.lastTargetChainedBlock)
+            //{
+            try
             {
+                if (this.newChainBlockList == null
+                    //|| this.newChainBlockList.Count == 0
+                    //|| currentBlockchain.RootBlockHash != this.lastCurrentBlockchain
+                    || targetChainedBlock.BlockHash != this.lastTargetChainedBlock)
+                {
+                    using (var cancelToken = new CancellationTokenSource())
+                    {
+                        this.newChainBlockList =
+                            new MethodTimer().Time("newChainBlockList", () =>
+                                this.blockchainDaemon.Calculator.FindBlocksPastLastCommonAncestor(currentBlockchain, targetChainedBlock, cancelToken.Token)
+                                .Except(this.blockchainDaemon.CacheContext.BlockCache.GetAllKeys())
+                                .ToList());
+                    }
+                }
+
+                this.lastCurrentBlockchain = currentBlockchain.RootBlockHash;
+                this.lastTargetChainedBlock = targetChainedBlock.BlockHash;
+
+                // send out requests for blocks in winning chain in order
+                for (var i = 0; i < this.newChainBlockList.Count; i++)
+                {
+                    // cooperative loop
+                    this.shutdownToken.Token.ThrowIfCancellationRequested();
+
+                    var block = this.newChainBlockList[i];
+                    if (!this.blockchainDaemon.CacheContext.BlockCache.ContainsKey(block))
+                    {
+                        this.requestBlocks.Enqueue(block);
+                    }
+                    else
+                    {
+                        this.newChainBlockList.RemoveAt(i);
+                        i--;
+                    }
+
+                    //if (this.requestBlocks.Count > requestAmount * 10)
+                    //    break;
+                }
+            }
+            catch (AggregateException e)
+            {
+                foreach (var mde in e.InnerExceptions.OfType<MissingDataException>())
+                {
+                    if (mde.DataType == DataType.Block || mde.DataType == DataType.BlockHeader)
+                        this.requestBlocks.Enqueue(mde.DataKey);
+                }
+            }
+            catch (MissingDataException e)
+            {
+                if (e.DataType == DataType.Block || e.DataType == DataType.BlockHeader)
+                    this.requestBlocks.Enqueue(e.DataKey);
+            }
+            catch (ValidationException) { }
+            //}
+
+            //Debug.WriteLine("c: {0:#,##0.000} s".Format2(stopwatch.ElapsedSecondsFloat()));
+
+            UInt256 requestBlockHash;
+            while (this.requestBlocks.TryDequeue(out requestBlockHash))
+            {
+                var task = RequestBlock(connectedPeersLocal.RandomOrDefault(), requestBlockHash);
+                if (task != null)
+                    requestTasks.Add(task);
+
+                //if (requestTasks.Count > requestAmount)
+                if (this.requestedBlocks.Count > requestAmount)
+                    break;
+
+                // cooperative loop
+                this.shutdownToken.Token.ThrowIfCancellationRequested();
+            }
+
+            //Debug.WriteLine("d: {0:#,##0.000} s".Format2(stopwatch.ElapsedSecondsFloat()));
+
+            // send out requests for any missing blocks
+            foreach (var block in this.blockchainDaemon.MissingBlocks)
+            {
+                //if (requestTasks.Count > requestAmount)
+                if (this.requestedBlocks.Count > requestAmount)
+                    break;
+
                 // cooperative loop
                 this.shutdownToken.Token.ThrowIfCancellationRequested();
 
-                RequestBlock(connectedPeersLocal.RandomOrDefault(), missingBlock);
+                var task = RequestBlock(connectedPeersLocal.RandomOrDefault(), block);
+                if (task != null)
+                    requestTasks.Add(task);
             }
+
+            //Debug.WriteLine("e: {0:#,##0.000} s".Format2(stopwatch.ElapsedSecondsFloat()));
+
+            //Task.WaitAll(requestTasks.ToArray(), TimeSpan.FromSeconds(15));
+
+            //Debug.WriteLine("f: {0:#,##0.000} s".Format2(stopwatch.ElapsedSecondsFloat()));
+        }
+
+        private void RequestHeadersWorker()
+        {
+            var connectedPeersLocal = this.connectedPeers.Values.SafeToList();
+            if (connectedPeersLocal.Count == 0)
+                return;
 
             // send out request for unknown block headers
             if (this.Type != LocalClientType.ComparisonToolTestNet)
@@ -317,9 +493,6 @@ namespace BitSharp.Node
         private async Task PeerStartup(RemoteNode remoteNode)
         {
             await remoteNode.Sender.RequestKnownAddressesAsync();
-
-            if (this.Type != LocalClientType.ComparisonToolTestNet)
-                await SendGetHeaders(remoteNode);
         }
 
         private async Task SendGetHeaders(RemoteNode remoteNode)
@@ -372,8 +545,8 @@ namespace BitSharp.Node
                     addSeed("faucet.bitcoin.st");
                     addSeed("bitcoin.securepayment.cc");
                     addSeed("x.jine.se");
-                    addSeed("www.dcscdn.com");
-                    addSeed("ns2.dcscdn.com");
+                    //addSeed("www.dcscdn.com");
+                    //addSeed("ns2.dcscdn.com");
                     //No such host is known: addSeed("coin.soul-dev.com");
                     addSeed("messier.bzfx.net");
                     break;
@@ -471,44 +644,61 @@ namespace BitSharp.Node
                     && !this.blockchainDaemon.CacheContext.BlockCache.ContainsKey(invVector.Hash)
                     && (/*TODO properly handle comparison blockchain*/ this.Type == LocalClientType.ComparisonToolTestNet || this.blockchainDaemon.MissingBlocks.Contains(invVector.Hash)))
                 {
-                    RequestBlock(connectedPeersLocal.RandomOrDefault(), invVector.Hash);
+                    this.requestBlocks.Enqueue(invVector.Hash);
                 }
             }
         }
 
-        private void RequestBlock(RemoteNode remoteNode, UInt256 blockHash)
+        private Task RequestBlock(RemoteNode remoteNode, UInt256 blockHash)
         {
-            var invVectors = ImmutableArray.Create<InventoryVector>(new InventoryVector(InventoryVector.TYPE_MESSAGE_BLOCK, blockHash));
+            if (this.blockchainDaemon.CacheContext.BlockCache.ContainsKey(blockHash))
+                return null;
+
             var now = DateTime.UtcNow;
+            var newRequestTime = Tuple.Create(now, (DateTime?)null);
 
             // check if block has already been requested
-            if (this.requestedBlocks.TryAdd(blockHash, now))
+            if (this.requestedBlockTimes.TryAdd(blockHash, newRequestTime))
             {
-                remoteNode.Sender.SendGetData(invVectors).Forget();
+                this.requestedBlocks.TryAdd(blockHash);
+                var invVectors = ImmutableArray.Create<InventoryVector>(new InventoryVector(InventoryVector.TYPE_MESSAGE_BLOCK, blockHash));
+                return remoteNode.Sender.SendGetData(invVectors);
             }
             else
             {
                 // if block has already been requested, check if the request is old enough to send again
-                DateTime lastRequestTime;
-                if (this.requestedBlocks.TryGetValue(blockHash, out lastRequestTime))
+                Tuple<DateTime, DateTime?> lastRequestTime;
+                if (this.requestedBlockTimes.TryGetValue(blockHash, out lastRequestTime))
                 {
-                    if ((now - lastRequestTime) > TimeSpan.FromSeconds(15))
+                    if ((now - lastRequestTime.Item1) > TimeSpan.FromSeconds(15))
                     {
-                        this.requestedBlocks.AddOrUpdate(blockHash, now, (existingKey, existingValue) => now);
-                        remoteNode.Sender.SendGetData(invVectors).Forget();
+                        this.requestedBlocks.TryAdd(blockHash);
+                        this.requestedBlockTimes.AddOrUpdate(blockHash, newRequestTime, (existingKey, existingValue) => newRequestTime);
+
+                        var invVectors = ImmutableArray.Create<InventoryVector>(new InventoryVector(InventoryVector.TYPE_MESSAGE_BLOCK, blockHash));
+                        return remoteNode.Sender.SendGetData(invVectors);
                     }
                 }
             }
+
+            return null;
         }
 
         private void OnBlock(Block block)
         {
-            // remove block from pending request list
-            DateTime ignore;
-            this.requestedBlocks.TryRemove(block.Hash, out ignore);
+            //Debug.WriteLine("Received block {0}".Format2(block.Hash));
 
-            //Debug.WriteLine("Received block {0}".Format2(block.Hash);
+            this.requestedBlocks.TryRemove(block.Hash);
             this.blockchainDaemon.CacheContext.BlockCache.CreateValue(block.Hash, block);
+
+            Tuple<DateTime, DateTime?> receiveTime;
+            if (this.requestedBlockTimes.TryGetValue(block.Hash, out receiveTime))
+            {
+                if (receiveTime.Item2 == null)
+                    this.requestedBlockTimes[block.Hash] = Tuple.Create(receiveTime.Item1, (DateTime?)DateTime.UtcNow);
+
+                this.requestBlocksWorker.NotifyWork();
+            }
         }
 
         private void OnBlockHeader(BlockHeader blockHeader)
