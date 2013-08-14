@@ -110,10 +110,6 @@
       <Project>{3099c2ee-055d-4856-9d86-f9f495f9c761}</Project>
       <Name>BitSharp.Data</Name>
     </ProjectReference>
-    <ProjectReference Include="..\BitSharp.Storage.Firebird\BitSharp.Storage.Firebird.csproj">
-      <Project>{75d07a65-0889-405d-8a21-3cc55f136d21}</Project>
-      <Name>BitSharp.Storage.Firebird</Name>
-    </ProjectReference>
     <ProjectReference Include="..\BitSharp.Storage\BitSharp.Storage.csproj">
       <Project>{1955dd75-ab8a-46df-9060-5b0af06338f2}</Project>
       <Name>BitSharp.Storage</Name>
