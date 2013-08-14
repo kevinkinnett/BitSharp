@@ -68,6 +68,12 @@ namespace BitSharp.Storage
             }.DisposeList();
         }
 
+        public bool ContainsKey(TKey key)
+        {
+            return this.cacheLock.DoRead(() =>
+                this.cache.ContainsKey((CacheKey<TKey>)key));
+        }
+
         public bool TryGetValue(TKey key, out TValue value)
         {
             this.cacheLock.EnterReadLock();
